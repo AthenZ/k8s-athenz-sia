@@ -229,7 +229,7 @@ func run(idConfig *extidentity.IdentityConfig, stopChan <-chan struct{}) error {
 		log.Errorf("Error while initializing handler: %s", err.Error())
 		return err
 	}
-	log.Infof("Mapped Athenz domand[%s], service[%s]", handler.Domain(), handler.Service())
+	log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
 
 	postRequest := func() error {
 		log.Infoln("Attempting to create/refresh x509 cert from identity provider...")
