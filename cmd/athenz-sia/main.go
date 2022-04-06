@@ -258,6 +258,20 @@ func run(idConfig *extidentity.IdentityConfig, stopChan <-chan struct{}) error {
 		return writeFiles(id, keyPem, roleCerts)
 	}
 
+	deleteRequest := func() error {
+		log.Infoln("Attempting to delete x509 cert record from identity provider...")
+
+		err := handler.DeleteX509CertRecord()
+		if err != nil {
+			log.Errorf("Error while deleting x509 cert record: %s", err.Error())
+			return err
+		}
+
+		log.Infoln("Successfully deleted x509 cert record from identity provider")
+
+		return nil
+	}
+
 	if idConfig.Init {
 		return backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
 	}
@@ -273,6 +287,10 @@ func run(idConfig *extidentity.IdentityConfig, stopChan <-chan struct{}) error {
 				log.Errorf("Failed to refresh cert after multiple retries: %s", err.Error())
 			}
 		case <-stopChan:
+			deleteRequest()
+			if err != nil {
+				log.Errorf("Failed to delete cert record: %s", err.Error())
+			}
 			return nil
 		}
 	}

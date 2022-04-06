@@ -243,6 +243,20 @@ func (h *identityHandler) GetX509RoleCert(id *zts.InstanceIdentity, keyPEM []byt
 	return rolecerts, err
 }
 
+// DeleteX509CertRecord makes ZTS API calls to delete the X.509 certificate record
+func (h *identityHandler) DeleteX509CertRecord() (err error) {
+	if !h.config.Init {
+		err = h.client.DeleteInstanceIdentity(
+			zts.ServiceName(h.config.ProviderService),
+			zts.DomainName(h.domain),
+			zts.SimpleName(h.service),
+			zts.PathElement(h.config.PodUID),
+		)
+	}
+
+	return
+}
+
 // Domain returns the mapped Athenz domain
 func (h *identityHandler) Domain() string {
 	return h.domain
