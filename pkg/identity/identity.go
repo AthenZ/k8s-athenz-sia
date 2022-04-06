@@ -58,6 +58,7 @@ type identityHandler struct {
 	client         zts.ZTSClient
 	domain         string
 	service        string
+	instanceid     string
 	csrOptions     util.CSROptions
 	roleCsrOptions *[]util.CSROptions
 }
@@ -116,6 +117,7 @@ func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
 		client:         client,
 		domain:         domain,
 		service:        service,
+		instanceid:     config.PodUID,
 		csrOptions:     *csrOptions,
 		roleCsrOptions: roleCsrOptions,
 	}, nil
@@ -265,6 +267,11 @@ func (h *identityHandler) Domain() string {
 // Service returns the Athenz service name
 func (h *identityHandler) Service() string {
 	return h.service
+}
+
+// InstanceID returns the Instance ID for the cloud
+func (h *identityHandler) InstanceID() string {
+	return h.instanceid
 }
 
 // PrepareIdentityCsrOptions prepares csrOptions for an X.509 certificate

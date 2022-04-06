@@ -267,6 +267,8 @@ func run(idConfig *extidentity.IdentityConfig, stopChan <-chan struct{}) error {
 			return err
 		}
 
+		log.Infof("Deleted Instance ID record[%s]", handler.InstanceID())
+
 		log.Infoln("Successfully deleted x509 cert record from identity provider")
 
 		return nil
