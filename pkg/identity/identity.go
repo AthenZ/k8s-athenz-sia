@@ -38,7 +38,6 @@ type IdentityConfig struct {
 	PodIP             string
 	PodUID            string
 	RoleCertDir       string
-	RoleCertEndpoint  string
 	TargetDomainRoles string
 }
 

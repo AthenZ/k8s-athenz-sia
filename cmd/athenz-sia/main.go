@@ -64,7 +64,6 @@ func parseFlags(program string, args []string) (*extidentity.IdentityConfig, err
 		saTokenFile       = envOrDefault("SA_TOKEN_FILE", "/var/run/secrets/kubernetes.io/bound-serviceaccount/token")
 		serverCACert      = envOrDefault("SERVER_CA_CERT", "")
 		roleCertDir       = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
-		roleCertEndpoint  = envOrDefault("ROLECERT_ENDPOINT", "")
 		targetDomainRoles = envOrDefault("TARGET_DOMAIN_ROLES", "")
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
@@ -81,7 +80,6 @@ func parseFlags(program string, args []string) (*extidentity.IdentityConfig, err
 	f.StringVar(&saTokenFile, "sa-token-file", saTokenFile, "bound sa jwt token file location")
 	f.StringVar(&serverCACert, "server-ca-cert", serverCACert, "path to CA cert file to verify ZTS server certs")
 	f.StringVar(&roleCertDir, "out-rolecert-dir", roleCertDir, "directory to write cert file for role certificates")
-	f.StringVar(&roleCertEndpoint, "rolecert-endpoint", roleCertEndpoint, "Athenz ZTS endpoint for rolecert")
 	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain:role.admin,sys.auth:role.providers)")
 
 	err := f.Parse(args)
@@ -161,7 +159,6 @@ func parseFlags(program string, args []string) (*extidentity.IdentityConfig, err
 		PodIP:             podIP,
 		PodUID:            podUID,
 		RoleCertDir:       roleCertDir,
-		RoleCertEndpoint:  roleCertEndpoint,
 		TargetDomainRoles: targetDomainRoles,
 	}, nil
 }
