@@ -42,6 +42,7 @@ type IdentityConfig struct {
 	PodUID            string
 	RoleCertDir       string
 	TargetDomainRoles string
+	DeleteInstanceID  bool
 }
 
 // RoleCertificate stores role certificate
@@ -74,8 +75,8 @@ type identityHandler struct {
 	secretClient   *k8s.SecretsClient
 }
 
-// DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER may be overwritten with go build option (e.g. "-X identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER=5")
-var DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER = 5 // Expiry time buffer for role certificates in minutes (5 mins)
+// DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES may be overwritten with go build option (e.g. "-X identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES=5")
+var DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES = 5 // Expiry time buffer for role certificates in minutes (5 mins)
 
 // default values for X.509 certificate signing request
 var DEFAULT_COUNTRY = "US"
@@ -264,7 +265,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 			}
 			roleRequest := &zts.RoleCertificateRequest{
 				Csr:        string(roleCsrPEM),
-				ExpiryTime: int64(x509Cert.NotAfter.Sub(time.Now()).Minutes()) + int64(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER), // Extract NotAfter from the instance certificate
+				ExpiryTime: int64(x509Cert.NotAfter.Sub(time.Now()).Minutes()) + int64(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES), // Extract NotAfter from the instance certificate
 			}
 
 			// In init mode, the existing ZTS Client does not have client certificate set.

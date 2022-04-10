@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -46,25 +47,26 @@ func envOrDefault(name string, defaultValue string) string {
 // parseFlags parses ENV and cmd line args and returns an IdentityConfig object
 func parseFlags(program string, args []string) (*identity.IdentityConfig, error) {
 	var (
-		mode              = envOrDefault("MODE", "init")
-		endpoint          = envOrDefault("ENDPOINT", "")
-		providerService   = envOrDefault("PROVIDER_SERVICE", "")
-		dnsSuffix         = envOrDefault("DNS_SUFFIX", "")
-		refreshInterval   = envOrDefault("REFRESH_INTERVAL", "24h")
-		keyFile           = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
-		certFile          = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
-		certSecret        = envOrDefault("CERT_SECRET", "")
-		caCertFile        = envOrDefault("CA_CERT_FILE", "/var/run/athenz/ca.cert.pem")
-		logDir            = envOrDefault("LOG_DIR", "/var/log/athenz-sia")
-		logLevel          = envOrDefault("LOG_LEVEL", "INFO")
-		namespace         = envOrDefault("NAMESPACE", "")
-		serviceAccount    = envOrDefault("SERVICEACCOUNT", "")
-		podIP             = envOrDefault("POD_IP", "")
-		podUID            = envOrDefault("POD_UID", "")
-		saTokenFile       = envOrDefault("SA_TOKEN_FILE", "/var/run/secrets/kubernetes.io/bound-serviceaccount/token")
-		serverCACert      = envOrDefault("SERVER_CA_CERT", "")
-		roleCertDir       = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
-		targetDomainRoles = envOrDefault("TARGET_DOMAIN_ROLES", "")
+		mode                = envOrDefault("MODE", "init")
+		endpoint            = envOrDefault("ENDPOINT", "")
+		providerService     = envOrDefault("PROVIDER_SERVICE", "")
+		dnsSuffix           = envOrDefault("DNS_SUFFIX", "")
+		refreshInterval     = envOrDefault("REFRESH_INTERVAL", "24h")
+		keyFile             = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
+		certFile            = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
+		certSecret          = envOrDefault("CERT_SECRET", "")
+		caCertFile          = envOrDefault("CA_CERT_FILE", "/var/run/athenz/ca.cert.pem")
+		logDir              = envOrDefault("LOG_DIR", "/var/log/athenz-sia")
+		logLevel            = envOrDefault("LOG_LEVEL", "INFO")
+		namespace           = envOrDefault("NAMESPACE", "")
+		serviceAccount      = envOrDefault("SERVICEACCOUNT", "")
+		podIP               = envOrDefault("POD_IP", "")
+		podUID              = envOrDefault("POD_UID", "")
+		saTokenFile         = envOrDefault("SA_TOKEN_FILE", "/var/run/secrets/kubernetes.io/bound-serviceaccount/token")
+		serverCACert        = envOrDefault("SERVER_CA_CERT", "")
+		roleCertDir         = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
+		targetDomainRoles   = envOrDefault("TARGET_DOMAIN_ROLES", "")
+		deleteInstanceID, _ = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
 	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh, required")
@@ -82,6 +84,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.StringVar(&serverCACert, "server-ca-cert", serverCACert, "path to CA cert file to verify ZTS server certs")
 	f.StringVar(&roleCertDir, "out-rolecert-dir", roleCertDir, "directory to write cert file for role certificates")
 	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain:role.admin,sys.auth:role.providers)")
+	f.BoolVar(&deleteInstanceID, "delete-instance-id", deleteInstanceID, "delete x509 cert record from identity provider when stop signal is sent")
 
 	err := f.Parse(args)
 	if err != nil {
@@ -162,6 +165,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		PodUID:            podUID,
 		RoleCertDir:       roleCertDir,
 		TargetDomainRoles: targetDomainRoles,
+		DeleteInstanceID:  deleteInstanceID,
 	}, nil
 }
 
@@ -260,6 +264,18 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 			}
 
 			log.Infoln("Successfully created/refreshed x509 cert from identity provider")
+
+			if idConfig.CertSecret != "" {
+				log.Infoln("Attempting to save x509 cert to kubernetes secret...")
+
+				err = handler.ApplyX509CertToSecret(id, keyPem)
+				if err != nil {
+					log.Errorf("Error while saving x509 cert to kubernetes secret: %s", err.Error())
+					return err
+				}
+
+				log.Infoln("Successfully saved x509 cert to kubernetes secret")
+			}
 		}
 
 		var roleCerts [](*identity.RoleCertificate)
@@ -275,33 +291,23 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 			log.Infoln("Successfully retrieved x509 role cert from identity provider")
 		}
 
-		if idConfig.CertSecret != "" {
-			log.Infoln("Attempting to save x509 cert backup to kubernetes secret...")
-
-			err = handler.ApplyX509CertToSecret(id, keyPem)
-			if err != nil {
-				log.Errorf("Error while saving x509 cert to kubernetes secret: %s", err.Error())
-				return err
-			}
-
-			log.Infoln("Successfully loaded x509 cert from kubernetes secret")
-		}
-
 		return writeFiles(id, keyPem, roleCerts)
 	}
 
 	deleteRequest := func() error {
-		log.Infoln("Attempting to delete x509 cert record from identity provider...")
+		if idConfig.DeleteInstanceID {
+			log.Infoln("Attempting to delete x509 cert record from identity provider...")
 
-		err := handler.DeleteX509CertRecord()
-		if err != nil {
-			log.Errorf("Error while deleting x509 cert record: %s", err.Error())
-			return err
+			err := handler.DeleteX509CertRecord()
+			if err != nil {
+				log.Errorf("Error while deleting x509 cert record: %s", err.Error())
+				return err
+			}
+
+			log.Infof("Deleted Instance ID record[%s]", handler.InstanceID())
+
+			log.Infoln("Successfully deleted x509 cert record from identity provider")
 		}
-
-		log.Infof("Deleted Instance ID record[%s]", handler.InstanceID())
-
-		log.Infoln("Successfully deleted x509 cert record from identity provider")
 
 		return nil
 	}
