@@ -269,7 +269,7 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 		}
 
 		if idConfig.CertSecret != "" {
-			log.Infoln("Attempting to save x509 cert to kubernetes secret[%s]...", idConfig.CertSecret)
+			log.Infof("Attempting to save x509 cert to kubernetes secret[%s]...", idConfig.CertSecret)
 
 			err = handler.ApplyX509CertToSecret(id, keyPem)
 			if err != nil {
@@ -277,7 +277,7 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 				return err
 			}
 
-			log.Infoln("Successfully saved x509 cert to kubernetes secret[%s]", idConfig.CertSecret)
+			log.Infof("Successfully saved x509 cert to kubernetes secret[%s]", idConfig.CertSecret)
 		}
 
 		var roleCerts [](*identity.RoleCertificate)
