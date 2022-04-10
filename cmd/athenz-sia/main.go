@@ -245,7 +245,7 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 		if err != nil {
 			log.Errorf("Error while creating/refreshing x509 cert from identity provider: %s", err.Error())
 
-			if idConfig.Init && idConfig.CertSecret != "" {
+			if idConfig.CertSecret != "" {
 				log.Warnf("Attempting to load x509 cert temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
 
 				id, keyPem, err = handler.GetX509CertFromSecret()
