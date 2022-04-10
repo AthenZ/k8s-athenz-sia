@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -17,6 +18,7 @@ import (
 	"github.com/AthenZ/athenz/clients/go/zts"
 	"github.com/yahoo/k8s-athenz-identity/pkg/util"
 
+	"github.com/AthenZ/k8s-athenz-sia/pkg/k8s"
 	extutil "github.com/AthenZ/k8s-athenz-sia/pkg/util"
 )
 
@@ -25,6 +27,7 @@ type IdentityConfig struct {
 	Init              bool
 	KeyFile           string
 	CertFile          string
+	CertSecret        string
 	CaCertFile        string
 	Refresh           time.Duration
 	Reloader          *util.CertReloader
@@ -41,6 +44,7 @@ type IdentityConfig struct {
 	TargetDomainRoles string
 }
 
+// RoleCertificate stores role certificate
 type RoleCertificate struct {
 	Domain          string
 	Role            string
@@ -49,7 +53,14 @@ type RoleCertificate struct {
 	NotBefore       time.Time
 	NotAfter        time.Time
 	SerialNumber    *big.Int
+	DNSNames        []string
 	X509Certificate string
+}
+
+// InstanceIdentity stores instance identity certificate
+type InstanceIdentity struct {
+	X509CertificatePEM   string
+	X509CACertificatePEM string
 }
 
 type identityHandler struct {
@@ -60,8 +71,10 @@ type identityHandler struct {
 	instanceid     string
 	csrOptions     util.CSROptions
 	roleCsrOptions *[]util.CSROptions
+	secretClient   *k8s.SecretsClient
 }
 
+// DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER may be overwritten with go build option (e.g. "-X identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER=5")
 var DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER = 5 // Expiry time buffer for role certificates in minutes (5 mins)
 
 // default values for X.509 certificate signing request
@@ -111,6 +124,14 @@ func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
 		return nil, err
 	}
 
+	var secretclient *k8s.SecretsClient
+	if config.CertSecret != "" {
+		secretclient, err = k8s.NewSecretClient(config.CertSecret, config.Namespace)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to initialize kubernetes secret client, err: %v", err)
+		}
+	}
+
 	return &identityHandler{
 		config:         config,
 		client:         client,
@@ -119,19 +140,51 @@ func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
 		instanceid:     config.PodUID,
 		csrOptions:     *csrOptions,
 		roleCsrOptions: roleCsrOptions,
+		secretClient:   secretclient,
 	}, nil
 }
 
+// GetX509CertFromSecret loads X.509 certificate from Kubernetes Secret
+func (h *identityHandler) GetX509CertFromSecret() (*InstanceIdentity, []byte, error) {
+	if h.secretClient != nil {
+		secret, isNotFound, err := h.secretClient.GetIdentitySecret()
+		if err != nil && !isNotFound {
+			return nil, nil, fmt.Errorf("Failed to get identity from kubernetes secret, err: %v", err)
+		}
+
+		if secret != nil {
+			keyPEM, certPEM := k8s.GetKeyAndCertificateFromSecret(secret)
+			identity, err := InstanceIdentityFromPEMBytes(certPEM)
+
+			return identity, keyPEM, err
+		}
+	}
+
+	return nil, nil, nil
+}
+
+// ApplyX509CertToSecret saves X.509 certificate to Kubernetes Secret
+func (h *identityHandler) ApplyX509CertToSecret(identity *InstanceIdentity, keyPEM []byte) error {
+	if h.secretClient != nil {
+		_, err := h.secretClient.ApplyIdentitySecret(keyPEM, []byte(identity.X509CertificatePEM))
+		if err != nil {
+			return fmt.Errorf("Failed to backup identity to kubernetes secret, err: %v", err)
+		}
+	}
+
+	return nil
+}
+
 // GetX509Cert makes ZTS API calls to generate an X.509 certificate
-func (h *identityHandler) GetX509Cert() (*zts.InstanceIdentity, []byte, error) {
+func (h *identityHandler) GetX509Cert() (*InstanceIdentity, []byte, error) {
 	keyPEM, csrPEM, err := util.GenerateKeyAndCSR(h.csrOptions)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("Failed to generate key and csr, err: %v", err)
 	}
 
 	saToken, err := ioutil.ReadFile(h.config.SaTokenFile)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("Failed to read service account token file, err: %v", err)
 	}
 
 	var id *zts.InstanceIdentity
@@ -143,30 +196,41 @@ func (h *identityHandler) GetX509Cert() (*zts.InstanceIdentity, []byte, error) {
 			AttestationData: string(saToken),
 			Csr:             string(csrPEM),
 		})
-		return id, keyPEM, err
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to call PostInstanceRegisterInformation, err: %v", err)
+		}
+
+	} else {
+		id, err = h.client.PostInstanceRefreshInformation(
+			zts.ServiceName(h.config.ProviderService),
+			zts.DomainName(h.domain),
+			zts.SimpleName(h.service),
+			zts.PathElement(h.config.PodUID),
+			&zts.InstanceRefreshInformation{
+				AttestationData: string(saToken),
+				Csr:             string(csrPEM),
+			})
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to call PostInstanceRefreshInformation, err: %v", err)
+		}
 	}
 
-	id, err = h.client.PostInstanceRefreshInformation(
-		zts.ServiceName(h.config.ProviderService),
-		zts.DomainName(h.domain),
-		zts.SimpleName(h.service),
-		zts.PathElement(h.config.PodUID),
-		&zts.InstanceRefreshInformation{
-			AttestationData: string(saToken),
-			Csr:             string(csrPEM),
-		})
+	identity := &InstanceIdentity{
+		X509CertificatePEM:   id.X509Certificate + id.X509CertificateSigner,
+		X509CACertificatePEM: id.X509CertificateSigner,
+	}
 
-	return id, keyPEM, err
+	return identity, keyPEM, err
 }
 
 // GetX509RoleCert makes ZTS API calls to generate an X.509 role certificate
-func (h *identityHandler) GetX509RoleCert(id *zts.InstanceIdentity, keyPEM []byte) (rolecerts [](*RoleCertificate), err error) {
+func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (rolecerts [](*RoleCertificate), err error) {
 
 	if h.roleCsrOptions != nil {
 		for _, csrOption := range *h.roleCsrOptions {
 			dr := strings.Split(csrOption.Subject.CommonName, ":role.")
 
-			cert, err := tls.X509KeyPair([]byte(id.X509Certificate+id.X509CertificateSigner), keyPEM)
+			cert, err := tls.X509KeyPair([]byte(id.X509CertificatePEM), keyPEM)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to set tls client key pair for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
 			}
@@ -235,7 +299,8 @@ func (h *identityHandler) GetX509RoleCert(id *zts.InstanceIdentity, keyPEM []byt
 				NotBefore:       x509RoleCert.NotBefore,
 				NotAfter:        x509RoleCert.NotAfter,
 				SerialNumber:    x509RoleCert.SerialNumber,
-				X509Certificate: roleCert.Token + id.X509CertificateSigner, // Concatenate intermediate certificate with the role certificate
+				DNSNames:        x509RoleCert.DNSNames,
+				X509Certificate: roleCert.Token + id.X509CACertificatePEM, // Concatenate intermediate certificate with the role certificate
 			})
 
 		}
@@ -245,17 +310,20 @@ func (h *identityHandler) GetX509RoleCert(id *zts.InstanceIdentity, keyPEM []byt
 }
 
 // DeleteX509CertRecord makes ZTS API calls to delete the X.509 certificate record
-func (h *identityHandler) DeleteX509CertRecord() (err error) {
+func (h *identityHandler) DeleteX509CertRecord() error {
 	if !h.config.Init {
-		err = h.client.DeleteInstanceIdentity(
+		err := h.client.DeleteInstanceIdentity(
 			zts.ServiceName(h.config.ProviderService),
 			zts.DomainName(h.domain),
 			zts.SimpleName(h.service),
 			zts.PathElement(h.config.PodUID),
 		)
+		if err != nil {
+			return fmt.Errorf("Failed to call DeleteInstanceIdentity, err: %v", err)
+		}
 	}
 
-	return
+	return nil
 }
 
 // Domain returns the mapped Athenz domain
@@ -370,4 +438,23 @@ func PrepareRoleCsrOptions(config *IdentityConfig, domain, service string) (*[]u
 	}
 
 	return &roleCsrOptions, nil
+}
+
+// InstanceIdentityFromPEMBytes returns an InstanceIdentity from its supplied PEM representation.
+func InstanceIdentityFromPEMBytes(pemBytes []byte) (identity *InstanceIdentity, err error) {
+	identity = &InstanceIdentity{
+		X509CertificatePEM: string(pemBytes),
+	}
+	for len(pemBytes) > 0 {
+		block, rest := pem.Decode(pemBytes)
+		if block == nil && len(rest) > 0 {
+			return nil, fmt.Errorf("Failed to decode x509 cert pem")
+		}
+		if len(rest) == 0 {
+			identity.X509CACertificatePEM = string(pemBytes)
+		}
+		pemBytes = rest
+	}
+
+	return identity, nil
 }

@@ -9,13 +9,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AthenZ/athenz/clients/go/zts"
 	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
 	"github.com/yahoo/k8s-athenz-identity/pkg/log"
 	"github.com/yahoo/k8s-athenz-identity/pkg/util"
 
-	extidentity "github.com/AthenZ/k8s-athenz-sia/pkg/identity"
+	"github.com/AthenZ/k8s-athenz-sia/pkg/identity"
 )
 
 const serviceName = "athenz-sia"
@@ -45,7 +44,7 @@ func envOrDefault(name string, defaultValue string) string {
 }
 
 // parseFlags parses ENV and cmd line args and returns an IdentityConfig object
-func parseFlags(program string, args []string) (*extidentity.IdentityConfig, error) {
+func parseFlags(program string, args []string) (*identity.IdentityConfig, error) {
 	var (
 		mode              = envOrDefault("MODE", "init")
 		endpoint          = envOrDefault("ENDPOINT", "")
@@ -54,6 +53,7 @@ func parseFlags(program string, args []string) (*extidentity.IdentityConfig, err
 		refreshInterval   = envOrDefault("REFRESH_INTERVAL", "24h")
 		keyFile           = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
 		certFile          = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
+		certSecret        = envOrDefault("CERT_SECRET", "")
 		caCertFile        = envOrDefault("CA_CERT_FILE", "/var/run/athenz/ca.cert.pem")
 		logDir            = envOrDefault("LOG_DIR", "/var/log/athenz-sia")
 		logLevel          = envOrDefault("LOG_LEVEL", "INFO")
@@ -72,9 +72,10 @@ func parseFlags(program string, args []string) (*extidentity.IdentityConfig, err
 	f.StringVar(&providerService, "provider-service", providerService, "Identity Provider service")
 	f.StringVar(&dnsSuffix, "dns-suffix", dnsSuffix, "DNS Suffix for certs")
 	f.StringVar(&refreshInterval, "refresh-interval", refreshInterval, "cert refresh interval")
-	f.StringVar(&certFile, "out-cert", certFile, "cert file to write")
-	f.StringVar(&caCertFile, "out-ca-cert", caCertFile, "CA cert file to write")
 	f.StringVar(&keyFile, "out-key", keyFile, "key file to write")
+	f.StringVar(&certFile, "out-cert", certFile, "cert file to write")
+	f.StringVar(&certSecret, "out-cert-secret", certSecret, "Kubernetes secret name to backup cert (Backup will be disabled if empty) (Note: Do not run concurrently)")
+	f.StringVar(&caCertFile, "out-ca-cert", caCertFile, "CA cert file to write")
 	f.StringVar(&logDir, "log-dir", logDir, "directory to store the server log files")
 	f.StringVar(&logLevel, "log-level", logLevel, "logging level")
 	f.StringVar(&saTokenFile, "sa-token-file", saTokenFile, "bound sa jwt token file location")
@@ -142,10 +143,11 @@ func parseFlags(program string, args []string) (*extidentity.IdentityConfig, err
 		return nil, errors.Wrap(err, "unable to read key and cert")
 	}
 
-	return &extidentity.IdentityConfig{
+	return &identity.IdentityConfig{
 		Init:              init,
 		KeyFile:           keyFile,
 		CertFile:          certFile,
+		CertSecret:        certSecret,
 		CaCertFile:        caCertFile,
 		Refresh:           ri,
 		Reloader:          reloader,
@@ -163,21 +165,20 @@ func parseFlags(program string, args []string) (*extidentity.IdentityConfig, err
 	}, nil
 }
 
-func run(idConfig *extidentity.IdentityConfig, stopChan <-chan struct{}) error {
+func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 
-	writeFiles := func(id *zts.InstanceIdentity, keyPEM []byte, roleCerts [](*extidentity.RoleCertificate)) error {
-		certPEM := []byte(id.X509Certificate)
-		caCertPEM := []byte(id.X509CertificateSigner)
-		combinedCertPEM := []byte(id.X509Certificate + id.X509CertificateSigner)
-		x509Cert, err := util.CertificateFromPEMBytes(certPEM)
+	writeFiles := func(id *identity.InstanceIdentity, keyPEM []byte, roleCerts [](*identity.RoleCertificate)) error {
+		leafPEM := []byte(id.X509CertificatePEM)
+		caCertPEM := []byte(id.X509CACertificatePEM)
+		x509Cert, err := util.CertificateFromPEMBytes(leafPEM)
 		if err != nil {
 			return errors.Wrap(err, "unable to parse x509 cert")
 		}
-		log.Infof("[New Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s",
-			x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber)
+		log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
+			x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
 		w := util.NewWriter()
-		log.Debugf("Saving x509 cert[%d bytes] at %s", len(combinedCertPEM), idConfig.CertFile)
-		if err := w.AddBytes(idConfig.CertFile, 0644, combinedCertPEM); err != nil {
+		log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), idConfig.CertFile)
+		if err := w.AddBytes(idConfig.CertFile, 0644, leafPEM); err != nil {
 			return errors.Wrap(err, "unable to save x509 cert")
 		}
 		log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idConfig.KeyFile)
@@ -194,8 +195,8 @@ func run(idConfig *extidentity.IdentityConfig, stopChan <-chan struct{}) error {
 			for _, rolecert := range roleCerts {
 				roleCertPEM := []byte(rolecert.X509Certificate)
 				if len(roleCertPEM) != 0 {
-					log.Infof("[New Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s",
-						rolecert.Subject, rolecert.Issuer, rolecert.NotBefore, rolecert.NotAfter, rolecert.SerialNumber)
+					log.Infof("[New Role Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
+						rolecert.Subject, rolecert.Issuer, rolecert.NotBefore, rolecert.NotAfter, rolecert.SerialNumber, rolecert.DNSNames)
 					outPath := filepath.Join(idConfig.RoleCertDir, rolecert.Domain+"_role."+rolecert.Role+".cert.pem")
 					log.Debugf("Saving x509 role cert[%d bytes] at %s", len(roleCertPEM), outPath)
 					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {
@@ -204,6 +205,7 @@ func run(idConfig *extidentity.IdentityConfig, stopChan <-chan struct{}) error {
 				}
 			}
 		}
+
 		return w.Save()
 	}
 
@@ -221,7 +223,7 @@ func run(idConfig *extidentity.IdentityConfig, stopChan <-chan struct{}) error {
 		log.Errorf("Failed to create/refresh cert: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
 
-	handler, err := extidentity.InitIdentityHandler(idConfig)
+	handler, err := identity.InitIdentityHandler(idConfig)
 	if err != nil {
 		log.Errorf("Error while initializing handler: %s", err.Error())
 		return err
@@ -229,17 +231,38 @@ func run(idConfig *extidentity.IdentityConfig, stopChan <-chan struct{}) error {
 	log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
 
 	postRequest := func() error {
-		log.Infoln("Attempting to create/refresh x509 cert from identity provider...")
 
-		id, keyPem, err := handler.GetX509Cert()
-		if err != nil {
-			log.Errorf("Error while creating/refreshing x509 cert: %s", err.Error())
-			return err
+		var id *identity.InstanceIdentity
+		var keyPem []byte
+		if idConfig.Init && idConfig.CertSecret != "" {
+			log.Infoln("Attempting to load x509 cert backup from kubernetes secret...")
+
+			id, keyPem, err = handler.GetX509CertFromSecret()
+			if err != nil {
+				log.Errorf("Error while loading x509 cert from kubernetes secret: %s", err.Error())
+				return err
+			}
+
+			if id == nil || len(keyPem) == 0 {
+				log.Infoln("Kubernetes secret was empty")
+			} else {
+				log.Infoln("Successfully loaded x509 cert from kubernetes secret")
+			}
 		}
 
-		log.Infoln("Successfully created/refreshed x509 cert from identity provider")
+		if id == nil || len(keyPem) == 0 {
+			log.Infoln("Attempting to create/refresh x509 cert from identity provider...")
 
-		var roleCerts [](*extidentity.RoleCertificate)
+			id, keyPem, err = handler.GetX509Cert()
+			if err != nil {
+				log.Errorf("Error while creating/refreshing x509 cert from identity provider: %s", err.Error())
+				return err
+			}
+
+			log.Infoln("Successfully created/refreshed x509 cert from identity provider")
+		}
+
+		var roleCerts [](*identity.RoleCertificate)
 		if idConfig.TargetDomainRoles != "" {
 			log.Infoln("Attempting to retrieve x509 role cert from identity provider...")
 
@@ -250,6 +273,18 @@ func run(idConfig *extidentity.IdentityConfig, stopChan <-chan struct{}) error {
 			}
 
 			log.Infoln("Successfully retrieved x509 role cert from identity provider")
+		}
+
+		if idConfig.CertSecret != "" {
+			log.Infoln("Attempting to save x509 cert backup to kubernetes secret...")
+
+			err = handler.ApplyX509CertToSecret(id, keyPem)
+			if err != nil {
+				log.Errorf("Error while saving x509 cert to kubernetes secret: %s", err.Error())
+				return err
+			}
+
+			log.Infoln("Successfully loaded x509 cert from kubernetes secret")
 		}
 
 		return writeFiles(id, keyPem, roleCerts)
