@@ -238,44 +238,46 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 
 		var id *identity.InstanceIdentity
 		var keyPem []byte
-		if idConfig.Init && idConfig.CertSecret != "" {
-			log.Infoln("Attempting to load x509 cert backup from kubernetes secret...")
 
-			id, keyPem, err = handler.GetX509CertFromSecret()
-			if err != nil {
-				log.Errorf("Error while loading x509 cert from kubernetes secret: %s", err.Error())
-				return err
-			}
+		log.Infoln("Attempting to create/refresh x509 cert from identity provider...")
 
-			if id == nil || len(keyPem) == 0 {
-				log.Infoln("Kubernetes secret was empty")
-			} else {
-				log.Infoln("Successfully loaded x509 cert from kubernetes secret")
-			}
-		}
+		id, keyPem, err = handler.GetX509Cert()
+		if err != nil {
+			log.Errorf("Error while creating/refreshing x509 cert from identity provider: %s", err.Error())
 
-		if id == nil || len(keyPem) == 0 {
-			log.Infoln("Attempting to create/refresh x509 cert from identity provider...")
+			if idConfig.Init && idConfig.CertSecret != "" {
+				log.Warnln("Attempting to load x509 cert temporary backup from kubernetes secret...")
 
-			id, keyPem, err = handler.GetX509Cert()
-			if err != nil {
-				log.Errorf("Error while creating/refreshing x509 cert from identity provider: %s", err.Error())
-				return err
-			}
-
-			log.Infoln("Successfully created/refreshed x509 cert from identity provider")
-
-			if idConfig.CertSecret != "" {
-				log.Infoln("Attempting to save x509 cert to kubernetes secret...")
-
-				err = handler.ApplyX509CertToSecret(id, keyPem)
+				id, keyPem, err = handler.GetX509CertFromSecret()
 				if err != nil {
-					log.Errorf("Error while saving x509 cert to kubernetes secret: %s", err.Error())
+					log.Errorf("Error while loading x509 cert from kubernetes secret: %s", err.Error())
 					return err
 				}
 
-				log.Infoln("Successfully saved x509 cert to kubernetes secret")
+				if id == nil || len(keyPem) == 0 {
+					log.Errorf("Failed to load x509 cert temporary backup: kubernetes secret was empty")
+				} else {
+					log.Infoln("Successfully loaded x509 cert from kubernetes secret")
+				}
+			} else {
+
+				return err
 			}
+		} else {
+
+			log.Infoln("Successfully created/refreshed x509 cert from identity provider")
+		}
+
+		if idConfig.CertSecret != "" {
+			log.Infoln("Attempting to save x509 cert to kubernetes secret...")
+
+			err = handler.ApplyX509CertToSecret(id, keyPem)
+			if err != nil {
+				log.Errorf("Error while saving x509 cert to kubernetes secret: %s", err.Error())
+				return err
+			}
+
+			log.Infoln("Successfully saved x509 cert to kubernetes secret")
 		}
 
 		var roleCerts [](*identity.RoleCertificate)
