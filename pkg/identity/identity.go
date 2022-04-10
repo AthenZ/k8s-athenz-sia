@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -76,24 +77,28 @@ type identityHandler struct {
 	secretClient   *k8s.SecretsClient
 }
 
-// DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES may be overwritten with go build option (e.g. "-X identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES=5")
-var DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES int64
-
 // default values for X.509 certificate signing request
 var DEFAULT_COUNTRY string
 var DEFAULT_PROVINCE string
 var DEFAULT_ORGANIZATION string
 var DEFAULT_ORGANIZATIONAL_UNIT string
 
-// InitIdentityHandler initializes the ZTS client and parses the config to create CSR options
-func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
+// DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES may be overwritten with go build option (e.g. "-X identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES=5")
+var DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES string
+var DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT int
 
+// InitDefaultValues initializes default values from build args
+func InitDefaultValues() {
 	// Expiry time buffer for role certificates in minutes (5 mins)
-	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES = setDefaultInt64(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES, 5)
 	DEFAULT_COUNTRY = setDefaultString(DEFAULT_COUNTRY, "US")
 	DEFAULT_PROVINCE = setDefaultString(DEFAULT_PROVINCE, "")
 	DEFAULT_ORGANIZATION = setDefaultString(DEFAULT_ORGANIZATION, "")
 	DEFAULT_ORGANIZATIONAL_UNIT = setDefaultString(DEFAULT_ORGANIZATIONAL_UNIT, "Athenz")
+	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT, _ = strconv.Atoi(setDefaultString(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES, "5"))
+}
+
+// InitIdentityHandler initializes the ZTS client and parses the config to create CSR options
+func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
@@ -273,7 +278,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 			}
 			roleRequest := &zts.RoleCertificateRequest{
 				Csr:        string(roleCsrPEM),
-				ExpiryTime: int64(x509Cert.NotAfter.Sub(time.Now()).Minutes()) + int64(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES), // Extract NotAfter from the instance certificate
+				ExpiryTime: int64(x509Cert.NotAfter.Sub(time.Now()).Minutes()) + int64(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT), // Extract NotAfter from the instance certificate
 			}
 
 			// In init mode, the existing ZTS Client does not have client certificate set.
@@ -466,14 +471,6 @@ func InstanceIdentityFromPEMBytes(pemBytes []byte) (identity *InstanceIdentity, 
 	}
 
 	return identity, nil
-}
-
-// setDefaultInt64 returns the value of the supplied variable or a default string.
-func setDefaultInt64(v int64, defaultValue int64) int64 {
-	if v == 0 {
-		return defaultValue
-	}
-	return v
 }
 
 // setDefaultString returns the value of the supplied variable or a default string.

@@ -31,7 +31,13 @@ func printVersion() {
 	if VERSION == "" || BUILD_DATE == "" {
 		fmt.Printf("(development version)\n")
 	} else {
-		fmt.Printf("Version: " + VERSION + "\n" + "Build Date: " + BUILD_DATE + "\n")
+		fmt.Printf("Version: %s\n", VERSION)
+		fmt.Printf("Build Date: %s\n", BUILD_DATE)
+		fmt.Printf("Country: %s\n", identity.DEFAULT_COUNTRY)
+		fmt.Printf("Province: %s\n", identity.DEFAULT_PROVINCE)
+		fmt.Printf("Organization: %s\n", identity.DEFAULT_ORGANIZATION)
+		fmt.Printf("OrganizationalUnit: %s\n", identity.DEFAULT_ORGANIZATIONAL_UNIT)
+		fmt.Printf("Role Cert Expiry Time Buffer Minutes: %d\n", identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT)
 	}
 }
 
@@ -344,6 +350,7 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 }
 
 func main() {
+	identity.InitDefaultValues()       // initialize default values
 	flag.CommandLine.Parse([]string{}) // initialize glog with defaults
 	if len(os.Args) == 2 && os.Args[1] == "version" {
 		printVersion()
