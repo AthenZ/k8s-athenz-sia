@@ -77,16 +77,23 @@ type identityHandler struct {
 }
 
 // DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES may be overwritten with go build option (e.g. "-X identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES=5")
-var DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES = 5 // Expiry time buffer for role certificates in minutes (5 mins)
+var DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES int64
 
 // default values for X.509 certificate signing request
-var DEFAULT_COUNTRY = "US"
-var DEFAULT_PROVINCE = ""
-var DEFAULT_ORGANIZATION = ""
-var DEFAULT_ORGANIZATIONAL_UNIT = "Athenz"
+var DEFAULT_COUNTRY string
+var DEFAULT_PROVINCE string
+var DEFAULT_ORGANIZATION string
+var DEFAULT_ORGANIZATIONAL_UNIT string
 
 // InitIdentityHandler initializes the ZTS client and parses the config to create CSR options
 func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
+
+	// Expiry time buffer for role certificates in minutes (5 mins)
+	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES = setDefaultInt64(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES, 5)
+	DEFAULT_COUNTRY = setDefaultString(DEFAULT_COUNTRY, "US")
+	DEFAULT_PROVINCE = setDefaultString(DEFAULT_PROVINCE, "")
+	DEFAULT_ORGANIZATION = setDefaultString(DEFAULT_ORGANIZATION, "")
+	DEFAULT_ORGANIZATIONAL_UNIT = setDefaultString(DEFAULT_ORGANIZATIONAL_UNIT, "Athenz")
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
@@ -459,4 +466,20 @@ func InstanceIdentityFromPEMBytes(pemBytes []byte) (identity *InstanceIdentity, 
 	}
 
 	return identity, nil
+}
+
+// setDefaultInt64 returns the value of the supplied variable or a default string.
+func setDefaultInt64(v int64, defaultValue int64) int64 {
+	if v == 0 {
+		return defaultValue
+	}
+	return v
+}
+
+// setDefaultString returns the value of the supplied variable or a default string.
+func setDefaultString(v string, defaultValue string) string {
+	if v == "" {
+		return defaultValue
+	}
+	return v
 }
