@@ -15,7 +15,7 @@ endif
 ifneq ($(ATHENZ_SIA_BUILD_DATE),)
 LDFLAGS_ARGS += -X 'main.BUILD_DATE=$(ATHENZ_SIA_BUILD_DATE)'
 else
-LDFLAGS_ARGS += -X main.BUILD_DATE=$(shell date '+%Y-%m-%dT%H:%M:%S')
+LDFLAGS_ARGS += -X main.BUILD_DATE=$(shell date '+%Y-%m-%dT%H:%M:%S%Z%z')
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_COUNTRY),)
 LDFLAGS_ARGS += -X 'identity.DEFAULT_COUNTRY=$(ATHENZ_SIA_DEFAULT_COUNTRY)'
