@@ -25,6 +25,7 @@ import (
 // IdentityConfig from cmd line args
 type IdentityConfig struct {
 	Init              bool
+	Backup            bool
 	KeyFile           string
 	CertFile          string
 	CertSecret        string

@@ -48,6 +48,7 @@ func envOrDefault(name string, defaultValue string) string {
 func parseFlags(program string, args []string) (*identity.IdentityConfig, error) {
 	var (
 		mode                = envOrDefault("MODE", "init")
+		backupMode          = envOrDefault("BACKUP_MODE", "read")
 		endpoint            = envOrDefault("ENDPOINT", "")
 		providerService     = envOrDefault("PROVIDER_SERVICE", "")
 		dnsSuffix           = envOrDefault("DNS_SUFFIX", "")
@@ -76,7 +77,8 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.StringVar(&refreshInterval, "refresh-interval", refreshInterval, "cert refresh interval")
 	f.StringVar(&keyFile, "out-key", keyFile, "key file to write")
 	f.StringVar(&certFile, "out-cert", certFile, "cert file to write")
-	f.StringVar(&certSecret, "out-cert-secret", certSecret, "Kubernetes secret name to backup cert (Backup will be disabled if empty) (Note: Do not run concurrently)")
+	f.StringVar(&certSecret, "out-cert-secret", certSecret, "Kubernetes secret name to backup cert (Backup will be disabled if empty)")
+	f.StringVar(&backupMode, "backup-mode", backupMode, "Kubernetes secret backup mode, must be one of read or write (Note: Do not perform writes with a large number of concurrency)")
 	f.StringVar(&caCertFile, "out-ca-cert", caCertFile, "CA cert file to write")
 	f.StringVar(&logDir, "log-dir", logDir, "directory to store the server log files")
 	f.StringVar(&logLevel, "log-level", logLevel, "logging level")
@@ -101,6 +103,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		return nil, fmt.Errorf("Invalid mode %q must be one of init or refresh", mode)
 	}
 	init := mode == "init"
+	backup := backupMode == "write"
 
 	ri, err := time.ParseDuration(refreshInterval)
 	if err != nil {
@@ -148,6 +151,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 
 	return &identity.IdentityConfig{
 		Init:              init,
+		Backup:            backup,
 		KeyFile:           keyFile,
 		CertFile:          certFile,
 		CertSecret:        certSecret,
@@ -268,7 +272,7 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 
 			log.Infoln("Successfully created/refreshed x509 cert from identity provider")
 
-			if idConfig.CertSecret != "" {
+			if idConfig.CertSecret != "" && idConfig.Backup {
 				log.Infof("Attempting to save x509 cert to kubernetes secret[%s]...", idConfig.CertSecret)
 
 				err = handler.ApplyX509CertToSecret(id, keyPem)
