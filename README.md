@@ -1,8 +1,39 @@
 # k8s-athenz-sia
 
+## Lifecycle
+
+```mermaid
+  graph TD;
+      A[Booting up]==>B[Map Athenz domain];
+      B==>C[Create/Refresh cert<br/> in every configured period];
+      C==>D{Attempt to<br/> create/refresh x509 cert<br/> from identity provider};
+      D==>E[Success];
+      D-->E'[Failure];
+      E'-->F{Attempt to<br/> load x509 cert temporary backup<br/> from kubernetes secret}
+      F==>G[Success];
+      G==>J
+      F-->G'[Failure];
+      G'-->C
+      E==>H{Attempt to<br/> save x509 cert<br/> to kubernetes secret};
+      H==>I[Success];
+      H-->I'[Failure];
+      I'-->C
+      I==>J{Attempting to<br/> retrieve x509 role cert<br/> from identity provider};
+      J==>K[Success];
+      J-->K'[Failure];
+      K'-->C
+      K==>L{Write certs to volume}
+      L==>M[Success];
+      L-->M'[Failure];
+      M'-->C
+      M==>C
+```
+
 ## Usage
 ```
 Usage of athenz-sia:
+  -backup-mode string
+    	Kubernetes secret backup mode, must be one of read or write (Note: Do not perform writes with a large number of concurrency) (default "read")
   -delete-instance-id
     	delete x509 cert record from identity provider when stop signal is sent (default true)
   -dns-suffix string
@@ -20,7 +51,7 @@ Usage of athenz-sia:
   -out-cert string
     	cert file to write (default "/var/run/athenz/service.cert.pem")
   -out-cert-secret string
-    	Kubernetes secret name to backup cert (Backup will be disabled if empty) (Note: Do not run concurrently)
+    	Kubernetes secret name to backup cert (Backup will be disabled if empty)
   -out-key string
     	key file to write (default "/var/run/athenz/service.key.pem")
   -out-rolecert-dir string

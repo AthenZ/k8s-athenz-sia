@@ -261,14 +261,17 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 
 				id, keyPem, err = handler.GetX509CertFromSecret()
 				if err != nil {
-					log.Errorf("Error while loading x509 cert from kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
+					log.Errorf("Error while loading x509 cert temporary backup from kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
 					return err
 				}
 
 				if id == nil || len(keyPem) == 0 {
-					log.Errorf("Failed to load x509 cert temporary backup: kubernetes secret[%s] was empty", idConfig.CertSecret)
+					log.Errorf("Failed to load x509 cert temporary backup from kubernetes secret[%s]: secret was empty", idConfig.CertSecret)
+					return nil
 				} else {
+
 					log.Infof("Successfully loaded x509 cert from kubernetes secret[%s]", idConfig.CertSecret)
+
 				}
 			} else {
 
@@ -288,6 +291,7 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 				}
 
 				log.Infof("Successfully saved x509 cert to kubernetes secret[%s]", idConfig.CertSecret)
+
 			}
 		}
 
