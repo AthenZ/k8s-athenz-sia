@@ -246,18 +246,18 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 			log.Errorf("Error while creating/refreshing x509 cert from identity provider: %s", err.Error())
 
 			if idConfig.Init && idConfig.CertSecret != "" {
-				log.Warnln("Attempting to load x509 cert temporary backup from kubernetes secret...")
+				log.Warnf("Attempting to load x509 cert temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
 
 				id, keyPem, err = handler.GetX509CertFromSecret()
 				if err != nil {
-					log.Errorf("Error while loading x509 cert from kubernetes secret: %s", err.Error())
+					log.Errorf("Error while loading x509 cert from kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
 					return err
 				}
 
 				if id == nil || len(keyPem) == 0 {
-					log.Errorf("Failed to load x509 cert temporary backup: kubernetes secret was empty")
+					log.Errorf("Failed to load x509 cert temporary backup: kubernetes secret[%s] was empty", idConfig.CertSecret)
 				} else {
-					log.Infoln("Successfully loaded x509 cert from kubernetes secret")
+					log.Infof("Successfully loaded x509 cert from kubernetes secret[%s]", idConfig.CertSecret)
 				}
 			} else {
 
@@ -269,15 +269,15 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 		}
 
 		if idConfig.CertSecret != "" {
-			log.Infoln("Attempting to save x509 cert to kubernetes secret...")
+			log.Infoln("Attempting to save x509 cert to kubernetes secret[%s]...", idConfig.CertSecret)
 
 			err = handler.ApplyX509CertToSecret(id, keyPem)
 			if err != nil {
-				log.Errorf("Error while saving x509 cert to kubernetes secret: %s", err.Error())
+				log.Errorf("Error while saving x509 cert to kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
 				return err
 			}
 
-			log.Infoln("Successfully saved x509 cert to kubernetes secret")
+			log.Infoln("Successfully saved x509 cert to kubernetes secret[%s]", idConfig.CertSecret)
 		}
 
 		var roleCerts [](*identity.RoleCertificate)
