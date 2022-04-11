@@ -302,6 +302,11 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 			roleCerts, err = handler.GetX509RoleCert(id, keyPem)
 			if err != nil {
 				log.Errorf("Error while retrieving x509 role certs: %s", err.Error())
+				writeerr := writeFiles(id, keyPem, roleCerts)
+				if writeerr != nil {
+					log.Errorf("Error while writing x509 role certs: %s", writeerr.Error())
+					err = errors.Wrap(err, writeerr.Error())
+				}
 				return err
 			}
 
