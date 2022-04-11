@@ -25,26 +25,27 @@ import (
 
 // IdentityConfig from cmd line args
 type IdentityConfig struct {
-	Init              bool
-	Backup            bool
-	KeyFile           string
-	CertFile          string
-	CertSecret        string
-	CaCertFile        string
-	Refresh           time.Duration
-	Reloader          *util.CertReloader
-	ServerCACert      string
-	SaTokenFile       string
-	Endpoint          string
-	ProviderService   string
-	DNSSuffix         string
-	Namespace         string
-	ServiceAccount    string
-	PodIP             string
-	PodUID            string
-	RoleCertDir       string
-	TargetDomainRoles string
-	DeleteInstanceID  bool
+	Init               bool
+	Backup             bool
+	KeyFile            string
+	CertFile           string
+	CertSecret         string
+	CaCertFile         string
+	Refresh            time.Duration
+	DelayJitterSeconds int64
+	Reloader           *util.CertReloader
+	ServerCACert       string
+	SaTokenFile        string
+	Endpoint           string
+	ProviderService    string
+	DNSSuffix          string
+	Namespace          string
+	ServiceAccount     string
+	PodIP              string
+	PodUID             string
+	RoleCertDir        string
+	TargetDomainRoles  string
+	DeleteInstanceID   bool
 }
 
 // RoleCertificate stores role certificate

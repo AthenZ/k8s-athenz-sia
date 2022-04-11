@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -53,27 +54,28 @@ func envOrDefault(name string, defaultValue string) string {
 // parseFlags parses ENV and cmd line args and returns an IdentityConfig object
 func parseFlags(program string, args []string) (*identity.IdentityConfig, error) {
 	var (
-		mode                = envOrDefault("MODE", "init")
-		backupMode          = envOrDefault("BACKUP_MODE", "read")
-		endpoint            = envOrDefault("ENDPOINT", "")
-		providerService     = envOrDefault("PROVIDER_SERVICE", "")
-		dnsSuffix           = envOrDefault("DNS_SUFFIX", "")
-		refreshInterval     = envOrDefault("REFRESH_INTERVAL", "24h")
-		keyFile             = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
-		certFile            = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
-		certSecret          = envOrDefault("CERT_SECRET", "")
-		caCertFile          = envOrDefault("CA_CERT_FILE", "/var/run/athenz/ca.cert.pem")
-		logDir              = envOrDefault("LOG_DIR", "/var/log/athenz-sia")
-		logLevel            = envOrDefault("LOG_LEVEL", "INFO")
-		namespace           = envOrDefault("NAMESPACE", "")
-		serviceAccount      = envOrDefault("SERVICEACCOUNT", "")
-		podIP               = envOrDefault("POD_IP", "")
-		podUID              = envOrDefault("POD_UID", "")
-		saTokenFile         = envOrDefault("SA_TOKEN_FILE", "/var/run/secrets/kubernetes.io/bound-serviceaccount/token")
-		serverCACert        = envOrDefault("SERVER_CA_CERT", "")
-		roleCertDir         = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
-		targetDomainRoles   = envOrDefault("TARGET_DOMAIN_ROLES", "")
-		deleteInstanceID, _ = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
+		mode                  = envOrDefault("MODE", "init")
+		backupMode            = envOrDefault("BACKUP_MODE", "read")
+		endpoint              = envOrDefault("ENDPOINT", "")
+		providerService       = envOrDefault("PROVIDER_SERVICE", "")
+		dnsSuffix             = envOrDefault("DNS_SUFFIX", "")
+		refreshInterval       = envOrDefault("REFRESH_INTERVAL", "24h")
+		keyFile               = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
+		certFile              = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
+		certSecret            = envOrDefault("CERT_SECRET", "")
+		caCertFile            = envOrDefault("CA_CERT_FILE", "/var/run/athenz/ca.cert.pem")
+		logDir                = envOrDefault("LOG_DIR", "/var/log/athenz-sia")
+		logLevel              = envOrDefault("LOG_LEVEL", "INFO")
+		namespace             = envOrDefault("NAMESPACE", "")
+		serviceAccount        = envOrDefault("SERVICEACCOUNT", "")
+		podIP                 = envOrDefault("POD_IP", "")
+		podUID                = envOrDefault("POD_UID", "")
+		saTokenFile           = envOrDefault("SA_TOKEN_FILE", "/var/run/secrets/kubernetes.io/bound-serviceaccount/token")
+		serverCACert          = envOrDefault("SERVER_CA_CERT", "")
+		roleCertDir           = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
+		targetDomainRoles     = envOrDefault("TARGET_DOMAIN_ROLES", "")
+		deleteInstanceID, _   = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
+		delayJitterSeconds, _ = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "5"), 10, 64)
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
 	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh, required")
@@ -81,6 +83,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.StringVar(&providerService, "provider-service", providerService, "Identity Provider service")
 	f.StringVar(&dnsSuffix, "dns-suffix", dnsSuffix, "DNS Suffix for certs")
 	f.StringVar(&refreshInterval, "refresh-interval", refreshInterval, "cert refresh interval")
+	f.Int64Var(&delayJitterSeconds, "delay-jitter-seconds", delayJitterSeconds, "delay bootup with random jitter within the specified seconds")
 	f.StringVar(&keyFile, "out-key", keyFile, "key file to write")
 	f.StringVar(&certFile, "out-cert", certFile, "cert file to write")
 	f.StringVar(&certSecret, "out-cert-secret", certSecret, "Kubernetes secret name to backup cert (Backup will be disabled if empty)")
@@ -156,26 +159,27 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	}
 
 	return &identity.IdentityConfig{
-		Init:              init,
-		Backup:            backup,
-		KeyFile:           keyFile,
-		CertFile:          certFile,
-		CertSecret:        certSecret,
-		CaCertFile:        caCertFile,
-		Refresh:           ri,
-		Reloader:          reloader,
-		ServerCACert:      serverCACert,
-		SaTokenFile:       saTokenFile,
-		Endpoint:          endpoint,
-		ProviderService:   providerService,
-		DNSSuffix:         dnsSuffix,
-		Namespace:         namespace,
-		ServiceAccount:    serviceAccount,
-		PodIP:             podIP,
-		PodUID:            podUID,
-		RoleCertDir:       roleCertDir,
-		TargetDomainRoles: targetDomainRoles,
-		DeleteInstanceID:  deleteInstanceID,
+		Init:               init,
+		Backup:             backup,
+		KeyFile:            keyFile,
+		CertFile:           certFile,
+		CertSecret:         certSecret,
+		CaCertFile:         caCertFile,
+		Refresh:            ri,
+		DelayJitterSeconds: delayJitterSeconds,
+		Reloader:           reloader,
+		ServerCACert:       serverCACert,
+		SaTokenFile:        saTokenFile,
+		Endpoint:           endpoint,
+		ProviderService:    providerService,
+		DNSSuffix:          dnsSuffix,
+		Namespace:          namespace,
+		ServiceAccount:     serviceAccount,
+		PodIP:              podIP,
+		PodUID:             podUID,
+		RoleCertDir:        roleCertDir,
+		TargetDomainRoles:  targetDomainRoles,
+		DeleteInstanceID:   deleteInstanceID,
 	}, nil
 }
 
@@ -335,6 +339,10 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	if idConfig.Init {
+		rand.Seed(time.Now().UnixNano())
+		sleep := time.Duration(rand.Int63n(int64(idConfig.DelayJitterSeconds)))
+		log.Infof("Delaying with jitter [%d] randomized from [%d] seconds", sleep, idConfig.DelayJitterSeconds)
+		time.Sleep(sleep)
 		return backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
 	}
 
