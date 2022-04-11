@@ -297,15 +297,15 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 
 		var roleCerts [](*identity.RoleCertificate)
 		if idConfig.TargetDomainRoles != "" {
-			log.Infoln("Attempting to retrieve x509 role cert from identity provider...")
+			log.Infoln("Attempting to retrieve x509 role certs from identity provider...")
 
 			roleCerts, err = handler.GetX509RoleCert(id, keyPem)
 			if err != nil {
-				log.Errorf("Error while retrieving x509 role cert: %s", err.Error())
+				log.Errorf("Error while retrieving x509 role certs: %s", err.Error())
 				return err
 			}
 
-			log.Infoln("Successfully retrieved x509 role cert from identity provider")
+			log.Infoln("Successfully retrieved x509 role certs from identity provider")
 		}
 
 		return writeFiles(id, keyPem, roleCerts)

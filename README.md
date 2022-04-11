@@ -18,7 +18,7 @@
       H==>I[Success];
       H-->I'[Failure];
       I'-->C
-      I==>J{Attempting to<br/> retrieve x509 role cert<br/> from identity provider};
+      I==>J{Attempt to<br/> retrieve x509 role certs<br/> from identity provider};
       J==>K[Success];
       J-->K'[Failure];
       K'-->C
