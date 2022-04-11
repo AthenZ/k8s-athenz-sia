@@ -4,7 +4,7 @@
 
 ```mermaid
   graph TD;
-      A[Booting up]==>B[Map Athenz domain];
+      A[Bootup]==>B[Initialize configurations];
       B==>C[Create/Refresh cert<br/> in every configured period];
       C==>D{Attempt to<br/> create/refresh x509 cert<br/> from identity provider};
       D==>E[Success];
@@ -14,10 +14,14 @@
       G==>J
       F-->G'[Failure];
       G'-->C
+      F==>G''[No kubernetes secret configured];
+      G''==>J
       E==>H{Attempt to<br/> save x509 cert<br/> to kubernetes secret};
       H==>I[Success];
       H-->I'[Failure];
       I'-->C
+      H==>I''[No kubernetes secret configured];
+      I''==>J
       I==>J{Attempt to<br/> retrieve x509 role certs<br/> from identity provider};
       J==>K[Success];
       J-->K'[Failure];
