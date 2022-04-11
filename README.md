@@ -22,6 +22,8 @@
       J==>K[Success];
       J-->K'[Failure];
       K'-->C
+      J==>K''[No roles configured];
+      K''==>L
       K==>L{Write certs to volume}
       L==>M[Success];
       L-->M'[Failure];
