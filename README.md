@@ -25,14 +25,18 @@
       I==>J{Attempt to<br/> retrieve x509 role certs<br/> from identity provider};
       J==>K[Success];
       J-->K'[Failure];
-      K'-->C
       J==>K''[No roles configured];
-      K''==>L
-      K==>L{Write certs to volume}
+      K''==>N
+      K==>L{Write instance/role certs to volume}
       L==>M[Success];
       L-->M'[Failure];
       M'-->C
       M==>C
+      K'==>N{Write instance cert to volume}
+      N==>O[Success];
+      N-->O'[Failure];
+      O'-->C
+      O==>C
 ```
 
 ## Usage
