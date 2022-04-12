@@ -4,19 +4,19 @@
 
 ```mermaid
   graph TD;
-      A[Bootup]==>B[Initialize configurations];
-      B==>C[Create/Refresh cert<br/> in every configured period];
-      C==>D{Attempt to<br/> create/refresh x509 cert<br/> from identity provider};
+      A[Bootup]==>B[Initialize configurations<br/> (delay within configured jitter seconds)];
+      B==>C[Create/Refresh x509 certs<br/> in every configured period];
+      C==>D{Attempt to<br/> create/refresh x509 instance cert<br/> from identity provider};
       D==>E[Success];
       D-->E'[Failure];
-      E'-->F{Attempt to<br/> load x509 cert temporary backup<br/> from kubernetes secret}
+      E'-->F{Attempt to<br/> load x509 instance cert temporary backup<br/> from kubernetes secret}
       F==>G[Success];
       G==>J
       F-->G'[Failure];
       G'-->C
       F==>G''[No kubernetes secret configured];
       G''==>J
-      E==>H{Attempt to<br/> save x509 cert<br/> to kubernetes secret};
+      E==>H{Attempt to<br/> save x509 instance cert<br/> to kubernetes secret};
       H==>I[Success];
       H-->I'[Failure];
       I'-->C
@@ -27,12 +27,12 @@
       J-->K'[Failure];
       J==>K''[No roles configured];
       K''==>N
-      K==>L{Write instance/role certs to volume}
+      K==>L{Write x509 instance/role certs to volume}
       L==>M[Success];
       L-->M'[Failure];
       M'-->C
       M==>C
-      K'==>N{Write instance cert to volume}
+      K'==>N{Write x509 instance cert to volume}
       N==>O[Success];
       N-->O'[Failure];
       O'-->C
@@ -43,7 +43,9 @@
 ```
 Usage of athenz-sia:
   -backup-mode string
-    	Kubernetes secret backup mode, must be one of read or write (Note: Do not perform writes with a large number of concurrency) (default "read")
+    	Kubernetes secret backup mode, must be one of read or write (Note: Performing writes with a large number of concurrency may cause unexpected loads on k8s api) (default "read")
+  -delay-jitter-seconds int
+    	delay boot with random jitter within the specified seconds (0 to disable)
   -delete-instance-id
     	delete x509 cert record from identity provider when stop signal is sent (default true)
   -dns-suffix string
