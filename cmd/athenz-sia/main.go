@@ -60,6 +60,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		providerService       = envOrDefault("PROVIDER_SERVICE", "")
 		dnsSuffix             = envOrDefault("DNS_SUFFIX", "")
 		refreshInterval       = envOrDefault("REFRESH_INTERVAL", "24h")
+		delayJitterSeconds, _ = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
 		keyFile               = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
 		certFile              = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
 		certSecret            = envOrDefault("CERT_SECRET", "")
@@ -75,7 +76,6 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		roleCertDir           = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
 		targetDomainRoles     = envOrDefault("TARGET_DOMAIN_ROLES", "")
 		deleteInstanceID, _   = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
-		delayJitterSeconds, _ = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "5"), 10, 64)
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
 	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh, required")
@@ -338,11 +338,14 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 		return nil
 	}
 
-	if idConfig.Init {
+	if idConfig.DelayJitterSeconds != 0 {
 		rand.Seed(time.Now().UnixNano())
-		sleep := time.Duration(rand.Int63n(int64(idConfig.DelayJitterSeconds))) * time.Second
-		log.Infof("Delaying with jitter [%s] randomized from [%s]...", sleep, time.Duration(int64(idConfig.DelayJitterSeconds))*time.Second)
+		sleep := time.Duration(rand.Int63n(idConfig.DelayJitterSeconds)) * time.Second
+		log.Infof("Delaying boot with jitter [%s] randomized from [%s]...", sleep, time.Duration(idConfig.DelayJitterSeconds)*time.Second)
 		time.Sleep(sleep)
+	}
+
+	if idConfig.Init {
 		return backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
 	}
 
