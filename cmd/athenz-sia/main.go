@@ -340,8 +340,8 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 
 	if idConfig.Init {
 		rand.Seed(time.Now().UnixNano())
-		sleep := time.Duration(rand.Int63n(int64(idConfig.DelayJitterSeconds)))
-		log.Infof("Delaying with jitter [%d] randomized from [%d] seconds", sleep, idConfig.DelayJitterSeconds)
+		sleep := time.Duration(rand.Int63n(int64(idConfig.DelayJitterSeconds))) * time.Second
+		log.Infof("Delaying with jitter [%s] randomized from [%s]...", sleep, time.Duration(int64(idConfig.DelayJitterSeconds))*time.Second)
 		time.Sleep(sleep)
 		return backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
 	}
