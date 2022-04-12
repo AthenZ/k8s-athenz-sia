@@ -4,7 +4,7 @@
 
 ```mermaid
   graph TD;
-      A[Bootup]==>B[Initialize configurations<br/> (delay within configured jitter seconds)];
+      A[Bootup]==>B["Initialize configurations<br/> (delay within configured jitter seconds)"];
       B==>C[Create/Refresh x509 certs<br/> in every configured period];
       C==>D{Attempt to<br/> create/refresh x509 instance cert<br/> from identity provider};
       D==>E[Success];
