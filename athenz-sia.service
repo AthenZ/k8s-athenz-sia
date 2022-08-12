@@ -1,0 +1,25 @@
+[Unit]
+Description=Athenz service identity agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/var/run/athenz
+PIDFile=/var/run/athenz/athenz-sia.pid
+ExecStart=/usr/bin/athenz-sia
+PermissionsStartOnly=true
+EnvironmentFile=/etc/athenz/athenz-sia.env
+ExecStartPre=/bin/sh -c '/usr/bin/install -m 755 -o $USER -g `id -g $USER` -d /var/run/athenz'
+KillMode=process
+Restart=always
+RestartSec=5s
+LimitNOFILE=65536
+StartLimitInterval=60s
+StartLimitBurst=3
+SuccessExitStatus=143 0
+
+[Install]
+WantedBy=multi-user.target

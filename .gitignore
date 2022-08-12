@@ -1,18 +1,45 @@
-go.sum
-athenz-sia
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
+.glide/
+
+# Third-party libraries
+vendor/*
+
+# Go build binary
 k8s-athenz-sia
+athenz-sia
+
+# packages
+*.rpm
+*.deb
+*.apk
 
 # Output
 *.log
-*.yaml
+./*.yaml
 
 # IDE
 .idea*
 .vscode*
 
-# Credentials
+# Credentials to test runnnig the built binary
 *.pem
 *.crt
 *.key
 *.roletoken
 *.accesstoken
+*.tmp
+
+# Log files from the built binary
+*.log
