@@ -62,7 +62,7 @@ func NewSecretClient(name, namespace string) (*SecretsClient, error) {
 	}, nil
 }
 
-// GetIdentitySecret retrieves Kubernetes Secret
+// GetIdentitySecret gets Kubernetes Secret
 func (c *SecretsClient) GetIdentitySecret() (secret *corev1.Secret, isNotFound bool, err error) {
 	// Type: "k8s.io/api/core/v1".Secret
 	// See: https://github.com/kubernetes/api/blob/v0.23.5/core/v1/types.go#L6003-L6038
@@ -147,7 +147,7 @@ func (c *SecretsClient) ApplyIdentitySecret(key, cert []byte) (*corev1.Secret, e
 	}
 
 	// See: https://github.com/kubernetes/client-go/blob/v0.23.5/kubernetes/typed/core/v1/secret.go#L184-L208
-	return c.client.Apply(context.TODO(), applyConfig, metav1.ApplyOptions{FieldManager: "application/apply-patch", Force: true})
+	return c.client.Apply(context.TODO(), applyConfig, metav1.ApplyOptions{FieldManager: "athenz-sia-server-side-apply", Force: true})
 }
 
 func (c *SecretsClient) prepareNewTLSSecret(key, cert []byte) *corev1.Secret {

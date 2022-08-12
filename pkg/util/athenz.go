@@ -11,11 +11,7 @@ const NS_DELIMITER = "-"
 const DOMAIN_DELIMITER = "."
 
 // NamespaceToDomain converts a kube namespace to an Athenz domain
-func NamespaceToDomain(ns string) (domain string) {
-	d := envOrDefault("ATHENZ_DOMAIN", "")
-	pre := envOrDefault("ATHENZ_PREFIX", "")
-	suf := envOrDefault("ATHENZ_SUFFIX", "")
-
+func NamespaceToDomain(ns, pre, d, suf string) (domain string) {
 	if d == "" {
 		return pre + ns + suf
 	}

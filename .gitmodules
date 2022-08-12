@@ -1,0 +1,4 @@
+[submodule "x509-certificate-exporter"]
+	path = x509-certificate-exporter
+    url = https://github.com/enix/x509-certificate-exporter.git
+    branch = main

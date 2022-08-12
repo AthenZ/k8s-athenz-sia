@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -11,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
 	"github.com/yahoo/k8s-athenz-identity/pkg/log"
 	"github.com/yahoo/k8s-athenz-identity/pkg/util"
@@ -23,9 +21,10 @@ const serviceName = "athenz-sia"
 
 var errEarlyExit = fmt.Errorf("early exit")
 
-var VERSION string
-
-var BUILD_DATE string
+var (
+	VERSION    string
+	BUILD_DATE string
+)
 
 // printVersion returns the version and the built date of the executable itself
 func printVersion() {
@@ -34,11 +33,16 @@ func printVersion() {
 	} else {
 		fmt.Printf("Version: %s\n", VERSION)
 		fmt.Printf("Build Date: %s\n", BUILD_DATE)
+		fmt.Println("===== Default Values =====")
+		fmt.Printf("Athenz Endpoint: %s\n", identity.DEFAULT_ENDPOINT)
+		fmt.Printf("Certificate SANs DNS Suffix: %s\n", identity.DEFAULT_DNS_SUFFIX)
 		fmt.Printf("Country: %s\n", identity.DEFAULT_COUNTRY)
 		fmt.Printf("Province: %s\n", identity.DEFAULT_PROVINCE)
 		fmt.Printf("Organization: %s\n", identity.DEFAULT_ORGANIZATION)
 		fmt.Printf("OrganizationalUnit: %s\n", identity.DEFAULT_ORGANIZATIONAL_UNIT)
 		fmt.Printf("Role Cert Expiry Time Buffer Minutes: %d\n", identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT)
+		fmt.Printf("Role Cert Filename Delimiter: %s\n", identity.DEFAULT_ROLE_CERT_FILENAME_DELIMITER)
+		fmt.Printf("Role Token Header: %s\n", identity.DEFAULT_ROLE_AUTH_HEADER)
 	}
 }
 
@@ -54,48 +58,64 @@ func envOrDefault(name string, defaultValue string) string {
 // parseFlags parses ENV and cmd line args and returns an IdentityConfig object
 func parseFlags(program string, args []string) (*identity.IdentityConfig, error) {
 	var (
-		mode                  = envOrDefault("MODE", "init")
-		backupMode            = envOrDefault("BACKUP_MODE", "read")
-		endpoint              = envOrDefault("ENDPOINT", "")
-		providerService       = envOrDefault("PROVIDER_SERVICE", "")
-		dnsSuffix             = envOrDefault("DNS_SUFFIX", "")
-		refreshInterval       = envOrDefault("REFRESH_INTERVAL", "24h")
-		delayJitterSeconds, _ = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
-		keyFile               = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
-		certFile              = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
-		certSecret            = envOrDefault("CERT_SECRET", "")
-		caCertFile            = envOrDefault("CA_CERT_FILE", "/var/run/athenz/ca.cert.pem")
-		logDir                = envOrDefault("LOG_DIR", "/var/log/athenz-sia")
-		logLevel              = envOrDefault("LOG_LEVEL", "INFO")
-		namespace             = envOrDefault("NAMESPACE", "")
-		serviceAccount        = envOrDefault("SERVICEACCOUNT", "")
-		podIP                 = envOrDefault("POD_IP", "")
-		podUID                = envOrDefault("POD_UID", "")
-		saTokenFile           = envOrDefault("SA_TOKEN_FILE", "/var/run/secrets/kubernetes.io/bound-serviceaccount/token")
-		serverCACert          = envOrDefault("SERVER_CA_CERT", "")
-		roleCertDir           = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
-		targetDomainRoles     = envOrDefault("TARGET_DOMAIN_ROLES", "")
-		deleteInstanceID, _   = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
+		mode                      = envOrDefault("MODE", "init")
+		endpoint                  = envOrDefault("ENDPOINT", identity.DEFAULT_ENDPOINT)
+		providerService           = envOrDefault("PROVIDER_SERVICE", "")
+		dnsSuffix                 = envOrDefault("DNS_SUFFIX", identity.DEFAULT_DNS_SUFFIX)
+		refreshInterval           = envOrDefault("REFRESH_INTERVAL", "24h")
+		delayJitterSeconds, _     = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
+		keyFile                   = envOrDefault("KEY_FILE", "")
+		certFile                  = envOrDefault("CERT_FILE", "")
+		caCertFile                = envOrDefault("CA_CERT_FILE", "")
+		intermediateCertBundle    = envOrDefault("INTERMEDIATE_CERT_BUNDLE", identity.DEFAULT_INTERMEDIATE_CERT_BUNDLE)
+		logDir                    = envOrDefault("LOG_DIR", "")
+		logLevel                  = envOrDefault("LOG_LEVEL", "INFO")
+		backup                    = envOrDefault("BACKUP", "read+write")
+		certSecret                = envOrDefault("CERT_SECRET", "")
+		namespace                 = envOrDefault("NAMESPACE", "")
+		athenzDomain              = envOrDefault("ATHENZ_DOMAIN", "")
+		athenzPrefix              = envOrDefault("ATHENZ_PREFIX", "")
+		athenzSuffix              = envOrDefault("ATHENZ_SUFFIX", "")
+		serviceAccount            = envOrDefault("SERVICEACCOUNT", "")
+		saTokenFile               = envOrDefault("SA_TOKEN_FILE", "")
+		podIP                     = envOrDefault("POD_IP", "127.0.0.1")
+		podUID                    = envOrDefault("POD_UID", "")
+		serverCACert              = envOrDefault("SERVER_CA_CERT", "")
+		targetDomainRoles         = envOrDefault("TARGET_DOMAIN_ROLES", "")
+		roleCertDir               = envOrDefault("ROLECERT_DIR", "")
+		roleCertFilenameDelimiter = envOrDefault("ROLE_CERT_FILENAME_DELIMITER", identity.DEFAULT_ROLE_CERT_FILENAME_DELIMITER)
+		tokenDir                  = envOrDefault("TOKEN_DIR", "")
+		roleAuthHeader            = envOrDefault("ROLE_AUTH_HEADER", identity.DEFAULT_ROLE_AUTH_HEADER)
+		tokenType                 = envOrDefault("TOKEN_TYPE", "accesstoken")
+		tokenRefreshInterval      = envOrDefault("TOKEN_REFRESH_INTERVAL", "30m")
+		tokenServerAddr           = envOrDefault("TOKEN_SERVER_ADDR", "")
+		metricsServerAddr         = envOrDefault("METRICS_SERVER_ADDR", "")
+		deleteInstanceID, _       = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
-	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh, required")
-	f.StringVar(&endpoint, "endpoint", endpoint, "Athenz ZTS endpoint")
-	f.StringVar(&providerService, "provider-service", providerService, "Identity Provider service")
-	f.StringVar(&dnsSuffix, "dns-suffix", dnsSuffix, "DNS Suffix for certs")
-	f.StringVar(&refreshInterval, "refresh-interval", refreshInterval, "cert refresh interval")
+	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh")
+	f.StringVar(&endpoint, "endpoint", endpoint, "Athenz ZTS endpoint (required for identity/role certificate and token provisioning)")
+	f.StringVar(&providerService, "provider-service", providerService, "Identity Provider service (required for identity certificate provisioning)")
+	f.StringVar(&dnsSuffix, "dns-suffix", dnsSuffix, "DNS Suffix for x509 identity/role certificates (required for identity/role certificate provisioning)")
+	f.StringVar(&refreshInterval, "refresh-interval", refreshInterval, "certificate refresh interval")
 	f.Int64Var(&delayJitterSeconds, "delay-jitter-seconds", delayJitterSeconds, "delay boot with random jitter within the specified seconds (0 to disable)")
-	f.StringVar(&keyFile, "out-key", keyFile, "key file to write")
-	f.StringVar(&certFile, "out-cert", certFile, "cert file to write")
-	f.StringVar(&certSecret, "out-cert-secret", certSecret, "Kubernetes secret name to backup cert (Backup will be disabled if empty)")
-	f.StringVar(&backupMode, "backup-mode", backupMode, "Kubernetes secret backup mode, must be one of read or write (Note: Performing writes with a large number of concurrency may cause unexpected loads on k8s api)")
-	f.StringVar(&caCertFile, "out-ca-cert", caCertFile, "CA cert file to write")
-	f.StringVar(&logDir, "log-dir", logDir, "directory to store the server log files")
+	f.StringVar(&keyFile, "key", keyFile, "key file for the certificate (required)")
+	f.StringVar(&certFile, "cert", certFile, "certificate file to identity a service (required)")
+	f.StringVar(&caCertFile, "out-ca-cert", caCertFile, "CA certificate file to write")
+	f.StringVar(&logDir, "log-dir", logDir, "directory to store the log files")
 	f.StringVar(&logLevel, "log-level", logLevel, "logging level")
-	f.StringVar(&saTokenFile, "sa-token-file", saTokenFile, "bound sa jwt token file location")
-	f.StringVar(&serverCACert, "server-ca-cert", serverCACert, "path to CA cert file to verify ZTS server certs")
-	f.StringVar(&roleCertDir, "out-rolecert-dir", roleCertDir, "directory to write cert file for role certificates")
-	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain:role.admin,sys.auth:role.providers)")
-	f.BoolVar(&deleteInstanceID, "delete-instance-id", deleteInstanceID, "delete x509 cert record from identity provider when stop signal is sent")
+	f.StringVar(&backup, "backup", backup, "backup certificate to Kubernetes secret (\"read\", \"write\" or \"read+write\", must be run uniquely for each secret to prevent conflict)")
+	f.StringVar(&certSecret, "cert-secret", certSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
+	f.StringVar(&saTokenFile, "sa-token-file", saTokenFile, "bound sa jwt token file location (required for identity certificate provisioning)")
+	f.StringVar(&serverCACert, "server-ca-cert", serverCACert, "path to CA certificate file to verify ZTS server certs")
+	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+roleCertFilenameDelimiter+"admin,sys.auth"+roleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
+	f.StringVar(&roleCertDir, "rolecert-dir", roleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
+	f.StringVar(&tokenDir, "token-dir", tokenDir, "directory to write token files")
+	f.StringVar(&tokenType, "token-type", tokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
+	f.StringVar(&tokenRefreshInterval, "token-refresh-interval", tokenRefreshInterval, "token refresh interval")
+	f.StringVar(&tokenServerAddr, "token-server-addr", tokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
+	f.StringVar(&metricsServerAddr, "metrics-server-addr", metricsServerAddr, "HTTP server address to provide metrics")
+	f.BoolVar(&deleteInstanceID, "delete-instance-id", deleteInstanceID, "delete x509 certificate record from identity provider when stop signal is sent")
 
 	err := f.Parse(args)
 	if err != nil {
@@ -106,27 +126,34 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		log.InitLogger(filepath.Join(logDir, fmt.Sprintf("%s.%s.log", serviceName, logLevel)), logLevel, true)
 		return nil, err
 	}
-
 	log.InitLogger(filepath.Join(logDir, fmt.Sprintf("%s.%s.log", serviceName, logLevel)), logLevel, true)
+
 	if !(mode == "init" || mode == "refresh") {
-		return nil, fmt.Errorf("Invalid mode %q must be one of init or refresh", mode)
+		return nil, fmt.Errorf("Invalid mode [%q] must be one of \"init\" or \"refresh\"", mode)
 	}
 	init := mode == "init"
-	backup := backupMode == "write"
 
 	ri, err := time.ParseDuration(refreshInterval)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid refresh interval %q, %v", refreshInterval, err)
+		return nil, fmt.Errorf("Invalid refresh interval [%q], %v", refreshInterval, err)
+	}
+	tri, err := time.ParseDuration(tokenRefreshInterval)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid token refresh interval [%q], %v", tokenRefreshInterval, err)
 	}
 
 	pollInterval := ri
 	if pollInterval > util.DefaultPollInterval {
 		pollInterval = util.DefaultPollInterval
 	}
+	pollTokenInterval := tri
+	if pollTokenInterval > 4*time.Hour {
+		pollTokenInterval = 4 * time.Hour
+	}
 	reloader, err := util.NewCertReloader(util.ReloadConfig{
 		KeyFile:      keyFile,
 		CertFile:     certFile,
-		Logger:       log.Debugf,
+		Logger:       log.Infof,
 		PollInterval: pollInterval,
 	})
 
@@ -139,8 +166,8 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	// to the kube and kubelet APIs. So, we might end up getting an X.509 certificate with the old pod IP.
 	// To avoid this, we fail the current run with an error to force SYNC the status on the pod resource and let
 	// the subsequent retry for the init container to attempt to get a new certificate from the identity provider.
-	if init && err == nil {
-		log.Errorf("SIA(init) detected the existence of X.509 cert at %s", certFile)
+	if init && err == nil && providerService != "" {
+		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", certFile)
 		cert, err := reloader.GetLatestCertificate()
 		if err != nil {
 			log.Infof("[X.509 Certificate] Subject: %v, DNS SANs: %v, IPs: %v", cert.Leaf.Subject, cert.Leaf.DNSNames, cert.Leaf.IPAddresses)
@@ -152,221 +179,46 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		if err := os.Remove(keyFile); err != nil {
 			log.Errorf("Error deleting %s file: %s", keyFile, err.Error())
 		}
-		return nil, errors.New("X.509 certificate already exists.")
+		return nil, errors.New("Deleted X.509 certificate that already existed.")
 	}
 	if !init && err != nil {
 		return nil, errors.Wrap(err, "unable to read key and cert")
 	}
 
 	return &identity.IdentityConfig{
-		Init:               init,
-		Backup:             backup,
-		KeyFile:            keyFile,
-		CertFile:           certFile,
-		CertSecret:         certSecret,
-		CaCertFile:         caCertFile,
-		Refresh:            ri,
-		DelayJitterSeconds: delayJitterSeconds,
-		Reloader:           reloader,
-		ServerCACert:       serverCACert,
-		SaTokenFile:        saTokenFile,
-		Endpoint:           endpoint,
-		ProviderService:    providerService,
-		DNSSuffix:          dnsSuffix,
-		Namespace:          namespace,
-		ServiceAccount:     serviceAccount,
-		PodIP:              podIP,
-		PodUID:             podUID,
-		RoleCertDir:        roleCertDir,
-		TargetDomainRoles:  targetDomainRoles,
-		DeleteInstanceID:   deleteInstanceID,
+		Init:                      init,
+		Endpoint:                  endpoint,
+		ProviderService:           providerService,
+		DNSSuffix:                 dnsSuffix,
+		Refresh:                   ri,
+		DelayJitterSeconds:        delayJitterSeconds,
+		KeyFile:                   keyFile,
+		CertFile:                  certFile,
+		CaCertFile:                caCertFile,
+		IntermediateCertBundle:    intermediateCertBundle,
+		Backup:                    backup,
+		CertSecret:                certSecret,
+		Namespace:                 namespace,
+		AthenzDomain:              athenzDomain,
+		AthenzPrefix:              athenzPrefix,
+		AthenzSuffix:              athenzSuffix,
+		ServiceAccount:            serviceAccount,
+		SaTokenFile:               saTokenFile,
+		PodIP:                     podIP,
+		PodUID:                    podUID,
+		Reloader:                  reloader,
+		ServerCACert:              serverCACert,
+		TargetDomainRoles:         targetDomainRoles,
+		RoleCertDir:               roleCertDir,
+		RoleCertFilenameDelimiter: roleCertFilenameDelimiter,
+		RoleAuthHeader:            roleAuthHeader,
+		TokenType:                 tokenType,
+		TokenRefresh:              tri,
+		TokenServerAddr:           tokenServerAddr,
+		TokenDir:                  tokenDir,
+		MetricsServerAddr:         metricsServerAddr,
+		DeleteInstanceID:          deleteInstanceID,
 	}, nil
-}
-
-func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
-
-	writeFiles := func(id *identity.InstanceIdentity, keyPEM []byte, roleCerts [](*identity.RoleCertificate)) error {
-		leafPEM := []byte(id.X509CertificatePEM)
-		caCertPEM := []byte(id.X509CACertificatePEM)
-		x509Cert, err := util.CertificateFromPEMBytes(leafPEM)
-		if err != nil {
-			return errors.Wrap(err, "unable to parse x509 cert")
-		}
-		log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
-			x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
-		w := util.NewWriter()
-		log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), idConfig.CertFile)
-		if err := w.AddBytes(idConfig.CertFile, 0644, leafPEM); err != nil {
-			return errors.Wrap(err, "unable to save x509 cert")
-		}
-		log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idConfig.KeyFile)
-		if err := w.AddBytes(idConfig.KeyFile, 0644, keyPEM); err != nil { // TODO: finalize perms and user
-			return errors.Wrap(err, "unable to save x509 key")
-		}
-		if len(caCertPEM) != 0 {
-			log.Debugf("Saving x509 cacert[%d bytes] at %s", len(caCertPEM), idConfig.CaCertFile)
-			if err := w.AddBytes(idConfig.CaCertFile, 0644, caCertPEM); err != nil {
-				return errors.Wrap(err, "unable to save x509 cacert")
-			}
-		}
-		if roleCerts != nil {
-			for _, rolecert := range roleCerts {
-				roleCertPEM := []byte(rolecert.X509Certificate)
-				if len(roleCertPEM) != 0 {
-					log.Infof("[New Role Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
-						rolecert.Subject, rolecert.Issuer, rolecert.NotBefore, rolecert.NotAfter, rolecert.SerialNumber, rolecert.DNSNames)
-					outPath := filepath.Join(idConfig.RoleCertDir, rolecert.Domain+":role."+rolecert.Role+".cert.pem")
-					log.Debugf("Saving x509 role cert[%d bytes] at %s", len(roleCertPEM), outPath)
-					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {
-						return errors.Wrap(err, "unable to save x509 role cert")
-					}
-				}
-			}
-		}
-
-		return w.Save()
-	}
-
-	// getExponentialBackoff will return a backoff config with first retry delay of 5s, and backoff retry
-	// until params.refresh / 4
-	getExponentialBackoff := func() *backoff.ExponentialBackOff {
-		b := backoff.NewExponentialBackOff()
-		b.InitialInterval = 5 * time.Second
-		b.Multiplier = 2
-		b.MaxElapsedTime = idConfig.Refresh / 4
-		return b
-	}
-
-	notifyOnErr := func(err error, backoffDelay time.Duration) {
-		log.Errorf("Failed to create/refresh cert: %s. Retrying in %s", err.Error(), backoffDelay)
-	}
-
-	handler, err := identity.InitIdentityHandler(idConfig)
-	if err != nil {
-		log.Errorf("Error while initializing handler: %s", err.Error())
-		return err
-	}
-	log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
-
-	postRequest := func() error {
-
-		var id *identity.InstanceIdentity
-		var keyPem []byte
-
-		log.Infoln("Attempting to create/refresh x509 cert from identity provider...")
-
-		id, keyPem, err = handler.GetX509Cert()
-		if err != nil {
-
-			log.Errorf("Error while creating/refreshing x509 cert from identity provider: %s", err.Error())
-
-			if idConfig.CertSecret != "" {
-				log.Warnf("Attempting to load x509 cert temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
-
-				id, keyPem, err = handler.GetX509CertFromSecret()
-				if err != nil {
-					log.Errorf("Error while loading x509 cert temporary backup from kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
-					return err
-				}
-
-				if id == nil || len(keyPem) == 0 {
-					log.Errorf("Failed to load x509 cert temporary backup from kubernetes secret[%s]: secret was empty", idConfig.CertSecret)
-					return nil
-				} else {
-
-					log.Infof("Successfully loaded x509 cert from kubernetes secret[%s]", idConfig.CertSecret)
-
-				}
-			} else {
-
-				return err
-			}
-		} else {
-
-			log.Infoln("Successfully created/refreshed x509 cert from identity provider")
-
-			if idConfig.CertSecret != "" && idConfig.Backup {
-				log.Infof("Attempting to save x509 cert to kubernetes secret[%s]...", idConfig.CertSecret)
-
-				err = handler.ApplyX509CertToSecret(id, keyPem)
-				if err != nil {
-					log.Errorf("Error while saving x509 cert to kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
-					return err
-				}
-
-				log.Infof("Successfully saved x509 cert to kubernetes secret[%s]", idConfig.CertSecret)
-
-			}
-		}
-
-		var roleCerts [](*identity.RoleCertificate)
-		if idConfig.TargetDomainRoles != "" {
-			log.Infoln("Attempting to retrieve x509 role certs from identity provider...")
-
-			roleCerts, err = handler.GetX509RoleCert(id, keyPem)
-			if err != nil {
-				log.Errorf("Error while retrieving x509 role certs: %s", err.Error())
-				writeerr := writeFiles(id, keyPem, roleCerts)
-				if writeerr != nil {
-					log.Errorf("Error while writing x509 role certs: %s", writeerr.Error())
-					err = errors.Wrap(err, writeerr.Error())
-				}
-				return err
-			}
-
-			log.Infoln("Successfully retrieved x509 role certs from identity provider")
-		}
-
-		return writeFiles(id, keyPem, roleCerts)
-	}
-
-	deleteRequest := func() error {
-		if idConfig.DeleteInstanceID {
-			log.Infoln("Attempting to delete x509 cert record from identity provider...")
-
-			err := handler.DeleteX509CertRecord()
-			if err != nil {
-				log.Errorf("Error while deleting x509 cert record: %s", err.Error())
-				return err
-			}
-
-			log.Infof("Deleted Instance ID record[%s]", handler.InstanceID())
-
-			log.Infoln("Successfully deleted x509 cert record from identity provider")
-		}
-
-		return nil
-	}
-
-	if idConfig.DelayJitterSeconds != 0 {
-		rand.Seed(time.Now().UnixNano())
-		sleep := time.Duration(rand.Int63n(idConfig.DelayJitterSeconds)) * time.Second
-		log.Infof("Delaying boot with jitter [%s] randomized from [%s]...", sleep, time.Duration(idConfig.DelayJitterSeconds)*time.Second)
-		time.Sleep(sleep)
-	}
-
-	if idConfig.Init {
-		return backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
-	}
-
-	t := time.NewTicker(idConfig.Refresh)
-	defer t.Stop()
-	for {
-		log.Infof("Refreshing cert[%s] roles[%v] in %s", idConfig.CertFile, idConfig.TargetDomainRoles, idConfig.Refresh)
-		select {
-		case <-t.C:
-			err := backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
-			if err != nil {
-				log.Errorf("Failed to refresh cert after multiple retries: %s", err.Error())
-			}
-		case <-stopChan:
-			deleteRequest()
-			if err != nil {
-				log.Errorf("Failed to delete cert record: %s", err.Error())
-			}
-			return nil
-		}
-	}
 }
 
 func main() {
@@ -377,14 +229,9 @@ func main() {
 		return
 	}
 
-	stopChan := make(chan struct{})
+	certificateChan := make(chan struct{})
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGTERM, os.Interrupt)
-	go func() {
-		<-ch
-		log.Println("Shutting down...")
-		close(stopChan)
-	}()
 
 	idConfig, err := parseFlags(filepath.Base(os.Args[0]), os.Args[1:])
 	if err != nil {
@@ -393,10 +240,17 @@ func main() {
 		}
 		log.Fatalln(err)
 	}
-
 	log.Infoln("Booting up with args", os.Args)
-	err = run(idConfig, stopChan)
+
+	err = identity.Certificated(idConfig, certificateChan)
 	if err != nil && err != errEarlyExit {
 		log.Fatalln(err)
 	}
+
+	if !idConfig.Init {
+		<-ch // wait until receiving os.Signal from channel ch
+		log.Println("Shutting down...")
+	}
+
+	close(certificateChan)
 }
