@@ -22,3 +22,13 @@ k8s-athenz-sia
 # IDE
 .idea*
 .vscode*
+
+# Credentials to test runnnig the built binary
+*.pem
+*.crt
+*.key
+*.roletoken
+*.accesstoken
+
+# Log files from the built binary
+*.log

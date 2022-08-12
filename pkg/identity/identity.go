@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
+	"github.com/AthenZ/athenz/libs/go/athenzutils"
 	"github.com/yahoo/k8s-athenz-identity/pkg/util"
 
 	"github.com/AthenZ/k8s-athenz-sia/pkg/k8s"
@@ -32,6 +33,7 @@ type IdentityConfig struct {
 	CertSecret         string
 	CaCertFile         string
 	Refresh            time.Duration
+	TokenRefresh       time.Duration
 	DelayJitterSeconds int64
 	Reloader           *util.CertReloader
 	ServerCACert       string
@@ -45,6 +47,7 @@ type IdentityConfig struct {
 	PodUID             string
 	RoleCertDir        string
 	TargetDomainRoles  string
+	TokenServerAddr    string
 	DeleteInstanceID   bool
 }
 
@@ -59,6 +62,20 @@ type RoleCertificate struct {
 	SerialNumber    *big.Int
 	DNSNames        []string
 	X509Certificate string
+}
+
+// RoleToken stores role token
+type RoleToken struct {
+	Domain      string
+	Role        string
+	TokenString string
+}
+
+// AccessToken stores access token
+type AccessToken struct {
+	Domain      string
+	Role        string
+	TokenString string
 }
 
 // InstanceIdentity stores instance identity certificate
@@ -84,6 +101,10 @@ var DEFAULT_PROVINCE string
 var DEFAULT_ORGANIZATION string
 var DEFAULT_ORGANIZATIONAL_UNIT string
 
+// default values for role tokens and access tokens
+var DEFAULT_TOKEN_EXPIRY_TIME string
+var DEFAULT_TOKEN_EXPIRY_TIME_INT int
+
 // DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES may be overwritten with go build option (e.g. "-X identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES=5")
 var DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES string
 var DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT int
@@ -96,6 +117,7 @@ func InitDefaultValues() {
 	DEFAULT_ORGANIZATION = setDefaultString(DEFAULT_ORGANIZATION, "")
 	DEFAULT_ORGANIZATIONAL_UNIT = setDefaultString(DEFAULT_ORGANIZATIONAL_UNIT, "Athenz")
 	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT, _ = strconv.Atoi(setDefaultString(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES, "5"))
+	DEFAULT_TOKEN_EXPIRY_TIME_INT, _ = strconv.Atoi(setDefaultString(DEFAULT_TOKEN_EXPIRY_TIME, "120"))
 }
 
 // InitIdentityHandler initializes the ZTS client and parses the config to create CSR options
@@ -242,33 +264,42 @@ func (h *identityHandler) GetX509Cert() (*InstanceIdentity, []byte, error) {
 func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (rolecerts [](*RoleCertificate), err error) {
 
 	if h.roleCsrOptions != nil {
+
+		cert, err := tls.X509KeyPair([]byte(id.X509CertificatePEM), keyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to set tls client key pair for PostRoleCertificateRequest, err: %v", err)
+		}
+		t := &http.Transport{
+			TLSClientConfig: &tls.Config{
+				MinVersion:   tls.VersionTLS12,
+				Certificates: []tls.Certificate{cert},
+			},
+		}
+		if h.config.ServerCACert != "" {
+			certPool := x509.NewCertPool()
+			caCert, err := ioutil.ReadFile(h.config.ServerCACert)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to set tls client ca cert for PostRoleCertificateRequest, err: %v", err)
+			}
+			certPool.AppendCertsFromPEM(caCert)
+			t.TLSClientConfig.RootCAs = certPool
+		}
+
+		// In init mode, the existing ZTS Client does not have client certificate set.
+		// When config.Reloader.GetLatestCertificate() is called to load client certificate, the first certificate has not written to the file yet.
+		// Therefore, ZTS Client must be renewed to make sure the ZTS Client loads the latest client certificate.
+		//
+		// The intermediate certificates may be different between each ZTS.
+		// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
+		roleCertClient := zts.NewClient(h.config.Endpoint, t)
+
+		_, key, err := util.PrivateKeyFromPEMBytes(keyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to prepare csr, failed to read private key pem bytes for PostRoleCertificateRequest, err: %v", err)
+		}
+
 		for _, csrOption := range *h.roleCsrOptions {
 			dr := strings.Split(csrOption.Subject.CommonName, ":role.")
-
-			cert, err := tls.X509KeyPair([]byte(id.X509CertificatePEM), keyPEM)
-			if err != nil {
-				return nil, fmt.Errorf("Failed to set tls client key pair for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
-			}
-			t := &http.Transport{
-				TLSClientConfig: &tls.Config{
-					MinVersion:   tls.VersionTLS12,
-					Certificates: []tls.Certificate{cert},
-				},
-			}
-			if h.config.ServerCACert != "" {
-				certPool := x509.NewCertPool()
-				caCert, err := ioutil.ReadFile(h.config.ServerCACert)
-				if err != nil {
-					return nil, fmt.Errorf("Failed to set tls client ca cert for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
-				}
-				certPool.AppendCertsFromPEM(caCert)
-				t.TLSClientConfig.RootCAs = certPool
-			}
-
-			_, key, err := util.PrivateKeyFromPEMBytes(keyPEM)
-			if err != nil {
-				return nil, fmt.Errorf("Failed to prepare csr, failed to read private key pem bytes for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
-			}
 			roleCsrPEM, err := util.GenerateCSR(key, csrOption)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to prepare csr, failed to generate csr for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
@@ -282,13 +313,6 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 				ExpiryTime: int64(x509Cert.NotAfter.Sub(time.Now()).Minutes()) + int64(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT), // Extract NotAfter from the instance certificate
 			}
 
-			// In init mode, the existing ZTS Client does not have client certificate set.
-			// When config.Reloader.GetLatestCertificate() is called to load client certificate, the first certificate has not written to the file yet.
-			// Therefore, ZTS Client must be renewed to make sure the ZTS Client loads the latest client certificate.
-			//
-			// The intermediate certificates may be different between each ZTS.
-			// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
-			roleCertClient := zts.NewClient(h.config.Endpoint, t)
 			// PostRoleCertificateRequest must be called instead of PostRoleCertificateRequestExt,
 			//     since the current version 1.9.21-SNAPSHOT set Principal Name in the Subject CommonName with PostRoleCertificateRequestExt API.
 			// Setting Principal Name in the Subject CommonName is not compatible with mTLS role-based authorization.
@@ -322,6 +346,68 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 	}
 
 	return rolecerts, err
+}
+
+// GetToken makes ZTS API calls to generate an X.509 role certificate
+func (h *identityHandler) GetToken(id *InstanceIdentity, keyPEM []byte) (roletokens [](*RoleToken), accesstokens [](*AccessToken), err error) {
+
+	if h.roleCsrOptions != nil {
+
+		//return nil, nil, fmt.Errorf("Failed to set tls client key pair for PostAccessTokenRequest, err: %v", err)
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+		tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return h.config.Reloader.GetLatestCertificate()
+		}
+		t := &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
+		if h.config.ServerCACert != "" {
+			certPool := x509.NewCertPool()
+			caCert, err := ioutil.ReadFile(h.config.ServerCACert)
+			if err != nil {
+				return nil, nil, fmt.Errorf("Failed to set tls client ca cert for PostAccessTokenRequest, err: %v", err)
+			}
+			certPool.AppendCertsFromPEM(caCert)
+			tlsConfig.RootCAs = certPool
+			t.TLSClientConfig = tlsConfig
+		}
+
+		// In init mode, the existing ZTS Client does not have client certificate set.
+		// When config.Reloader.GetLatestCertificate() is called to load client certificate, the first certificate has not written to the file yet.
+		// Therefore, ZTS Client must be renewed to make sure the ZTS Client loads the latest client certificate.
+		//
+		// The intermediate certificates may be different between each ZTS.
+		// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
+		roleClient := zts.NewClient(h.config.Endpoint, t)
+		expireTimeMs := int32(DEFAULT_TOKEN_EXPIRY_TIME_INT * 60)
+
+		for _, csrOption := range *h.roleCsrOptions {
+			dr := strings.Split(csrOption.Subject.CommonName, ":role.")
+			request := athenzutils.GenerateAccessTokenRequestString(dr[0], h.service, dr[1], "", "", int(expireTimeMs))
+			accessTokenResponse, err := roleClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
+			if err != nil {
+				return nil, nil, fmt.Errorf("PostAccessTokenRequest failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
+			}
+			accesstokens = append(accesstokens, &AccessToken{
+				Domain:      dr[0],
+				Role:        dr[1],
+				TokenString: accessTokenResponse.Access_token,
+			})
+			roletokenResponse, err := roleClient.GetRoleToken(zts.DomainName(dr[0]), zts.EntityList(dr[1]), &expireTimeMs, &expireTimeMs, "")
+			if err != nil {
+				return nil, nil, fmt.Errorf("GetRoleToken failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
+			}
+			roletokens = append(roletokens, &RoleToken{
+				Domain:      dr[0],
+				Role:        dr[1],
+				TokenString: roletokenResponse.Token,
+			})
+		}
+	}
+
+	return roletokens, accesstokens, err
 }
 
 // DeleteX509CertRecord makes ZTS API calls to delete the X.509 certificate record

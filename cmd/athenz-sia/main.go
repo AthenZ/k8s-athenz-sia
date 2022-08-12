@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -59,7 +64,8 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		endpoint              = envOrDefault("ENDPOINT", "")
 		providerService       = envOrDefault("PROVIDER_SERVICE", "")
 		dnsSuffix             = envOrDefault("DNS_SUFFIX", "")
-		refreshInterval       = envOrDefault("REFRESH_INTERVAL", "24h")
+		refreshInterval       = envOrDefault("REFRESH_INTERVAL", "4s")
+		tokenRefreshInterval  = envOrDefault("TOKEN_REFRESH_INTERVAL", "4s")
 		delayJitterSeconds, _ = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
 		keyFile               = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
 		certFile              = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
@@ -75,6 +81,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		serverCACert          = envOrDefault("SERVER_CA_CERT", "")
 		roleCertDir           = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
 		targetDomainRoles     = envOrDefault("TARGET_DOMAIN_ROLES", "")
+		tokenServerAddr       = envOrDefault("TOKEN_SERVER_ADDR", ":8880")
 		deleteInstanceID, _   = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
@@ -83,6 +90,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.StringVar(&providerService, "provider-service", providerService, "Identity Provider service")
 	f.StringVar(&dnsSuffix, "dns-suffix", dnsSuffix, "DNS Suffix for certs")
 	f.StringVar(&refreshInterval, "refresh-interval", refreshInterval, "cert refresh interval")
+	f.StringVar(&tokenRefreshInterval, "token-refresh-interval", tokenRefreshInterval, "token refresh interval")
 	f.Int64Var(&delayJitterSeconds, "delay-jitter-seconds", delayJitterSeconds, "delay boot with random jitter within the specified seconds (0 to disable)")
 	f.StringVar(&keyFile, "out-key", keyFile, "key file to write")
 	f.StringVar(&certFile, "out-cert", certFile, "cert file to write")
@@ -95,6 +103,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.StringVar(&serverCACert, "server-ca-cert", serverCACert, "path to CA cert file to verify ZTS server certs")
 	f.StringVar(&roleCertDir, "out-rolecert-dir", roleCertDir, "directory to write cert file for role certificates")
 	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain:role.admin,sys.auth:role.providers)")
+	f.StringVar(&tokenServerAddr, "token-server-addr", tokenServerAddr, "HTTP server address to provide tokens (default :8080)")
 	f.BoolVar(&deleteInstanceID, "delete-instance-id", deleteInstanceID, "delete x509 cert record from identity provider when stop signal is sent")
 
 	err := f.Parse(args)
@@ -118,10 +127,18 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid refresh interval %q, %v", refreshInterval, err)
 	}
+	tri, err := time.ParseDuration(tokenRefreshInterval)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid token refresh interval %q, %v", tokenRefreshInterval, err)
+	}
 
 	pollInterval := ri
 	if pollInterval > util.DefaultPollInterval {
 		pollInterval = util.DefaultPollInterval
+	}
+	pollTokenInterval := tri
+	if pollTokenInterval > 4*time.Hour {
+		pollTokenInterval = 4 * time.Hour
 	}
 	reloader, err := util.NewCertReloader(util.ReloadConfig{
 		KeyFile:      keyFile,
@@ -166,6 +183,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		CertSecret:         certSecret,
 		CaCertFile:         caCertFile,
 		Refresh:            ri,
+		TokenRefresh:       tri,
 		DelayJitterSeconds: delayJitterSeconds,
 		Reloader:           reloader,
 		ServerCACert:       serverCACert,
@@ -179,6 +197,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		PodUID:             podUID,
 		RoleCertDir:        roleCertDir,
 		TargetDomainRoles:  targetDomainRoles,
+		TokenServerAddr:    tokenServerAddr,
 		DeleteInstanceID:   deleteInstanceID,
 	}, nil
 }
@@ -248,10 +267,10 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 	}
 	log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
 
-	postRequest := func() error {
+	var id *identity.InstanceIdentity
+	var keyPem []byte
 
-		var id *identity.InstanceIdentity
-		var keyPem []byte
+	postRequest := func() error {
 
 		log.Infoln("Attempting to create/refresh x509 cert from identity provider...")
 
@@ -286,6 +305,7 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 			log.Infoln("Successfully created/refreshed x509 cert from identity provider")
 
 			if idConfig.CertSecret != "" && idConfig.Backup {
+
 				log.Infof("Attempting to save x509 cert to kubernetes secret[%s]...", idConfig.CertSecret)
 
 				err = handler.ApplyX509CertToSecret(id, keyPem)
@@ -338,6 +358,127 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 		return nil
 	}
 
+	tokenProvider := func(tChan <-chan struct{}) {
+
+		// map[domain][role][identity.RoleToken.TokenString]
+		var roleTokenCache = make(map[string]map[string](*atomic.Value))
+		// map[domain][role][identity.AccessToken.TokenString]
+		var accessTokenCache = make(map[string]map[string](*atomic.Value))
+
+		tokenRequest := func() error {
+			log.Infof("Refreshing tokens for roles[%v] in %s", idConfig.TargetDomainRoles, idConfig.TokenRefresh)
+
+			if idConfig.TargetDomainRoles != "" {
+				if idConfig.CertSecret != "" {
+					log.Warnf("Attempting to load x509 cert temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
+
+					id, keyPem, err = handler.GetX509CertFromSecret()
+				}
+
+				log.Infoln("Attempting to retrieve tokens from identity provider...")
+
+				roleTokens, accessTokens, err := handler.GetToken(id, keyPem)
+				if err != nil {
+					log.Errorf("Error while retrieving tokens: %s", err.Error())
+					return err
+				}
+
+				log.Infof("Successfully retrieved tokens from identity provider: len(roleTokens):%d, len(accessTokens):%d", len(roleTokens), len(accessTokens))
+
+				for _, r := range roleTokens {
+					var rt atomic.Value
+					rt.Store(r)
+					if roleTokenCache[r.Domain] == nil {
+						roleTokenCache[r.Domain] = make(map[string](*atomic.Value))
+					}
+					roleTokenCache[r.Domain][r.Role] = &rt
+				}
+				for _, a := range accessTokens {
+					var at atomic.Value
+					at.Store(a)
+					if accessTokenCache[a.Domain] == nil {
+						accessTokenCache[a.Domain] = make(map[string](*atomic.Value))
+					}
+					accessTokenCache[a.Domain][a.Role] = &at
+				}
+
+				log.Infof("Successfully refreshed tokens from identity provider: len(roleTokenCache):%d, len(accessTokenCache):%d", len(roleTokenCache), len(accessTokenCache))
+			}
+
+			return nil
+		}
+
+		tokenHandler := func(w http.ResponseWriter, r *http.Request) {
+			domainHeader := "X-Athenz-Domain"
+			roleHeader := "X-Athenz-Role"
+			domain := r.Header.Get(domainHeader)
+			role := r.Header.Get(roleHeader)
+			at, rt, response := "", "", []byte("")
+
+			if domain == "" || role == "" {
+				message := fmt.Sprintf("http headers not set: %s[%s] %s[%s].", domainHeader, domain, roleHeader, role)
+				response, err = json.Marshal(map[string]string{"error": message})
+			}
+			if accessTokenCache[domain] == nil || roleTokenCache[domain] == nil {
+				message := fmt.Sprintf("domain[%s] was not found in cache.", domain)
+				response, err = json.Marshal(map[string]string{"error": message})
+			}
+			if accessTokenCache[domain][role] == nil || roleTokenCache[domain][role] == nil {
+				message := fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
+				response, err = json.Marshal(map[string]string{"error": message})
+			}
+
+			if err != nil {
+				io.WriteString(w, fmt.Sprintf("{\"error\": \"error writing json response with: %s[%s] %s[%s] error[%v].\"}", domainHeader, domain, roleHeader, role, err))
+				return
+			}
+
+			at = accessTokenCache[domain][role].Load().(*identity.AccessToken).TokenString
+			rt = roleTokenCache[domain][role].Load().(*identity.RoleToken).TokenString
+			w.Header().Set("Authorization", "bearer "+at)
+			w.Header().Set("Yahoo-Role-Auth", rt)
+			response, err = json.Marshal(map[string]string{"status": "ok"})
+
+			io.WriteString(w, fmt.Sprintf("%s", response))
+		}
+
+		httpServer := &http.Server{
+			Addr:    idConfig.TokenServerAddr,
+			Handler: http.HandlerFunc(tokenHandler),
+		}
+
+		go func() {
+			log.Infof("Starting Token Provider Server %s", "")
+			if err := httpServer.ListenAndServe(); err != nil {
+				log.Errorf("Failed to start http server: %s", err.Error())
+			}
+		}()
+
+		go func() {
+			tt := time.NewTicker(idConfig.TokenRefresh)
+			defer tt.Stop()
+
+			for {
+				select {
+				case <-tt.C:
+					err := backoff.RetryNotify(tokenRequest, getExponentialBackoff(), notifyOnErr)
+					if err != nil {
+						log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
+					}
+				case <-tChan:
+					ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+					httpServer.SetKeepAlivesEnabled(false)
+					if err := httpServer.Shutdown(ctx); err != nil {
+						log.Errorf("Failed to shutdown http server: %s", err.Error())
+					}
+					return
+				}
+			}
+		}()
+
+		return
+	}
+
 	if idConfig.DelayJitterSeconds != 0 {
 		rand.Seed(time.Now().UnixNano())
 		sleep := time.Duration(rand.Int63n(idConfig.DelayJitterSeconds)) * time.Second
@@ -349,8 +490,12 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 		return backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
 	}
 
+	tokenChan := make(chan struct{})
+	tokenProvider(tokenChan)
+
 	t := time.NewTicker(idConfig.Refresh)
 	defer t.Stop()
+
 	for {
 		log.Infof("Refreshing cert[%s] roles[%v] in %s", idConfig.CertFile, idConfig.TargetDomainRoles, idConfig.Refresh)
 		select {
@@ -360,10 +505,11 @@ func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
 				log.Errorf("Failed to refresh cert after multiple retries: %s", err.Error())
 			}
 		case <-stopChan:
-			deleteRequest()
+			err := deleteRequest()
 			if err != nil {
 				log.Errorf("Failed to delete cert record: %s", err.Error())
 			}
+			close(tokenChan)
 			return nil
 		}
 	}
@@ -381,7 +527,7 @@ func main() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGTERM, os.Interrupt)
 	go func() {
-		<-ch
+		<-ch // wait until receiving os.Signal from channel ch
 		log.Println("Shutting down...")
 		close(stopChan)
 	}()

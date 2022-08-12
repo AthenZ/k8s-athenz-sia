@@ -45,6 +45,7 @@ build:
 test: build
 	@echo "Testing..."
 	go test ./...
+	CGO_ENABLED=1 go build $(LDFLAGS) -race -o $(GOPATH)/bin/athenz-sia cmd/athenz-sia/*.go
 
 clean:
 	rm -rf $(shell pwd)/bin || true
