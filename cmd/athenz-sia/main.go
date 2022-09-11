@@ -1,22 +1,15 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
-	"math/rand"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"sync/atomic"
 	"syscall"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
 	"github.com/yahoo/k8s-athenz-identity/pkg/log"
 	"github.com/yahoo/k8s-athenz-identity/pkg/util"
@@ -202,319 +195,6 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	}, nil
 }
 
-func run(idConfig *identity.IdentityConfig, stopChan <-chan struct{}) error {
-
-	writeFiles := func(id *identity.InstanceIdentity, keyPEM []byte, roleCerts [](*identity.RoleCertificate)) error {
-		leafPEM := []byte(id.X509CertificatePEM)
-		caCertPEM := []byte(id.X509CACertificatePEM)
-		x509Cert, err := util.CertificateFromPEMBytes(leafPEM)
-		if err != nil {
-			return errors.Wrap(err, "unable to parse x509 cert")
-		}
-		log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
-			x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
-		w := util.NewWriter()
-		log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), idConfig.CertFile)
-		if err := w.AddBytes(idConfig.CertFile, 0644, leafPEM); err != nil {
-			return errors.Wrap(err, "unable to save x509 cert")
-		}
-		log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idConfig.KeyFile)
-		if err := w.AddBytes(idConfig.KeyFile, 0644, keyPEM); err != nil { // TODO: finalize perms and user
-			return errors.Wrap(err, "unable to save x509 key")
-		}
-		if len(caCertPEM) != 0 {
-			log.Debugf("Saving x509 cacert[%d bytes] at %s", len(caCertPEM), idConfig.CaCertFile)
-			if err := w.AddBytes(idConfig.CaCertFile, 0644, caCertPEM); err != nil {
-				return errors.Wrap(err, "unable to save x509 cacert")
-			}
-		}
-		if roleCerts != nil {
-			for _, rolecert := range roleCerts {
-				roleCertPEM := []byte(rolecert.X509Certificate)
-				if len(roleCertPEM) != 0 {
-					log.Infof("[New Role Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
-						rolecert.Subject, rolecert.Issuer, rolecert.NotBefore, rolecert.NotAfter, rolecert.SerialNumber, rolecert.DNSNames)
-					outPath := filepath.Join(idConfig.RoleCertDir, rolecert.Domain+"_role."+rolecert.Role+".cert.pem")
-					log.Debugf("Saving x509 role cert[%d bytes] at %s", len(roleCertPEM), outPath)
-					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {
-						return errors.Wrap(err, "unable to save x509 role cert")
-					}
-				}
-			}
-		}
-
-		return w.Save()
-	}
-
-	// getExponentialBackoff will return a backoff config with first retry delay of 5s, and backoff retry
-	// until params.refresh / 4
-	getExponentialBackoff := func() *backoff.ExponentialBackOff {
-		b := backoff.NewExponentialBackOff()
-		b.InitialInterval = 5 * time.Second
-		b.Multiplier = 2
-		b.MaxElapsedTime = idConfig.Refresh / 4
-		return b
-	}
-
-	notifyOnErr := func(err error, backoffDelay time.Duration) {
-		log.Errorf("Failed to create/refresh cert: %s. Retrying in %s", err.Error(), backoffDelay)
-	}
-
-	handler, err := identity.InitIdentityHandler(idConfig)
-	if err != nil {
-		log.Errorf("Error while initializing handler: %s", err.Error())
-		return err
-	}
-	log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
-
-	var id *identity.InstanceIdentity
-	var keyPem []byte
-
-	postRequest := func() error {
-
-		log.Infoln("Attempting to create/refresh x509 cert from identity provider...")
-
-		id, keyPem, err = handler.GetX509Cert()
-		if err != nil {
-
-			log.Errorf("Error while creating/refreshing x509 cert from identity provider: %s", err.Error())
-
-			if idConfig.CertSecret != "" {
-				log.Warnf("Attempting to load x509 cert temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
-
-				id, keyPem, err = handler.GetX509CertFromSecret()
-				if err != nil {
-					log.Errorf("Error while loading x509 cert temporary backup from kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
-					return err
-				}
-
-				if id == nil || len(keyPem) == 0 {
-					log.Errorf("Failed to load x509 cert temporary backup from kubernetes secret[%s]: secret was empty", idConfig.CertSecret)
-					return nil
-				} else {
-
-					log.Infof("Successfully loaded x509 cert from kubernetes secret[%s]", idConfig.CertSecret)
-
-				}
-			} else {
-
-				return err
-			}
-		} else {
-
-			log.Infoln("Successfully created/refreshed x509 cert from identity provider")
-
-			if idConfig.CertSecret != "" && idConfig.Backup {
-
-				log.Infof("Attempting to save x509 cert to kubernetes secret[%s]...", idConfig.CertSecret)
-
-				err = handler.ApplyX509CertToSecret(id, keyPem)
-				if err != nil {
-					log.Errorf("Error while saving x509 cert to kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
-					return err
-				}
-
-				log.Infof("Successfully saved x509 cert to kubernetes secret[%s]", idConfig.CertSecret)
-
-			}
-		}
-
-		var roleCerts [](*identity.RoleCertificate)
-		if idConfig.TargetDomainRoles != "" {
-			log.Infoln("Attempting to retrieve x509 role certs from identity provider...")
-
-			roleCerts, err = handler.GetX509RoleCert(id, keyPem)
-			if err != nil {
-				log.Errorf("Error while retrieving x509 role certs: %s", err.Error())
-				writeerr := writeFiles(id, keyPem, roleCerts)
-				if writeerr != nil {
-					log.Errorf("Error while writing x509 role certs: %s", writeerr.Error())
-					err = errors.Wrap(err, writeerr.Error())
-				}
-				return err
-			}
-
-			log.Infoln("Successfully retrieved x509 role certs from identity provider")
-		}
-
-		return writeFiles(id, keyPem, roleCerts)
-	}
-
-	deleteRequest := func() error {
-		if idConfig.DeleteInstanceID {
-			log.Infoln("Attempting to delete x509 cert record from identity provider...")
-
-			err := handler.DeleteX509CertRecord()
-			if err != nil {
-				log.Errorf("Error while deleting x509 cert record: %s", err.Error())
-				return err
-			}
-
-			log.Infof("Deleted Instance ID record[%s]", handler.InstanceID())
-
-			log.Infoln("Successfully deleted x509 cert record from identity provider")
-		}
-
-		return nil
-	}
-
-	tokenProvider := func(tChan <-chan struct{}) {
-
-		// map[domain][role][identity.RoleToken.TokenString]
-		var roleTokenCache = make(map[string]map[string](*atomic.Value))
-		// map[domain][role][identity.AccessToken.TokenString]
-		var accessTokenCache = make(map[string]map[string](*atomic.Value))
-
-		tokenRequest := func() error {
-			log.Infof("Refreshing tokens for roles[%v] in %s", idConfig.TargetDomainRoles, idConfig.TokenRefresh)
-
-			if idConfig.TargetDomainRoles != "" {
-				if idConfig.CertSecret != "" {
-					log.Warnf("Attempting to load x509 cert temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
-
-					id, keyPem, err = handler.GetX509CertFromSecret()
-				}
-
-				log.Infoln("Attempting to retrieve tokens from identity provider...")
-
-				roleTokens, accessTokens, err := handler.GetToken(id, keyPem)
-				if err != nil {
-					log.Errorf("Error while retrieving tokens: %s", err.Error())
-					return err
-				}
-
-				log.Infof("Successfully retrieved tokens from identity provider: len(roleTokens):%d, len(accessTokens):%d", len(roleTokens), len(accessTokens))
-
-				for _, r := range roleTokens {
-					var rt atomic.Value
-					rt.Store(r)
-					if roleTokenCache[r.Domain] == nil {
-						roleTokenCache[r.Domain] = make(map[string](*atomic.Value))
-					}
-					roleTokenCache[r.Domain][r.Role] = &rt
-				}
-				for _, a := range accessTokens {
-					var at atomic.Value
-					at.Store(a)
-					if accessTokenCache[a.Domain] == nil {
-						accessTokenCache[a.Domain] = make(map[string](*atomic.Value))
-					}
-					accessTokenCache[a.Domain][a.Role] = &at
-				}
-
-				log.Infof("Successfully refreshed tokens from identity provider: len(roleTokenCache):%d, len(accessTokenCache):%d", len(roleTokenCache), len(accessTokenCache))
-			}
-
-			return nil
-		}
-
-		tokenHandler := func(w http.ResponseWriter, r *http.Request) {
-			domainHeader := "X-Athenz-Domain"
-			roleHeader := "X-Athenz-Role"
-			domain := r.Header.Get(domainHeader)
-			role := r.Header.Get(roleHeader)
-			at, rt, response := "", "", []byte("")
-
-			if domain == "" || role == "" {
-				message := fmt.Sprintf("http headers not set: %s[%s] %s[%s].", domainHeader, domain, roleHeader, role)
-				response, err = json.Marshal(map[string]string{"error": message})
-			}
-			if accessTokenCache[domain] == nil || roleTokenCache[domain] == nil {
-				message := fmt.Sprintf("domain[%s] was not found in cache.", domain)
-				response, err = json.Marshal(map[string]string{"error": message})
-			}
-			if accessTokenCache[domain][role] == nil || roleTokenCache[domain][role] == nil {
-				message := fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
-				response, err = json.Marshal(map[string]string{"error": message})
-			}
-
-			if err != nil {
-				io.WriteString(w, fmt.Sprintf("{\"error\": \"error writing json response with: %s[%s] %s[%s] error[%v].\"}", domainHeader, domain, roleHeader, role, err))
-				return
-			}
-
-			at = accessTokenCache[domain][role].Load().(*identity.AccessToken).TokenString
-			rt = roleTokenCache[domain][role].Load().(*identity.RoleToken).TokenString
-			w.Header().Set("Authorization", "bearer "+at)
-			w.Header().Set("Yahoo-Role-Auth", rt)
-			response, err = json.Marshal(map[string]string{"status": "ok"})
-
-			io.WriteString(w, fmt.Sprintf("%s", response))
-		}
-
-		httpServer := &http.Server{
-			Addr:    idConfig.TokenServerAddr,
-			Handler: http.HandlerFunc(tokenHandler),
-		}
-
-		go func() {
-			log.Infof("Starting Token Provider Server %s", "")
-			if err := httpServer.ListenAndServe(); err != nil {
-				log.Errorf("Failed to start http server: %s", err.Error())
-			}
-		}()
-
-		go func() {
-			tt := time.NewTicker(idConfig.TokenRefresh)
-			defer tt.Stop()
-
-			for {
-				select {
-				case <-tt.C:
-					err := backoff.RetryNotify(tokenRequest, getExponentialBackoff(), notifyOnErr)
-					if err != nil {
-						log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
-					}
-				case <-tChan:
-					ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-					httpServer.SetKeepAlivesEnabled(false)
-					if err := httpServer.Shutdown(ctx); err != nil {
-						log.Errorf("Failed to shutdown http server: %s", err.Error())
-					}
-					return
-				}
-			}
-		}()
-
-		return
-	}
-
-	if idConfig.DelayJitterSeconds != 0 {
-		rand.Seed(time.Now().UnixNano())
-		sleep := time.Duration(rand.Int63n(idConfig.DelayJitterSeconds)) * time.Second
-		log.Infof("Delaying boot with jitter [%s] randomized from [%s]...", sleep, time.Duration(idConfig.DelayJitterSeconds)*time.Second)
-		time.Sleep(sleep)
-	}
-
-	if idConfig.Init {
-		return backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
-	}
-
-	tokenChan := make(chan struct{})
-	tokenProvider(tokenChan)
-
-	t := time.NewTicker(idConfig.Refresh)
-	defer t.Stop()
-
-	for {
-		log.Infof("Refreshing cert[%s] roles[%v] in %s", idConfig.CertFile, idConfig.TargetDomainRoles, idConfig.Refresh)
-		select {
-		case <-t.C:
-			err := backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
-			if err != nil {
-				log.Errorf("Failed to refresh cert after multiple retries: %s", err.Error())
-			}
-		case <-stopChan:
-			err := deleteRequest()
-			if err != nil {
-				log.Errorf("Failed to delete cert record: %s", err.Error())
-			}
-			close(tokenChan)
-			return nil
-		}
-	}
-}
-
 func main() {
 	identity.InitDefaultValues()       // initialize default values
 	flag.CommandLine.Parse([]string{}) // initialize glog with defaults
@@ -523,13 +203,15 @@ func main() {
 		return
 	}
 
-	stopChan := make(chan struct{})
+	certificateChan := make(chan struct{})
+	tokenChan := make(chan struct{})
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGTERM, os.Interrupt)
 	go func() {
 		<-ch // wait until receiving os.Signal from channel ch
 		log.Println("Shutting down...")
-		close(stopChan)
+		close(certificateChan)
+		close(tokenChan)
 	}()
 
 	idConfig, err := parseFlags(filepath.Base(os.Args[0]), os.Args[1:])
@@ -539,9 +221,13 @@ func main() {
 		}
 		log.Fatalln(err)
 	}
-
 	log.Infoln("Booting up with args", os.Args)
-	err = run(idConfig, stopChan)
+
+	err = identity.Certificated(idConfig, certificateChan)
+	if err != nil && err != errEarlyExit {
+		log.Fatalln(err)
+	}
+	err = identity.Tokend(idConfig, tokenChan)
 	if err != nil && err != errEarlyExit {
 		log.Fatalln(err)
 	}
