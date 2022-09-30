@@ -1,4 +1,4 @@
-FROM docker.io/golang:1-alpine3.15 as builder
+FROM golang:1.18-alpine as builder
 
 WORKDIR /go/src/k8s-athenz-sia
 

@@ -1,4 +1,4 @@
-# k8s-athenz-sia
+# K8s athenz SIA
 
 ## Lifecycle
 
