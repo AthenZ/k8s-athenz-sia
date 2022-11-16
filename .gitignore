@@ -1,24 +1,18 @@
-# Binaries for programs and plugins
-*.exe
-*.dll
-*.so
-*.dylib
-
-# Test binary, build with `go test -c`
-*.test
-
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
-
-# Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
-.glide/
-
-# Third-party libraries
-vendor/*
-
-# go build binary
+go.sum
+athenz-sia
 k8s-athenz-sia
+
+# Output
+*.log
+*.yaml
 
 # IDE
 .idea*
 .vscode*
+
+# Credentials
+*.pem
+*.crt
+*.key
+*.roletoken
+*.accesstoken
