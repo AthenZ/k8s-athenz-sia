@@ -1,4 +1,4 @@
-FROM golang:1.18-alpine as builder
+FROM docker.io/golang:1-alpine as builder
 
 WORKDIR /go/src/k8s-athenz-sia
 
@@ -15,7 +15,7 @@ RUN apk add --no-cache make
 
 RUN make build
 
-FROM docker.io/alpine:3.15
+FROM docker.io/alpine:3
 
 RUN apk --update add ca-certificates
 

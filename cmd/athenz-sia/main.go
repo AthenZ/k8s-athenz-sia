@@ -52,42 +52,43 @@ func envOrDefault(name string, defaultValue string) string {
 // parseFlags parses ENV and cmd line args and returns an IdentityConfig object
 func parseFlags(program string, args []string) (*identity.IdentityConfig, error) {
 	var (
-		mode                  = envOrDefault("MODE", "init")
-		backupMode            = envOrDefault("BACKUP_MODE", "read")
-		endpoint              = envOrDefault("ENDPOINT", "")
-		providerService       = envOrDefault("PROVIDER_SERVICE", "")
-		dnsSuffix             = envOrDefault("DNS_SUFFIX", "")
-		refreshInterval       = envOrDefault("REFRESH_INTERVAL", "4s")
-		tokenRefreshInterval  = envOrDefault("TOKEN_REFRESH_INTERVAL", "4s")
-		delayJitterSeconds, _ = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
-		keyFile               = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
-		certFile              = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
-		certSecret            = envOrDefault("CERT_SECRET", "")
-		caCertFile            = envOrDefault("CA_CERT_FILE", "/var/run/athenz/ca.cert.pem")
-		logDir                = envOrDefault("LOG_DIR", "/var/log/athenz-sia")
-		logLevel              = envOrDefault("LOG_LEVEL", "INFO")
-		namespace             = envOrDefault("NAMESPACE", "")
-		serviceAccount        = envOrDefault("SERVICEACCOUNT", "")
-		podIP                 = envOrDefault("POD_IP", "")
-		podUID                = envOrDefault("POD_UID", "")
-		saTokenFile           = envOrDefault("SA_TOKEN_FILE", "/var/run/secrets/kubernetes.io/bound-serviceaccount/token")
-		serverCACert          = envOrDefault("SERVER_CA_CERT", "")
-		roleCertDir           = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
-		targetDomainRoles     = envOrDefault("TARGET_DOMAIN_ROLES", "")
-		tokenServerAddr       = envOrDefault("TOKEN_SERVER_ADDR", ":8880")
-		deleteInstanceID, _   = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
+		mode                        = envOrDefault("MODE", "init")
+		backupMode                  = envOrDefault("BACKUP_MODE", "read")
+		endpoint                    = envOrDefault("ENDPOINT", "")
+		providerService             = envOrDefault("PROVIDER_SERVICE", "")
+		dnsSuffix                   = envOrDefault("DNS_SUFFIX", "")
+		refreshInterval             = envOrDefault("REFRESH_INTERVAL", "4s")
+		tokenRefreshInterval        = envOrDefault("TOKEN_REFRESH_INTERVAL", "4s")
+		delayJitterSeconds, _       = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
+		keyFile                     = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
+		certFile                    = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
+		certSecret                  = envOrDefault("CERT_SECRET", "")
+		caCertFile                  = envOrDefault("CA_CERT_FILE", "/var/run/athenz/ca.cert.pem")
+		logDir                      = envOrDefault("LOG_DIR", "/var/log/athenz-sia")
+		logLevel                    = envOrDefault("LOG_LEVEL", "INFO")
+		namespace                   = envOrDefault("NAMESPACE", "")
+		serviceAccount              = envOrDefault("SERVICEACCOUNT", "")
+		podIP                       = envOrDefault("POD_IP", "")
+		podUID                      = envOrDefault("POD_UID", "")
+		saTokenFile                 = envOrDefault("SA_TOKEN_FILE", "/var/run/secrets/kubernetes.io/bound-serviceaccount/token")
+		serverCACert                = envOrDefault("SERVER_CA_CERT", "")
+		roleCertDir                 = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
+		targetDomainRoles           = envOrDefault("TARGET_DOMAIN_ROLES", "")
+		tokenServerAddr             = envOrDefault("TOKEN_SERVER_ADDR", ":8880")
+		deleteInstanceID, _         = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
+		skipIdentityProvisioning, _ = strconv.ParseBool(envOrDefault("SKIP_IDENTITY_PROVISIONING", "false"))
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
-	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh, required")
-	f.StringVar(&endpoint, "endpoint", endpoint, "Athenz ZTS endpoint")
-	f.StringVar(&providerService, "provider-service", providerService, "Identity Provider service")
-	f.StringVar(&dnsSuffix, "dns-suffix", dnsSuffix, "DNS Suffix for certs")
+	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh")
+	f.StringVar(&endpoint, "endpoint", endpoint, "Athenz ZTS endpoint (required)")
+	f.StringVar(&providerService, "provider-service", providerService, "Identity Provider service (required)")
+	f.StringVar(&dnsSuffix, "dns-suffix", dnsSuffix, "DNS Suffix for certs (required)")
 	f.StringVar(&refreshInterval, "refresh-interval", refreshInterval, "cert refresh interval")
 	f.StringVar(&tokenRefreshInterval, "token-refresh-interval", tokenRefreshInterval, "token refresh interval")
 	f.Int64Var(&delayJitterSeconds, "delay-jitter-seconds", delayJitterSeconds, "delay boot with random jitter within the specified seconds (0 to disable)")
-	f.StringVar(&keyFile, "out-key", keyFile, "key file to write")
-	f.StringVar(&certFile, "out-cert", certFile, "cert file to write")
-	f.StringVar(&certSecret, "out-cert-secret", certSecret, "Kubernetes secret name to backup cert (Backup will be disabled if empty)")
+	f.StringVar(&keyFile, "key", keyFile, "key file for the certificate")
+	f.StringVar(&certFile, "cert", certFile, "cert file to identity a service")
+	f.StringVar(&certSecret, "cert-secret", certSecret, "Kubernetes secret name to backup cert (Backup will be disabled if empty)")
 	f.StringVar(&backupMode, "backup-mode", backupMode, "Kubernetes secret backup mode, must be one of read or write (Note: Performing writes with a large number of concurrency may cause unexpected loads on k8s api)")
 	f.StringVar(&caCertFile, "out-ca-cert", caCertFile, "CA cert file to write")
 	f.StringVar(&logDir, "log-dir", logDir, "directory to store the server log files")
@@ -98,6 +99,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain:role.admin,sys.auth:role.providers)")
 	f.StringVar(&tokenServerAddr, "token-server-addr", tokenServerAddr, "HTTP server address to provide tokens (default :8080)")
 	f.BoolVar(&deleteInstanceID, "delete-instance-id", deleteInstanceID, "delete x509 cert record from identity provider when stop signal is sent")
+	f.BoolVar(&skipIdentityProvisioning, "skip-identity-provisioning", skipIdentityProvisioning, "skip identity provisioning and use (cert)")
 
 	err := f.Parse(args)
 	if err != nil {
@@ -169,29 +171,30 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	}
 
 	return &identity.IdentityConfig{
-		Init:               init,
-		Backup:             backup,
-		KeyFile:            keyFile,
-		CertFile:           certFile,
-		CertSecret:         certSecret,
-		CaCertFile:         caCertFile,
-		Refresh:            ri,
-		TokenRefresh:       tri,
-		DelayJitterSeconds: delayJitterSeconds,
-		Reloader:           reloader,
-		ServerCACert:       serverCACert,
-		SaTokenFile:        saTokenFile,
-		Endpoint:           endpoint,
-		ProviderService:    providerService,
-		DNSSuffix:          dnsSuffix,
-		Namespace:          namespace,
-		ServiceAccount:     serviceAccount,
-		PodIP:              podIP,
-		PodUID:             podUID,
-		RoleCertDir:        roleCertDir,
-		TargetDomainRoles:  targetDomainRoles,
-		TokenServerAddr:    tokenServerAddr,
-		DeleteInstanceID:   deleteInstanceID,
+		Init:                     init,
+		Backup:                   backup,
+		KeyFile:                  keyFile,
+		CertFile:                 certFile,
+		CertSecret:               certSecret,
+		CaCertFile:               caCertFile,
+		Refresh:                  ri,
+		TokenRefresh:             tri,
+		DelayJitterSeconds:       delayJitterSeconds,
+		Reloader:                 reloader,
+		ServerCACert:             serverCACert,
+		SaTokenFile:              saTokenFile,
+		Endpoint:                 endpoint,
+		ProviderService:          providerService,
+		DNSSuffix:                dnsSuffix,
+		Namespace:                namespace,
+		ServiceAccount:           serviceAccount,
+		PodIP:                    podIP,
+		PodUID:                   podUID,
+		RoleCertDir:              roleCertDir,
+		TargetDomainRoles:        targetDomainRoles,
+		TokenServerAddr:          tokenServerAddr,
+		DeleteInstanceID:         deleteInstanceID,
+		SkipIdentityProvisioning: skipIdentityProvisioning,
 	}, nil
 }
 
