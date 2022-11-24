@@ -29,8 +29,6 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		return err
 	}
 
-	log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
-
 	// getExponentialBackoff will return a backoff config with first retry delay of 5s, and backoff retry
 	// until params.refresh / 4
 	getExponentialBackoff := func() *backoff.ExponentialBackOff {
@@ -46,7 +44,6 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	tokenRequest := func() error {
-		log.Infof("Refreshing tokens for roles[%v] in %s", idConfig.TargetDomainRoles, idConfig.TokenRefresh)
 
 		if idConfig.TargetDomainRoles != "" {
 			if idConfig.CertSecret != "" {
@@ -82,7 +79,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				accessTokenCache[a.Domain][a.Role] = &at
 			}
 
-			log.Infof("Successfully refreshed tokens from identity provider: len(roleTokenCache):%d, len(accessTokenCache):%d", len(roleTokenCache), len(accessTokenCache))
+			log.Infof("Successfully updated token cache from identity provider: len(roleTokenCache):%d, len(accessTokenCache):%d", len(roleTokenCache), len(accessTokenCache))
 		}
 
 		return nil
@@ -126,6 +123,8 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	if !idConfig.Init {
 		err := backoff.RetryNotify(tokenRequest, getExponentialBackoff(), notifyOnErr)
 		if err != nil {
+			log.Errorf("Failed to retrieve tokens after multiple retries: %s", err.Error())
+
 			return err
 		}
 	}
@@ -145,11 +144,12 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		}
 	}()
 
-	t := time.NewTicker(idConfig.TokenRefresh)
-	defer t.Stop()
-
 	go func() {
+		t := time.NewTicker(idConfig.TokenRefresh)
+		defer t.Stop()
+
 		for {
+			log.Infof("Refreshing tokens for roles[%v] in %s", idConfig.TargetDomainRoles, idConfig.TokenRefresh)
 			select {
 			case <-t.C:
 				err := backoff.RetryNotify(tokenRequest, getExponentialBackoff(), notifyOnErr)

@@ -22,8 +22,6 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		return err
 	}
 
-	log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
-
 	writeFiles := func(id *InstanceIdentity, keyPEM []byte, roleCerts [](*RoleCertificate)) error {
 
 		w := util.NewWriter()
@@ -95,6 +93,8 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 		if !idConfig.SkipIdentityProvisioning {
 
+			log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
+
 			log.Infoln("Attempting to create/refresh x509 cert from identity provider...")
 			id, keyPem, err = handler.GetX509Cert()
 
@@ -104,6 +104,21 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			} else {
 
 				log.Infoln("Successfully created/refreshed x509 cert from identity provider")
+			}
+		} else {
+
+			log.Infof("Skipping to create/refresh x509 cert from identity provider...")
+
+			var certPEM []byte
+
+			keyPem, certPEM, err = idConfig.Reloader.GetLatestKeyAndCert()
+			if err != nil {
+				log.Errorf("Error while reading x509 cert from local file: %s", err.Error())
+			}
+
+			id, err = InstanceIdentityFromPEMBytes(certPEM)
+			if err != nil {
+				log.Errorf("Error while parsing x509 cert from local file: %s", err.Error())
 			}
 		}
 
@@ -128,7 +143,8 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				}
 			} else {
 
-				return err
+				log.Errorf("Failed to load x509 cert temporary backup from kubernetes secret[%s]: secret was not specified", idConfig.CertSecret)
+				return nil
 			}
 		} else {
 
@@ -144,6 +160,9 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 				log.Infof("Successfully saved x509 cert to kubernetes secret[%s]", idConfig.CertSecret)
 
+			} else {
+
+				return nil
 			}
 		}
 
@@ -191,10 +210,10 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		return backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
 	}
 
-	t := time.NewTicker(idConfig.Refresh)
-	defer t.Stop()
-
 	go func() {
+		t := time.NewTicker(idConfig.Refresh)
+		defer t.Stop()
+
 		for {
 			log.Infof("Refreshing cert[%s] roles[%v] in %s", idConfig.CertFile, idConfig.TargetDomainRoles, idConfig.Refresh)
 			select {

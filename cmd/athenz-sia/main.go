@@ -57,7 +57,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		endpoint                    = envOrDefault("ENDPOINT", "")
 		providerService             = envOrDefault("PROVIDER_SERVICE", "")
 		dnsSuffix                   = envOrDefault("DNS_SUFFIX", "")
-		refreshInterval             = envOrDefault("REFRESH_INTERVAL", "4s")
+		refreshInterval             = envOrDefault("REFRESH_INTERVAL", "3s")
 		tokenRefreshInterval        = envOrDefault("TOKEN_REFRESH_INTERVAL", "4s")
 		delayJitterSeconds, _       = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
 		keyFile                     = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
@@ -117,6 +117,9 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	}
 	init := mode == "init"
 	backup := backupMode == "write"
+	if !backup && certSecret == "" {
+		log.Infof("Skipping to load/save x509 cert temporary backup from/to kubernetes secret...")
+	}
 
 	ri, err := time.ParseDuration(refreshInterval)
 	if err != nil {
@@ -138,7 +141,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	reloader, err := util.NewCertReloader(util.ReloadConfig{
 		KeyFile:      keyFile,
 		CertFile:     certFile,
-		Logger:       log.Debugf,
+		Logger:       log.Infof,
 		PollInterval: pollInterval,
 	})
 
@@ -210,12 +213,6 @@ func main() {
 	tokenChan := make(chan struct{})
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGTERM, os.Interrupt)
-	go func() {
-		<-ch // wait until receiving os.Signal from channel ch
-		log.Println("Shutting down...")
-		close(certificateChan)
-		close(tokenChan)
-	}()
 
 	idConfig, err := parseFlags(filepath.Base(os.Args[0]), os.Args[1:])
 	if err != nil {
@@ -234,4 +231,9 @@ func main() {
 	if err != nil && err != errEarlyExit {
 		log.Fatalln(err)
 	}
+
+	<-ch // wait until receiving os.Signal from channel ch
+	log.Println("Shutting down...")
+	close(certificateChan)
+	close(tokenChan)
 }
