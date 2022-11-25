@@ -48,6 +48,7 @@ type IdentityConfig struct {
 	RoleCertDir              string
 	TargetDomainRoles        string
 	TokenServerAddr          string
+	TokenDir                 string
 	DeleteInstanceID         bool
 	SkipIdentityProvisioning bool
 }

@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/pkg/errors"
 	"github.com/yahoo/k8s-athenz-identity/pkg/log"
+	"github.com/yahoo/k8s-athenz-identity/pkg/util"
 )
 
 func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
@@ -27,6 +30,36 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	if err != nil {
 		log.Errorf("Error while initializing handler: %s", err.Error())
 		return err
+	}
+
+	writeFiles := func() error {
+
+		w := util.NewWriter()
+
+		for domain, atdcache := range accessTokenCache {
+			for role, atrcache := range atdcache {
+				at := atrcache.Load().(*AccessToken).TokenString
+				log.Infof("[New Access Token] Domain: %s, Role: %s", domain, role)
+				outPath := filepath.Join(idConfig.TokenDir, domain+":role."+role+".accesstoken")
+				log.Debugf("Saving Access Token[%d bytes] at %s", len(at), outPath)
+				if err := w.AddBytes(outPath, 0644, []byte(at)); err != nil {
+					return errors.Wrap(err, "unable to save access token")
+				}
+			}
+		}
+		for domain, rtdcache := range roleTokenCache {
+			for role, rtrcache := range rtdcache {
+				rt := rtrcache.Load().(*RoleToken).TokenString
+				log.Infof("[New Role Token] Domain: %s, Role: %s", domain, role)
+				outPath := filepath.Join(idConfig.TokenDir, domain+":role."+role+".roletoken")
+				log.Debugf("Saving Role Token[%d bytes] at %s", len(rt), outPath)
+				if err := w.AddBytes(outPath, 0644, []byte(rt)); err != nil {
+					return errors.Wrap(err, "unable to save role token")
+				}
+			}
+		}
+
+		return w.Save()
 	}
 
 	// getExponentialBackoff will return a backoff config with first retry delay of 5s, and backoff retry
@@ -82,7 +115,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			log.Infof("Successfully updated token cache from identity provider: len(roleTokenCache):%d, len(accessTokenCache):%d", len(roleTokenCache), len(accessTokenCache))
 		}
 
-		return nil
+		return writeFiles()
 	}
 
 	tokenHandler := func(w http.ResponseWriter, r *http.Request) {

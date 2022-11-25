@@ -75,6 +75,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		roleCertDir                 = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
 		targetDomainRoles           = envOrDefault("TARGET_DOMAIN_ROLES", "")
 		tokenServerAddr             = envOrDefault("TOKEN_SERVER_ADDR", ":8880")
+		tokenDir                    = envOrDefault("TOKEN_DIR", "/var/run/athenz/")
 		deleteInstanceID, _         = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
 		skipIdentityProvisioning, _ = strconv.ParseBool(envOrDefault("SKIP_IDENTITY_PROVISIONING", "false"))
 	)
@@ -97,9 +98,10 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.StringVar(&serverCACert, "server-ca-cert", serverCACert, "path to CA cert file to verify ZTS server certs")
 	f.StringVar(&roleCertDir, "out-rolecert-dir", roleCertDir, "directory to write cert file for role certificates")
 	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain:role.admin,sys.auth:role.providers)")
-	f.StringVar(&tokenServerAddr, "token-server-addr", tokenServerAddr, "HTTP server address to provide tokens (default :8080)")
+	f.StringVar(&tokenServerAddr, "token-server-addr", tokenServerAddr, "HTTP server address to provide tokens")
+	f.StringVar(&tokenDir, "token-dir", tokenDir, "directory to write token files")
 	f.BoolVar(&deleteInstanceID, "delete-instance-id", deleteInstanceID, "delete x509 cert record from identity provider when stop signal is sent")
-	f.BoolVar(&skipIdentityProvisioning, "skip-identity-provisioning", skipIdentityProvisioning, "skip identity provisioning and use (cert)")
+	f.BoolVar(&skipIdentityProvisioning, "skip-identity-provisioning", skipIdentityProvisioning, "skip identity provisioning and use the certificate specified with \"-cert\" option")
 
 	err := f.Parse(args)
 	if err != nil {
@@ -196,6 +198,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		RoleCertDir:              roleCertDir,
 		TargetDomainRoles:        targetDomainRoles,
 		TokenServerAddr:          tokenServerAddr,
+		TokenDir:                 tokenDir,
 		DeleteInstanceID:         deleteInstanceID,
 		SkipIdentityProvisioning: skipIdentityProvisioning,
 	}, nil
