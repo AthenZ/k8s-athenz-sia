@@ -16,7 +16,7 @@
 # Third-party libraries
 vendor/*
 
-# go build binary
+# Go build binary
 k8s-athenz-sia
 
 # IDE
@@ -32,5 +32,3 @@ k8s-athenz-sia
 
 # Log files from the built binary
 *.log
-*.accesstoken
-*.roletoken
