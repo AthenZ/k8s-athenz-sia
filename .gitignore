@@ -18,3 +18,7 @@ vendor/*
 
 # go build binary
 k8s-athenz-sia
+
+# IDE
+.idea*
+.vscode*
