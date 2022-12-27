@@ -168,10 +168,8 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	go func() {
-		router := http.NewServeMux()
-		router.Handle("/", http.HandlerFunc(tokenHandler))
-
 		log.Infof("Starting Token Provider Server %s", "")
+
 		if err := httpServer.ListenAndServe(); err != nil {
 			log.Errorf("Failed to start http server: %s", err.Error())
 		}
