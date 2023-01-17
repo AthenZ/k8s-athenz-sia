@@ -76,6 +76,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		targetDomainRoles           = envOrDefault("TARGET_DOMAIN_ROLES", "")
 		tokenServerAddr             = envOrDefault("TOKEN_SERVER_ADDR", ":8880")
 		tokenDir                    = envOrDefault("TOKEN_DIR", "/var/run/athenz/")
+		metricsServerAddr           = envOrDefault("METRICS_SERVER_ADDR", ":9999")
 		deleteInstanceID, _         = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
 		skipIdentityProvisioning, _ = strconv.ParseBool(envOrDefault("SKIP_IDENTITY_PROVISIONING", "false"))
 	)
@@ -100,6 +101,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain:role.admin,sys.auth:role.providers)")
 	f.StringVar(&tokenServerAddr, "token-server-addr", tokenServerAddr, "HTTP server address to provide tokens")
 	f.StringVar(&tokenDir, "token-dir", tokenDir, "directory to write token files")
+	f.StringVar(&metricsServerAddr, "metrics-server-addr", metricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&deleteInstanceID, "delete-instance-id", deleteInstanceID, "delete x509 cert record from identity provider when stop signal is sent")
 	f.BoolVar(&skipIdentityProvisioning, "skip-identity-provisioning", skipIdentityProvisioning, "skip identity provisioning and use the certificate specified with \"-cert\" option")
 
@@ -199,6 +201,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		TargetDomainRoles:        targetDomainRoles,
 		TokenServerAddr:          tokenServerAddr,
 		TokenDir:                 tokenDir,
+		MetricsServerAddr:        metricsServerAddr,
 		DeleteInstanceID:         deleteInstanceID,
 		SkipIdentityProvisioning: skipIdentityProvisioning,
 	}, nil
@@ -214,6 +217,7 @@ func main() {
 
 	certificateChan := make(chan struct{})
 	tokenChan := make(chan struct{})
+	metricsChan := make(chan struct{})
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGTERM, os.Interrupt)
 
@@ -234,9 +238,14 @@ func main() {
 	if err != nil && err != errEarlyExit {
 		log.Fatalln(err)
 	}
+	err = identity.Metricsd(idConfig, metricsChan)
+	if err != nil && err != errEarlyExit {
+		log.Fatalln(err)
+	}
 
 	<-ch // wait until receiving os.Signal from channel ch
 	log.Println("Shutting down...")
 	close(certificateChan)
 	close(tokenChan)
+	close(metricsChan)
 }

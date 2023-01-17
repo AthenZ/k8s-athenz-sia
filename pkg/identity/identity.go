@@ -72,6 +72,7 @@ type RoleToken struct {
 	Domain      string
 	Role        string
 	TokenString string
+	Expiry      int64
 }
 
 // AccessToken stores access token
@@ -79,6 +80,7 @@ type AccessToken struct {
 	Domain      string
 	Role        string
 	TokenString string
+	Expiry      int64
 }
 
 // InstanceIdentity stores instance identity certificate
@@ -397,6 +399,7 @@ func (h *identityHandler) GetToken(id *InstanceIdentity, keyPEM []byte) (roletok
 				Domain:      dr[0],
 				Role:        dr[1],
 				TokenString: accessTokenResponse.Access_token,
+				Expiry:      int64(*accessTokenResponse.Expires_in),
 			})
 			roletokenResponse, err := roleClient.GetRoleToken(zts.DomainName(dr[0]), zts.EntityList(dr[1]), &expireTimeMs, &expireTimeMs, "")
 			if err != nil {
@@ -406,6 +409,7 @@ func (h *identityHandler) GetToken(id *InstanceIdentity, keyPEM []byte) (roletok
 				Domain:      dr[0],
 				Role:        dr[1],
 				TokenString: roletokenResponse.Token,
+				Expiry:      roletokenResponse.ExpiryTime,
 			})
 		}
 	}

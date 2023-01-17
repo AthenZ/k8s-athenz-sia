@@ -89,7 +89,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		log.Errorf("Failed to create/refresh cert: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
 
-	postRequest := func() error {
+	run := func() error {
 
 		if !idConfig.SkipIdentityProvisioning {
 
@@ -207,7 +207,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	if idConfig.Init {
-		return backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
+		return backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
 	}
 
 	go func() {
@@ -218,7 +218,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			log.Infof("Refreshing cert[%s] roles[%v] in %s", idConfig.CertFile, idConfig.TargetDomainRoles, idConfig.Refresh)
 			select {
 			case <-t.C:
-				err := backoff.RetryNotify(postRequest, getExponentialBackoff(), notifyOnErr)
+				err := backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
 				if err != nil {
 					log.Errorf("Failed to refresh cert after multiple retries: %s", err.Error())
 				}

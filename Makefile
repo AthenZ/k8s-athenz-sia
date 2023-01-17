@@ -39,7 +39,7 @@ endif
 
 build:
 	@echo "Building..."
-	go mod tidy
+	go mod tidy -compat=1.17
 	CGO_ENABLED=0 go build $(LDFLAGS) -o $(GOPATH)/bin/athenz-sia cmd/athenz-sia/*.go
 
 test: build

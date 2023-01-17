@@ -76,7 +76,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		log.Errorf("Failed to create/refresh cert: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
 
-	tokenRequest := func() error {
+	run := func() error {
 
 		if idConfig.TargetDomainRoles != "" {
 			if idConfig.CertSecret != "" {
@@ -154,7 +154,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	if !idConfig.Init {
-		err := backoff.RetryNotify(tokenRequest, getExponentialBackoff(), notifyOnErr)
+		err := backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
 		if err != nil {
 			log.Errorf("Failed to retrieve tokens after multiple retries: %s", err.Error())
 
@@ -183,7 +183,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			log.Infof("Refreshing tokens for roles[%v] in %s", idConfig.TargetDomainRoles, idConfig.TokenRefresh)
 			select {
 			case <-t.C:
-				err := backoff.RetryNotify(tokenRequest, getExponentialBackoff(), notifyOnErr)
+				err := backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
 				if err != nil {
 					log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 				}
