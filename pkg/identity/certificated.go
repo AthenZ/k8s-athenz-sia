@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"io/ioutil"
 	"math/rand"
 	"path/filepath"
 	"time"
@@ -14,8 +15,7 @@ import (
 func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	var id *InstanceIdentity
-	var keyPem []byte
-	var certPEM []byte
+	var keyPem, certPem []byte
 
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
@@ -134,18 +134,23 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 				log.Infof("Attempting to load x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
 
-				keyPem, certPEM, err = idConfig.Reloader.GetLatestKeyAndCert()
+				certPem, err = ioutil.ReadFile(idConfig.CertFile)
 				if err != nil {
-					log.Errorf("Error while reading x509 cert from local file: %s", err.Error())
+					log.Errorf("Error while reading x509 cert from local file[%s]: %s", idConfig.CertFile, err.Error())
+				}
+				keyPem, err = ioutil.ReadFile(idConfig.KeyFile)
+				if err != nil {
+					log.Errorf("Error while reading x509 cert key from local file[%s]: %s", idConfig.KeyFile, err.Error())
 				}
 
-				id, err = InstanceIdentityFromPEMBytes(certPEM)
+				id, err = InstanceIdentityFromPEMBytes(certPem)
 				if err != nil {
 					log.Errorf("Error while parsing x509 cert from local file: %s", err.Error())
 				}
 
 				if id == nil || len(keyPem) == 0 {
 					log.Errorf("Failed to load x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
+					return nil
 				} else {
 
 					log.Infof("Successfully loaded x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)

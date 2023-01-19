@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"sync/atomic"
@@ -23,8 +24,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	// map[domain][role][AccessToken.TokenString]
 	var accessTokenCache = make(map[string]map[string](*atomic.Value))
 
-	var keyPem []byte
-	var certPEM []byte
+	var keyPem, certPem []byte
 
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
@@ -82,14 +82,18 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 			log.Infof("Attempting to load x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
 
-			keyPem, certPEM, err = idConfig.Reloader.GetLatestKeyAndCert()
+			certPem, err = ioutil.ReadFile(idConfig.CertFile)
 			if err != nil {
-				log.Errorf("Error while reading x509 cert from local file: %s", err.Error())
+				log.Errorf("Error while reading x509 cert from local file[%s]: %s", idConfig.CertFile, err.Error())
+			}
+			keyPem, err = ioutil.ReadFile(idConfig.KeyFile)
+			if err != nil {
+				log.Errorf("Error while reading x509 cert key from local file[%s]: %s", idConfig.KeyFile, err.Error())
 			}
 
 			log.Infoln("Attempting to retrieve tokens from identity provider...")
 
-			roleTokens, accessTokens, err := handler.GetToken(certPEM, keyPem)
+			roleTokens, accessTokens, err := handler.GetToken(certPem, keyPem)
 			if err != nil {
 				log.Errorf("Error while retrieving tokens: %s", err.Error())
 				return err

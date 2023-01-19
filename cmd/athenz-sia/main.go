@@ -243,8 +243,10 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	<-ch // wait until receiving os.Signal from channel ch
-	log.Println("Shutting down...")
+	if !idConfig.Init {
+		<-ch // wait until receiving os.Signal from channel ch
+		log.Println("Shutting down...")
+	}
 	close(certificateChan)
 	close(tokenChan)
 	close(metricsChan)
