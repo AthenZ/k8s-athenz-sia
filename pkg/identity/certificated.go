@@ -15,6 +15,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	var id *InstanceIdentity
 	var keyPem []byte
+	var certPEM []byte
 
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
@@ -143,8 +144,25 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				}
 			} else {
 
-				log.Errorf("Failed to load x509 cert temporary backup from kubernetes secret[%s]: secret was not specified", idConfig.CertSecret)
-				return nil
+				log.Infof("Attempting to load x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
+
+				keyPem, certPEM, err = idConfig.Reloader.GetLatestKeyAndCert()
+				if err != nil {
+					log.Errorf("Error while reading x509 cert from local file: %s", err.Error())
+				}
+
+				id, err = InstanceIdentityFromPEMBytes(certPEM)
+				if err != nil {
+					log.Errorf("Error while parsing x509 cert from local file: %s", err.Error())
+				}
+
+				if id == nil || len(keyPem) == 0 {
+					log.Errorf("Failed to load x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
+				} else {
+
+					log.Infof("Successfully loaded x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
+
+				}
 			}
 		} else {
 
@@ -206,8 +224,12 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		time.Sleep(sleep)
 	}
 
-	if idConfig.Init {
-		return backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
+	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
+
+	if idConfig.Init || err != nil {
+		log.Errorf("Failed to initially retrieve certificates after multiple retries: %s", err.Error())
+
+		return err
 	}
 
 	go func() {

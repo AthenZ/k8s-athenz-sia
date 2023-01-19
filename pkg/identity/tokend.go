@@ -23,8 +23,8 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	// map[domain][role][AccessToken.TokenString]
 	var accessTokenCache = make(map[string]map[string](*atomic.Value))
 
-	var id *InstanceIdentity
 	var keyPem []byte
+	var certPEM []byte
 
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
@@ -73,21 +73,23 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	notifyOnErr := func(err error, backoffDelay time.Duration) {
-		log.Errorf("Failed to create/refresh cert: %s. Retrying in %s", err.Error(), backoffDelay)
+		log.Errorf("Failed to refresh tokens: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
 
 	run := func() error {
 
 		if idConfig.TargetDomainRoles != "" {
-			if idConfig.CertSecret != "" {
-				log.Warnf("Attempting to load x509 cert temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
 
-				id, keyPem, err = handler.GetX509CertFromSecret()
+			log.Infof("Attempting to load x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
+
+			keyPem, certPEM, err = idConfig.Reloader.GetLatestKeyAndCert()
+			if err != nil {
+				log.Errorf("Error while reading x509 cert from local file: %s", err.Error())
 			}
 
 			log.Infoln("Attempting to retrieve tokens from identity provider...")
 
-			roleTokens, accessTokens, err := handler.GetToken(id, keyPem)
+			roleTokens, accessTokens, err := handler.GetToken(certPEM, keyPem)
 			if err != nil {
 				log.Errorf("Error while retrieving tokens: %s", err.Error())
 				return err
@@ -153,13 +155,14 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		io.WriteString(w, fmt.Sprintf("%s", response))
 	}
 
-	if !idConfig.Init {
-		err := backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
-		if err != nil {
-			log.Errorf("Failed to retrieve tokens after multiple retries: %s", err.Error())
+	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
 
-			return err
+	if idConfig.Init {
+		if err != nil {
+			log.Errorf("Failed to initially retrieve tokens after multiple retries: %s", err.Error())
 		}
+
+		return err
 	}
 
 	httpServer := &http.Server{

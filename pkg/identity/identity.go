@@ -354,7 +354,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 }
 
 // GetToken makes ZTS API calls to generate an X.509 role certificate
-func (h *identityHandler) GetToken(id *InstanceIdentity, keyPEM []byte) (roletokens [](*RoleToken), accesstokens [](*AccessToken), err error) {
+func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleToken), accesstokens [](*AccessToken), err error) {
 
 	if h.roleCsrOptions != nil {
 
@@ -363,7 +363,11 @@ func (h *identityHandler) GetToken(id *InstanceIdentity, keyPEM []byte) (roletok
 			MinVersion: tls.VersionTLS12,
 		}
 		tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return h.config.Reloader.GetLatestCertificate()
+			cert, err := tls.X509KeyPair(certPEM, keyPEM)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to set tls client key pair for PostAccessTokenRequest, err: %v", err)
+			}
+			return &cert, nil
 		}
 		t := &http.Transport{
 			TLSClientConfig: tlsConfig,
