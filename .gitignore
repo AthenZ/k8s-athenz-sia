@@ -29,6 +29,7 @@ k8s-athenz-sia
 *.key
 *.roletoken
 *.accesstoken
+*.tmp
 
 # Log files from the built binary
 *.log
