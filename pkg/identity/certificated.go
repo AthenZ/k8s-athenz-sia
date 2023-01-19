@@ -109,18 +109,6 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		} else {
 
 			log.Infof("Skipping to create/refresh x509 cert from identity provider...")
-
-			var certPEM []byte
-
-			keyPem, certPEM, err = idConfig.Reloader.GetLatestKeyAndCert()
-			if err != nil {
-				log.Errorf("Error while reading x509 cert from local file: %s", err.Error())
-			}
-
-			id, err = InstanceIdentityFromPEMBytes(certPEM)
-			if err != nil {
-				log.Errorf("Error while parsing x509 cert from local file: %s", err.Error())
-			}
 		}
 
 		if id == nil || len(keyPem) == 0 {
@@ -226,8 +214,10 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
 
-	if idConfig.Init || err != nil {
-		log.Errorf("Failed to initially retrieve certificates after multiple retries: %s", err.Error())
+	if idConfig.Init {
+		if err != nil {
+			log.Errorf("Failed to initially retrieve certificates after multiple retries: %s", err.Error())
+		}
 
 		return err
 	}
