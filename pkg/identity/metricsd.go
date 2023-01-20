@@ -11,7 +11,7 @@ func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	if !idConfig.Init {
 
-		log.Infof("Starting metrics exporter server")
+		log.Infof("Starting metrics exporter server[%s]", idConfig.MetricsServerAddr)
 
 		// enix/x509-certificate-exporter
 		// https://github.com/enix/x509-certificate-exporter/blob/main/cmd/x509-certificate-exporter/main.go
