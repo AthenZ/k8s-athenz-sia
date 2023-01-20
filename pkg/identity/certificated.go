@@ -64,11 +64,6 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {
 						return errors.Wrap(err, "unable to save x509 role cert")
 					}
-					outPath = filepath.Join(idConfig.RoleCertDir, rolecert.Domain+"_role."+rolecert.Role+".cert.pem")
-					log.Debugf("Saving x509 role cert[%d bytes] at %s", len(roleCertPEM), outPath)
-					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {
-						return errors.Wrap(err, "unable to save x509 role cert")
-					}
 				}
 			}
 		}
