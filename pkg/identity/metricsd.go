@@ -17,17 +17,24 @@ func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		// https://github.com/enix/x509-certificate-exporter/blob/main/cmd/x509-certificate-exporter/main.go
 		// https://github.com/enix/x509-certificate-exporter/blob/beb88b34b490add4015c8b380d975eb9cb340d44/internal/exporter.go#L26
 		exporter := internal.Exporter{
-			ListenAddress:         idConfig.MetricsServerAddr,
-			SystemdSocket:         false,
-			ConfigFile:            "",
-			Files:                 []string{},
-			Directories:           []string{},
+			ListenAddress: idConfig.MetricsServerAddr,
+			SystemdSocket: false,
+			ConfigFile:    "",
+			Files: []string{
+				idConfig.CertFile,
+				idConfig.CaCertFile,
+			},
+			Directories: []string{
+				idConfig.RoleCertDir,
+			},
 			YAMLs:                 []string{},
 			TrimPathComponents:    0,
 			MaxCacheDuration:      time.Duration(0),
 			ExposeRelativeMetrics: true,
 			ExposeErrorMetrics:    true,
-			KubeSecretTypes:       []string{},
+			KubeSecretTypes: []string{
+				"kubernetes.io/tls:tls.crt",
+			},
 			KubeIncludeNamespaces: []string{},
 			KubeExcludeNamespaces: []string{},
 			KubeIncludeLabels:     []string{},
