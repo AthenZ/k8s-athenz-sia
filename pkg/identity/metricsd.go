@@ -16,7 +16,7 @@ func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	if idConfig.MetricsServerAddr == "" {
-		log.Infof("Metrics exporter is disabled with empty address: address[%s]", idConfig.MetricsServerAddr)
+		log.Infof("Metrics exporter is disabled with empty options: address[%s]", idConfig.MetricsServerAddr)
 		return nil
 	}
 

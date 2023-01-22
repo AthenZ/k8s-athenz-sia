@@ -395,7 +395,7 @@ func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleT
 		for _, csrOption := range *h.roleCsrOptions {
 			dr := strings.Split(csrOption.Subject.CommonName, ":role.")
 
-			if h.config.TokenType == "access" || h.config.TokenType == "both" {
+			if strings.Contains(h.config.TokenType, "accesstoken") {
 				request := athenzutils.GenerateAccessTokenRequestString(dr[0], h.service, dr[1], "", "", int(expireTimeMs))
 				accessTokenResponse, err := roleClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
 				if err != nil {
@@ -409,7 +409,7 @@ func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleT
 				})
 			}
 
-			if h.config.TokenType == "role" || h.config.TokenType == "both" {
+			if strings.Contains(h.config.TokenType, "roletoken") {
 				roletokenResponse, err := roleClient.GetRoleToken(zts.DomainName(dr[0]), zts.EntityList(dr[1]), &expireTimeMs, &expireTimeMs, "")
 				if err != nil {
 					return nil, nil, fmt.Errorf("GetRoleToken failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)

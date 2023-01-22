@@ -14,6 +14,10 @@ import (
 
 func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
+	if idConfig.TargetDomainRoles == "" || idConfig.RoleCertDir == "" {
+		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idConfig.TargetDomainRoles, idConfig.RoleCertDir)
+	}
+
 	var id *InstanceIdentity
 	var keyPem, certPem []byte
 
@@ -152,7 +156,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		}
 
 		var roleCerts [](*RoleCertificate)
-		if idConfig.TargetDomainRoles != "" {
+		if idConfig.TargetDomainRoles != "" && idConfig.RoleCertDir != "" {
 
 			if id == nil || len(keyPem) == 0 {
 
@@ -192,9 +196,6 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			} else {
 				log.Infoln("Successfully retrieved x509 role certs from identity provider")
 			}
-		} else {
-
-			log.Debugf("Role certificate provisioning is disabled with empty target roles: roles[%s]", idConfig.TargetDomainRoles)
 
 		}
 

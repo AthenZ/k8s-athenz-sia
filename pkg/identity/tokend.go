@@ -19,13 +19,8 @@ import (
 
 func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
-	if idConfig.TargetDomainRoles == "" {
-		log.Infof("Token provider is disabled with empty target roles: address[%s], roles[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles)
-		return nil
-	}
-
-	if idConfig.TokenServerAddr == "" {
-		log.Infof("Token provider is disabled with empty address: address[%s], roles[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles)
+	if idConfig.TokenServerAddr == "" || idConfig.TargetDomainRoles == "" || idConfig.TokenType == "" {
+		log.Infof("Token provider is disabled with empty options: address[%s], roles[%s], token-type[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles, idConfig.TokenType)
 		return nil
 	}
 
@@ -154,15 +149,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		}
 
 		switch idConfig.TokenType {
-		case "access":
-			if accessTokenCache[domain] == nil {
-				message := fmt.Sprintf("domain[%s] was not found in cache.", domain)
-				response, err = json.Marshal(map[string]string{"error": message})
-			} else if accessTokenCache[domain][role] == nil {
-				message := fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
-				response, err = json.Marshal(map[string]string{"error": message})
-			}
-		case "role":
+		case "roletoken":
 			if roleTokenCache[domain] == nil {
 				message := fmt.Sprintf("domain[%s] was not found in cache.", domain)
 				response, err = json.Marshal(map[string]string{"error": message})
@@ -170,7 +157,15 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				message := fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 				response, err = json.Marshal(map[string]string{"error": message})
 			}
-		case "both":
+		case "accesstoken":
+			if accessTokenCache[domain] == nil {
+				message := fmt.Sprintf("domain[%s] was not found in cache.", domain)
+				response, err = json.Marshal(map[string]string{"error": message})
+			} else if accessTokenCache[domain][role] == nil {
+				message := fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
+				response, err = json.Marshal(map[string]string{"error": message})
+			}
+		case "roletoken+accesstoken":
 			if accessTokenCache[domain] == nil || roleTokenCache[domain] == nil {
 				message := fmt.Sprintf("domain[%s] was not found in cache.", domain)
 				response, err = json.Marshal(map[string]string{"error": message})
@@ -186,15 +181,15 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		}
 
 		switch idConfig.TokenType {
-		case "access":
-			at = accessTokenCache[domain][role].Load().(*AccessToken).TokenString
-			w.Header().Set("Authorization", "bearer "+at)
-			response, err = json.Marshal(map[string]string{"accesstoken": at})
-		case "role":
+		case "roletoken":
 			rt = roleTokenCache[domain][role].Load().(*RoleToken).TokenString
 			w.Header().Set("Yahoo-Role-Auth", rt)
 			response, err = json.Marshal(map[string]string{"roletoken": rt})
-		case "both":
+		case "accesstoken":
+			at = accessTokenCache[domain][role].Load().(*AccessToken).TokenString
+			w.Header().Set("Authorization", "bearer "+at)
+			response, err = json.Marshal(map[string]string{"accesstoken": at})
+		case "roletoken+accesstoken":
 			at = accessTokenCache[domain][role].Load().(*AccessToken).TokenString
 			rt = roleTokenCache[domain][role].Load().(*RoleToken).TokenString
 			w.Header().Set("Authorization", "bearer "+at)
