@@ -59,8 +59,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		endpoint              = envOrDefault("ENDPOINT", DEFAULT_ENDPOINT)
 		providerService       = envOrDefault("PROVIDER_SERVICE", "")
 		dnsSuffix             = envOrDefault("DNS_SUFFIX", DEFAULT_DNS_SUFFIX)
-		refreshInterval       = envOrDefault("REFRESH_INTERVAL", "3s")
-		tokenRefreshInterval  = envOrDefault("TOKEN_REFRESH_INTERVAL", "4s")
+		refreshInterval       = envOrDefault("REFRESH_INTERVAL", "24h")
 		delayJitterSeconds, _ = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
 		keyFile               = envOrDefault("KEY_FILE", "/var/run/athenz/service.key.pem")
 		certFile              = envOrDefault("CERT_FILE", "/var/run/athenz/service.cert.pem")
@@ -74,16 +73,18 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		podUID                = envOrDefault("POD_UID", "")
 		saTokenFile           = envOrDefault("SA_TOKEN_FILE", "/var/run/secrets/kubernetes.io/bound-serviceaccount/token")
 		serverCACert          = envOrDefault("SERVER_CA_CERT", "")
-		roleCertDir           = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
 		targetDomainRoles     = envOrDefault("TARGET_DOMAIN_ROLES", "")
-		tokenServerAddr       = envOrDefault("TOKEN_SERVER_ADDR", ":8880")
+		roleCertDir           = envOrDefault("ROLECERT_DIR", "/var/run/athenz/")
+		tokenType             = envOrDefault("TOKEN_TYPE", "access")
+		tokenRefreshInterval  = envOrDefault("TOKEN_REFRESH_INTERVAL", "30m")
+		tokenServerAddr       = envOrDefault("TOKEN_SERVER_ADDR", "")
 		tokenDir              = envOrDefault("TOKEN_DIR", "/var/run/athenz/")
-		metricsServerAddr     = envOrDefault("METRICS_SERVER_ADDR", ":9999")
+		metricsServerAddr     = envOrDefault("METRICS_SERVER_ADDR", "")
 		deleteInstanceID, _   = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
 	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh")
-	f.BoolVar(&backup, "backup", backup, "backup certificate to Kubernetes secret (process must be unique per secret to prevent backup inconsistency)")
+	f.BoolVar(&backup, "backup", backup, "backup certificate to Kubernetes secret (must be run uniquely for each secret to prevent conflict)")
 	f.StringVar(&endpoint, "endpoint", endpoint, "Athenz ZTS endpoint (required for identity certificate provisioning)")
 	f.StringVar(&providerService, "provider-service", providerService, "Identity Provider service (required for identity certificate provisioning)")
 	f.StringVar(&dnsSuffix, "dns-suffix", dnsSuffix, "DNS Suffix for x509 identity/role certificates")
@@ -97,8 +98,9 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.StringVar(&logLevel, "log-level", logLevel, "logging level")
 	f.StringVar(&saTokenFile, "sa-token-file", saTokenFile, "bound sa jwt token file location")
 	f.StringVar(&serverCACert, "server-ca-cert", serverCACert, "path to CA certificate file to verify ZTS server certs")
-	f.StringVar(&roleCertDir, "out-rolecert-dir", roleCertDir, "directory to write certificate file for role certificates")
 	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain:role.admin,sys.auth:role.providers)")
+	f.StringVar(&roleCertDir, "out-rolecert-dir", roleCertDir, "directory to write certificate file for role certificates")
+	f.StringVar(&tokenType, "token-type", tokenType, "type of the role token to request (role, access or both)")
 	f.StringVar(&tokenRefreshInterval, "token-refresh-interval", tokenRefreshInterval, "token refresh interval")
 	f.StringVar(&tokenServerAddr, "token-server-addr", tokenServerAddr, "HTTP server address to provide tokens")
 	f.StringVar(&tokenDir, "token-dir", tokenDir, "directory to write token files")
@@ -181,7 +183,6 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		CertSecret:         certSecret,
 		CaCertFile:         caCertFile,
 		Refresh:            ri,
-		TokenRefresh:       tri,
 		DelayJitterSeconds: delayJitterSeconds,
 		Reloader:           reloader,
 		ServerCACert:       serverCACert,
@@ -193,8 +194,10 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		ServiceAccount:     serviceAccount,
 		PodIP:              podIP,
 		PodUID:             podUID,
-		RoleCertDir:        roleCertDir,
 		TargetDomainRoles:  targetDomainRoles,
+		RoleCertDir:        roleCertDir,
+		TokenType:          tokenType,
+		TokenRefresh:       tri,
 		TokenServerAddr:    tokenServerAddr,
 		TokenDir:           tokenDir,
 		MetricsServerAddr:  metricsServerAddr,

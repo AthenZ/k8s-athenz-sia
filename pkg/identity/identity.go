@@ -33,7 +33,6 @@ type IdentityConfig struct {
 	CertSecret         string
 	CaCertFile         string
 	Refresh            time.Duration
-	TokenRefresh       time.Duration
 	DelayJitterSeconds int64
 	Reloader           *util.CertReloader
 	ServerCACert       string
@@ -45,8 +44,10 @@ type IdentityConfig struct {
 	ServiceAccount     string
 	PodIP              string
 	PodUID             string
-	RoleCertDir        string
 	TargetDomainRoles  string
+	RoleCertDir        string
+	TokenType          string
+	TokenRefresh       time.Duration
 	TokenServerAddr    string
 	TokenDir           string
 	MetricsServerAddr  string
@@ -393,27 +394,33 @@ func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleT
 
 		for _, csrOption := range *h.roleCsrOptions {
 			dr := strings.Split(csrOption.Subject.CommonName, ":role.")
-			request := athenzutils.GenerateAccessTokenRequestString(dr[0], h.service, dr[1], "", "", int(expireTimeMs))
-			accessTokenResponse, err := roleClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
-			if err != nil {
-				return nil, nil, fmt.Errorf("PostAccessTokenRequest failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
+
+			if h.config.TokenType == "access" || h.config.TokenType == "both" {
+				request := athenzutils.GenerateAccessTokenRequestString(dr[0], h.service, dr[1], "", "", int(expireTimeMs))
+				accessTokenResponse, err := roleClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
+				if err != nil {
+					return nil, nil, fmt.Errorf("PostAccessTokenRequest failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
+				}
+				accesstokens = append(accesstokens, &AccessToken{
+					Domain:      dr[0],
+					Role:        dr[1],
+					TokenString: accessTokenResponse.Access_token,
+					Expiry:      int64(*accessTokenResponse.Expires_in),
+				})
 			}
-			accesstokens = append(accesstokens, &AccessToken{
-				Domain:      dr[0],
-				Role:        dr[1],
-				TokenString: accessTokenResponse.Access_token,
-				Expiry:      int64(*accessTokenResponse.Expires_in),
-			})
-			roletokenResponse, err := roleClient.GetRoleToken(zts.DomainName(dr[0]), zts.EntityList(dr[1]), &expireTimeMs, &expireTimeMs, "")
-			if err != nil {
-				return nil, nil, fmt.Errorf("GetRoleToken failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
+
+			if h.config.TokenType == "role" || h.config.TokenType == "both" {
+				roletokenResponse, err := roleClient.GetRoleToken(zts.DomainName(dr[0]), zts.EntityList(dr[1]), &expireTimeMs, &expireTimeMs, "")
+				if err != nil {
+					return nil, nil, fmt.Errorf("GetRoleToken failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
+				}
+				roletokens = append(roletokens, &RoleToken{
+					Domain:      dr[0],
+					Role:        dr[1],
+					TokenString: roletokenResponse.Token,
+					Expiry:      roletokenResponse.ExpiryTime,
+				})
 			}
-			roletokens = append(roletokens, &RoleToken{
-				Domain:      dr[0],
-				Role:        dr[1],
-				TokenString: roletokenResponse.Token,
-				Expiry:      roletokenResponse.ExpiryTime,
-			})
 		}
 	}
 

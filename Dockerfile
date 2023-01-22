@@ -26,6 +26,9 @@ COPY --from=builder /go/bin/athenz-sia /usr/bin/athenz-sia
 
 USER nobody
 
+ENV TOKEN_SERVER_ADDR :8880
+ENV METRICS_SERVER_ADDR :9999
+
 # --interval=DURATION (default: 30s)
 # --timeout=DURATION (default: 30s)
 # --start-period=DURATION (default: 0s)

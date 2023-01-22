@@ -20,7 +20,12 @@ import (
 func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	if idConfig.TargetDomainRoles == "" {
-		log.Infof("Token provider is disabled with empty target roles[%s]", idConfig.TargetDomainRoles)
+		log.Infof("Token provider is disabled with empty target roles: address[%s], roles[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles)
+		return nil
+	}
+
+	if idConfig.TokenServerAddr == "" {
+		log.Infof("Token provider is disabled with empty address: address[%s], roles[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles)
 		return nil
 	}
 
@@ -130,7 +135,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			accessTokenCache[a.Domain][a.Role] = &at
 		}
 
-		log.Infof("Successfully updated token cache: roleTokenCache(%d), accessTokenCache(%d)", len(roleTokenCache), len(accessTokenCache))
+		log.Infof("Successfully updated token cache: roleTokens(%d), accessTokens(%d)", len(roleTokens), len(accessTokens))
 
 		return writeFiles()
 	}
@@ -147,13 +152,32 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			message := fmt.Sprintf("http headers not set: %s[%s] %s[%s].", domainHeader, domain, roleHeader, role)
 			response, err = json.Marshal(map[string]string{"error": message})
 		}
-		if accessTokenCache[domain] == nil || roleTokenCache[domain] == nil {
-			message := fmt.Sprintf("domain[%s] was not found in cache.", domain)
-			response, err = json.Marshal(map[string]string{"error": message})
-		}
-		if accessTokenCache[domain][role] == nil || roleTokenCache[domain][role] == nil {
-			message := fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
-			response, err = json.Marshal(map[string]string{"error": message})
+
+		switch idConfig.TokenType {
+		case "access":
+			if accessTokenCache[domain] == nil {
+				message := fmt.Sprintf("domain[%s] was not found in cache.", domain)
+				response, err = json.Marshal(map[string]string{"error": message})
+			} else if accessTokenCache[domain][role] == nil {
+				message := fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
+				response, err = json.Marshal(map[string]string{"error": message})
+			}
+		case "role":
+			if roleTokenCache[domain] == nil {
+				message := fmt.Sprintf("domain[%s] was not found in cache.", domain)
+				response, err = json.Marshal(map[string]string{"error": message})
+			} else if roleTokenCache[domain][role] == nil {
+				message := fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
+				response, err = json.Marshal(map[string]string{"error": message})
+			}
+		case "both":
+			if accessTokenCache[domain] == nil || roleTokenCache[domain] == nil {
+				message := fmt.Sprintf("domain[%s] was not found in cache.", domain)
+				response, err = json.Marshal(map[string]string{"error": message})
+			} else if accessTokenCache[domain][role] == nil || roleTokenCache[domain][role] == nil {
+				message := fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
+				response, err = json.Marshal(map[string]string{"error": message})
+			}
 		}
 
 		if err != nil || len(response) > 0 {
@@ -161,11 +185,22 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			return
 		}
 
-		at = accessTokenCache[domain][role].Load().(*AccessToken).TokenString
-		rt = roleTokenCache[domain][role].Load().(*RoleToken).TokenString
-		w.Header().Set("Authorization", "bearer "+at)
-		w.Header().Set("Yahoo-Role-Auth", rt)
-		response, err = json.Marshal(map[string]string{"accesstoken": at, "roletoken": rt})
+		switch idConfig.TokenType {
+		case "access":
+			at = accessTokenCache[domain][role].Load().(*AccessToken).TokenString
+			w.Header().Set("Authorization", "bearer "+at)
+			response, err = json.Marshal(map[string]string{"accesstoken": at})
+		case "role":
+			rt = roleTokenCache[domain][role].Load().(*RoleToken).TokenString
+			w.Header().Set("Yahoo-Role-Auth", rt)
+			response, err = json.Marshal(map[string]string{"roletoken": rt})
+		case "both":
+			at = accessTokenCache[domain][role].Load().(*AccessToken).TokenString
+			rt = roleTokenCache[domain][role].Load().(*RoleToken).TokenString
+			w.Header().Set("Authorization", "bearer "+at)
+			w.Header().Set("Yahoo-Role-Auth", rt)
+			response, err = json.Marshal(map[string]string{"accesstoken": at, "roletoken": rt})
+		}
 
 		io.WriteString(w, fmt.Sprintf("%s", response))
 	}

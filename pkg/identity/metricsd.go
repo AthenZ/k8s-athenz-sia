@@ -10,7 +10,12 @@ import (
 func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	if idConfig.Init {
-		log.Infof("Metrics exporter is disabled for init mode[%s]", idConfig.MetricsServerAddr)
+		log.Infof("Metrics exporter is disabled for init mode: address[%s]", idConfig.MetricsServerAddr)
+		return nil
+	}
+
+	if idConfig.MetricsServerAddr == "" {
+		log.Infof("Metrics exporter is disabled with empty address: address[%s]", idConfig.MetricsServerAddr)
 		return nil
 	}
 
