@@ -212,6 +212,8 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			log.Errorf("Failed to retrieve initial tokens after multiple retries: %s", err.Error())
 		}
 
+		log.Infof("Token provider is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
+
 		return err
 	}
 

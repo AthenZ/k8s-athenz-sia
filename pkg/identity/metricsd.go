@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"strings"
 	"time"
 
 	internal "github.com/AthenZ/k8s-athenz-sia/pkg/metrics"
@@ -32,9 +33,7 @@ func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			idConfig.CertFile,
 			idConfig.CaCertFile,
 		},
-		Directories: []string{
-			idConfig.RoleCertDir,
-		},
+		Directories:           []string{},
 		YAMLs:                 []string{},
 		TrimPathComponents:    0,
 		MaxCacheDuration:      time.Duration(0),
@@ -47,6 +46,10 @@ func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		KubeExcludeNamespaces: []string{},
 		KubeIncludeLabels:     []string{},
 		KubeExcludeLabels:     []string{},
+	}
+
+	for _, domainrole := range strings.Split(idConfig.TargetDomainRoles, ",") {
+		exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+domainrole+".cert.pem")
 	}
 
 	go func() {
