@@ -196,7 +196,6 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 			log.Debugf("Role certificate provisioning is disabled with empty target roles: roles[%s]", idConfig.TargetDomainRoles)
 
-			return nil
 		}
 
 		return writeFiles(id, keyPem, roleCerts)

@@ -500,10 +500,6 @@ func PrepareIdentityCsrOptions(config *IdentityConfig, domain, service string) (
 // PrepareRoleCsrOptions prepares csrOptions for an X.509 certificate
 func PrepareRoleCsrOptions(config *IdentityConfig, domain, service string) (*[]util.CSROptions, error) {
 
-	if config.TargetDomainRoles == "" {
-		return nil, nil
-	}
-
 	var roleCsrOptions []util.CSROptions
 
 	for _, domainrole := range strings.Split(config.TargetDomainRoles, ",") {
