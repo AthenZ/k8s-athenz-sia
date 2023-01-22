@@ -87,98 +87,115 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	run := func() error {
 
-		if !idConfig.SkipIdentityProvisioning {
+		if idConfig.ProviderService != "" {
+
+			log.Infof("Attempting to create/refresh x509 certificate from identity provider[%s]...", idConfig.ProviderService)
 
 			log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
 
-			log.Infoln("Attempting to create/refresh x509 cert from identity provider...")
 			id, keyPem, err = handler.GetX509Cert()
-
 			if err != nil {
 
-				log.Errorf("Error while creating/refreshing x509 cert from identity provider: %s", err.Error())
+				log.Warnf("Error while creating/refreshing x509 certificate from identity provider: %s", err.Error())
+
 			} else {
 
-				log.Infoln("Successfully created/refreshed x509 cert from identity provider")
+				log.Infoln("Successfully created/refreshed x509 certificate from identity provider")
+
+				if idConfig.CertSecret != "" && idConfig.Backup {
+
+					log.Infof("Attempting to save x509 certificate to kubernetes secret[%s]...", idConfig.CertSecret)
+
+					err = handler.ApplyX509CertToSecret(id, keyPem)
+					if err != nil {
+						log.Errorf("Error while saving x509 certificate to kubernetes secret: %s", err.Error())
+						return err
+					}
+
+					log.Infof("Successfully saved x509 certificate to kubernetes secret")
+
+				} else {
+
+					log.Debugf("Skipping to save x509 certificate temporary backup to Kubernetes secret[%s]", idConfig.CertSecret)
+
+				}
 			}
 		} else {
 
-			log.Infof("Skipping to create/refresh x509 cert from identity provider...")
+			log.Infof("No provider service specified. Skipping to create/refresh x509 certificate from identity provider...")
+
 		}
 
 		if id == nil || len(keyPem) == 0 {
 
-			if idConfig.CertSecret != "" && !idConfig.Backup {
-				log.Warnf("Attempting to load x509 cert temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
+			if idConfig.CertSecret != "" {
+
+				log.Infof("Attempting to load x509 certificate temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
 
 				id, keyPem, err = handler.GetX509CertFromSecret()
 				if err != nil {
-					log.Errorf("Error while loading x509 cert temporary backup from kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
-					return err
+					log.Warnf("Error while loading x509 certificate temporary backup from kubernetes secret: %s", err.Error())
 				}
 
 				if id == nil || len(keyPem) == 0 {
-					log.Errorf("Failed to load x509 cert temporary backup from kubernetes secret[%s]: secret was empty", idConfig.CertSecret)
-					return nil
+					log.Warnf("Failed to load x509 certificate temporary backup from kubernetes secret: secret was empty")
 				} else {
 
-					log.Infof("Successfully loaded x509 cert from kubernetes secret[%s]", idConfig.CertSecret)
+					log.Infof("Successfully loaded x509 certificate from kubernetes secret")
 
 				}
 			} else {
 
-				log.Infof("Attempting to load x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
+				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret")
 
-				certPem, err = ioutil.ReadFile(idConfig.CertFile)
-				if err != nil {
-					log.Errorf("Error while reading x509 cert from local file[%s]: %s", idConfig.CertFile, err.Error())
-				}
-				keyPem, err = ioutil.ReadFile(idConfig.KeyFile)
-				if err != nil {
-					log.Errorf("Error while reading x509 cert key from local file[%s]: %s", idConfig.KeyFile, err.Error())
-				}
-
-				id, err = InstanceIdentityFromPEMBytes(certPem)
-				if err != nil {
-					log.Errorf("Error while parsing x509 cert from local file: %s", err.Error())
-				}
-
-				if id == nil || len(keyPem) == 0 {
-					log.Errorf("Failed to load x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
-					return nil
-				} else {
-
-					log.Infof("Successfully loaded x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
-
-				}
 			}
-		} else {
+		}
 
-			if idConfig.CertSecret != "" && idConfig.Backup {
+		if id == nil || len(keyPem) == 0 {
 
-				log.Infof("Attempting to save x509 cert to kubernetes secret[%s]...", idConfig.CertSecret)
+			log.Debugf("Attempting to load x509 certificate from local file to retrieve x509 role certs: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
 
-				err = handler.ApplyX509CertToSecret(id, keyPem)
-				if err != nil {
-					log.Errorf("Error while saving x509 cert to kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
-					return err
-				}
+			certPem, err = ioutil.ReadFile(idConfig.CertFile)
+			if err != nil {
+				log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
+			}
+			keyPem, err = ioutil.ReadFile(idConfig.KeyFile)
+			if err != nil {
+				log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
+			}
 
-				log.Infof("Successfully saved x509 cert to kubernetes secret[%s]", idConfig.CertSecret)
+			id, err = InstanceIdentityFromPEMBytes(certPem)
+			if err != nil {
+				log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
+			}
 
+			if id == nil || len(keyPem) == 0 {
+				log.Warnf("Failed to load x509 certificate from local file to retrieve x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
 			} else {
 
-				return nil
+				log.Debugf("Successfully loaded x509 certificate from local file to retrieve x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
+
 			}
+		}
+
+		if id == nil || len(keyPem) == 0 {
+			err = errors.Wrap(err, "Failed to load x509 certificate")
+			log.Errorf("%s", err.Error())
+
+			return err
 		}
 
 		var roleCerts [](*RoleCertificate)
 		if idConfig.TargetDomainRoles != "" {
-			log.Infoln("Attempting to retrieve x509 role certs from identity provider...")
+
+			log.Infof("Attempting to retrieve x509 role certs from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
 
 			roleCerts, err = handler.GetX509RoleCert(id, keyPem)
 			if err != nil {
-				log.Errorf("Error while retrieving x509 role certs: %s", err.Error())
+				err = errors.Wrap(err, "Failed to retrieve x509 role certs")
+				log.Errorf("%s", err.Error())
+
+				return err
 			} else {
 				log.Infoln("Successfully retrieved x509 role certs from identity provider")
 			}
@@ -189,17 +206,18 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	deleteRequest := func() error {
 		if idConfig.DeleteInstanceID {
-			log.Infoln("Attempting to delete x509 cert record from identity provider...")
+
+			log.Infoln("Attempting to delete x509 certificate record from identity provider...")
 
 			err := handler.DeleteX509CertRecord()
 			if err != nil {
-				log.Errorf("Error while deleting x509 cert record: %s", err.Error())
+				log.Errorf("Error while deleting x509 certificate record: %s", err.Error())
 				return err
 			}
 
 			log.Infof("Deleted Instance ID record[%s]", handler.InstanceID())
 
-			log.Infoln("Successfully deleted x509 cert record from identity provider")
+			log.Infoln("Successfully deleted x509 certificate record from identity provider")
 		}
 
 		return nil
@@ -216,7 +234,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	if idConfig.Init {
 		if err != nil {
-			log.Errorf("Failed to initially retrieve certificates after multiple retries: %s", err.Error())
+			log.Errorf("Failed to retrieve initial certificate after multiple retries: %s", err.Error())
 		}
 
 		return err
@@ -227,17 +245,19 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		defer t.Stop()
 
 		for {
-			log.Infof("Refreshing cert[%s] roles[%v] in %s", idConfig.CertFile, idConfig.TargetDomainRoles, idConfig.Refresh)
+
+			log.Infof("Refreshing key[%s], cert[%s] and certificates for roles[%v] in %s", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles, idConfig.Refresh)
+
 			select {
 			case <-t.C:
 				err := backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
 				if err != nil {
-					log.Errorf("Failed to refresh cert after multiple retries: %s", err.Error())
+					log.Errorf("Failed to refresh certificate after multiple retries: %s", err.Error())
 				}
 			case <-stopChan:
 				err := deleteRequest()
 				if err != nil {
-					log.Errorf("Failed to delete cert record: %s", err.Error())
+					log.Errorf("Failed to delete certificate record: %s", err.Error())
 				}
 				return
 			}

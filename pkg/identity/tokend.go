@@ -19,6 +19,11 @@ import (
 
 func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
+	if idConfig.TargetDomainRoles == "" {
+		log.Infof("Token provider is disabled with empty target roles[%s]", idConfig.TargetDomainRoles)
+		return nil
+	}
+
 	// map[domain][role][RoleToken.TokenString]
 	var roleTokenCache = make(map[string]map[string](*atomic.Value))
 	// map[domain][role][AccessToken.TokenString]
@@ -78,48 +83,54 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	run := func() error {
 
-		if idConfig.TargetDomainRoles != "" {
+		log.Debugf("Attempting to load x509 certificate from local file to retrieve tokens: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
 
-			log.Infof("Attempting to load x509 cert from local file: key[%s], cert[%s]", idConfig.KeyFile, idConfig.CertFile)
-
-			certPem, err = ioutil.ReadFile(idConfig.CertFile)
-			if err != nil {
-				log.Errorf("Error while reading x509 cert from local file[%s]: %s", idConfig.CertFile, err.Error())
-			}
-			keyPem, err = ioutil.ReadFile(idConfig.KeyFile)
-			if err != nil {
-				log.Errorf("Error while reading x509 cert key from local file[%s]: %s", idConfig.KeyFile, err.Error())
-			}
-
-			log.Infoln("Attempting to retrieve tokens from identity provider...")
-
-			roleTokens, accessTokens, err := handler.GetToken(certPem, keyPem)
-			if err != nil {
-				log.Errorf("Error while retrieving tokens: %s", err.Error())
-				return err
-			}
-
-			log.Infof("Successfully retrieved tokens from identity provider: len(roleTokens):%d, len(accessTokens):%d", len(roleTokens), len(accessTokens))
-
-			for _, r := range roleTokens {
-				var rt atomic.Value
-				rt.Store(r)
-				if roleTokenCache[r.Domain] == nil {
-					roleTokenCache[r.Domain] = make(map[string](*atomic.Value))
-				}
-				roleTokenCache[r.Domain][r.Role] = &rt
-			}
-			for _, a := range accessTokens {
-				var at atomic.Value
-				at.Store(a)
-				if accessTokenCache[a.Domain] == nil {
-					accessTokenCache[a.Domain] = make(map[string](*atomic.Value))
-				}
-				accessTokenCache[a.Domain][a.Role] = &at
-			}
-
-			log.Infof("Successfully updated token cache from identity provider: len(roleTokenCache):%d, len(accessTokenCache):%d", len(roleTokenCache), len(accessTokenCache))
+		certPem, err = ioutil.ReadFile(idConfig.CertFile)
+		if err != nil {
+			log.Errorf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
 		}
+		keyPem, err = ioutil.ReadFile(idConfig.KeyFile)
+		if err != nil {
+			log.Errorf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
+		}
+
+		if len(keyPem) == 0 || len(keyPem) == 0 {
+			log.Errorf("Failed to load x509 certificate from local file to retrieve tokens: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
+			return nil
+		} else {
+
+			log.Debugf("Successfully loaded x509 certificate from local file to retrieve tokens: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
+
+		}
+
+		log.Infof("Attempting to retrieve tokens from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
+
+		roleTokens, accessTokens, err := handler.GetToken(certPem, keyPem)
+		if err != nil {
+			log.Errorf("Error while retrieving tokens: %s", err.Error())
+			return err
+		}
+
+		log.Debugf("Successfully retrieved tokens from identity provider: roleTokens(%d), accessTokens(%d)", len(roleTokens), len(accessTokens))
+
+		for _, r := range roleTokens {
+			var rt atomic.Value
+			rt.Store(r)
+			if roleTokenCache[r.Domain] == nil {
+				roleTokenCache[r.Domain] = make(map[string](*atomic.Value))
+			}
+			roleTokenCache[r.Domain][r.Role] = &rt
+		}
+		for _, a := range accessTokens {
+			var at atomic.Value
+			at.Store(a)
+			if accessTokenCache[a.Domain] == nil {
+				accessTokenCache[a.Domain] = make(map[string](*atomic.Value))
+			}
+			accessTokenCache[a.Domain][a.Role] = &at
+		}
+
+		log.Infof("Successfully updated token cache: roleTokenCache(%d), accessTokenCache(%d)", len(roleTokenCache), len(accessTokenCache))
 
 		return writeFiles()
 	}
@@ -163,7 +174,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	if idConfig.Init {
 		if err != nil {
-			log.Errorf("Failed to initially retrieve tokens after multiple retries: %s", err.Error())
+			log.Errorf("Failed to retrieve initial tokens after multiple retries: %s", err.Error())
 		}
 
 		return err
@@ -175,10 +186,11 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	go func() {
-		log.Infof("Starting Token Provider Server[%s]", idConfig.TokenServerAddr)
+
+		log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
 
 		if err := httpServer.ListenAndServe(); err != nil {
-			log.Errorf("Failed to start http server: %s", err.Error())
+			log.Errorf("Failed to start token provider: %s", err.Error())
 		}
 	}()
 
@@ -187,7 +199,9 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		defer t.Stop()
 
 		for {
+
 			log.Infof("Refreshing tokens for roles[%v] in %s", idConfig.TargetDomainRoles, idConfig.TokenRefresh)
+
 			select {
 			case <-t.C:
 				err := backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
@@ -198,7 +212,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 				httpServer.SetKeepAlivesEnabled(false)
 				if err := httpServer.Shutdown(ctx); err != nil {
-					log.Errorf("Failed to shutdown http server: %s", err.Error())
+					log.Errorf("Failed to shutdown token provider: %s", err.Error())
 				}
 				return
 			}
