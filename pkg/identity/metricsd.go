@@ -48,8 +48,10 @@ func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		KubeExcludeLabels:     []string{},
 	}
 
-	for _, domainrole := range strings.Split(idConfig.TargetDomainRoles, ",") {
-		exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+domainrole+".cert.pem")
+	if idConfig.TargetDomainRoles != "" && idConfig.RoleCertDir != "" {
+		for _, domainrole := range strings.Split(idConfig.TargetDomainRoles, ",") {
+			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+domainrole+".cert.pem")
+		}
 	}
 
 	go func() {
