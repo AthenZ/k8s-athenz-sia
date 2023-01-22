@@ -23,7 +23,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
-		log.Errorf("Error while initializing handler: %s", err.Error())
+		log.Errorf("Failed to initialize client for certificates: %s", err.Error())
 		return err
 	}
 
@@ -86,25 +86,25 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	notifyOnErr := func(err error, backoffDelay time.Duration) {
-		log.Errorf("Failed to create/refresh cert: %s. Retrying in %s", err.Error(), backoffDelay)
+		log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
 
 	run := func() error {
 
 		if idConfig.ProviderService != "" {
 
-			log.Infof("Attempting to create/refresh x509 certificate from identity provider[%s]...", idConfig.ProviderService)
+			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idConfig.ProviderService)
 
 			log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
 
 			id, keyPem, err = handler.GetX509Cert()
 			if err != nil {
 
-				log.Warnf("Error while creating/refreshing x509 certificate from identity provider: %s", err.Error())
+				log.Warnf("Error while requesting x509 certificate to identity provider: %s", err.Error())
 
 			} else {
 
-				log.Infoln("Successfully created/refreshed x509 certificate from identity provider")
+				log.Infoln("Successfully received x509 certificate from identity provider")
 
 				if idConfig.CertSecret != "" && idConfig.Backup {
 
@@ -126,7 +126,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			}
 		} else {
 
-			log.Infof("No provider service specified. Skipping to create/refresh x509 certificate from identity provider...")
+			log.Infof("No provider service specified. Skipping to request x509 certificate to identity provider...")
 
 		}
 
@@ -160,7 +160,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 			if id == nil || len(keyPem) == 0 {
 
-				log.Debugf("Attempting to load x509 certificate from local file to retrieve x509 role certs: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
+				log.Debugf("Attempting to load x509 certificate from local file to get x509 role certs: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
 
 				certPem, err = ioutil.ReadFile(idConfig.CertFile)
 				if err != nil {
@@ -177,29 +177,33 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				}
 
 				if id == nil || len(keyPem) == 0 {
-					log.Errorf("Failed to load x509 certificate from local file to retrieve x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
+					log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
 				} else {
 
-					log.Debugf("Successfully loaded x509 certificate from local file to retrieve x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
+					log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
 
 				}
 			}
 
-			log.Infof("Attempting to retrieve x509 role certs from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
+			log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
 
 			roleCerts, err = handler.GetX509RoleCert(id, keyPem)
 			if err != nil {
-				err = errors.Wrap(err, "Failed to retrieve x509 role certs")
+				err = errors.Wrap(err, "Failed to get x509 role certs")
 				log.Errorf("%s", err.Error())
 
 				return err
 			} else {
-				log.Infoln("Successfully retrieved x509 role certs from identity provider")
+				log.Infoln("Successfully received x509 role certs from identity provider")
 			}
 
 		}
 
 		return writeFiles(id, keyPem, roleCerts)
+	}
+
+	notifyOnDeleteErr := func(err error, backoffDelay time.Duration) {
+		log.Errorf("Failed to delete certificates record: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
 
 	deleteRequest := func() error {
@@ -209,7 +213,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 			err := handler.DeleteX509CertRecord()
 			if err != nil {
-				log.Errorf("Error while deleting x509 certificate record: %s", err.Error())
+				log.Warnf("Error while deleting x509 certificate record: %s", err.Error())
 				return err
 			}
 
@@ -232,7 +236,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	if idConfig.Init {
 		if err != nil {
-			log.Errorf("Failed to retrieve initial certificate after multiple retries: %s", err.Error())
+			log.Errorf("Failed to get initial certificate after multiple retries: %s", err.Error())
 		}
 
 		return err
@@ -253,9 +257,9 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 					log.Errorf("Failed to refresh certificate after multiple retries: %s", err.Error())
 				}
 			case <-stopChan:
-				err := deleteRequest()
+				err = backoff.RetryNotify(deleteRequest, getExponentialBackoff(), notifyOnDeleteErr)
 				if err != nil {
-					log.Errorf("Failed to delete certificate record: %s", err.Error())
+					log.Errorf("Failed to delete certificate record after multiple retries: %s", err.Error())
 				}
 				return
 			}

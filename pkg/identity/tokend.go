@@ -33,7 +33,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
-		log.Errorf("Error while initializing handler: %s", err.Error())
+		log.Errorf("Failed to initialize client for tokens: %s", err.Error())
 		return err
 	}
 
@@ -83,35 +83,35 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	run := func() error {
 
-		log.Debugf("Attempting to load x509 certificate from local file to retrieve tokens: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
+		log.Debugf("Attempting to load x509 certificate from local file to get tokens: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
 
 		certPem, err = ioutil.ReadFile(idConfig.CertFile)
 		if err != nil {
-			log.Errorf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
+			log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
 		}
 		keyPem, err = ioutil.ReadFile(idConfig.KeyFile)
 		if err != nil {
-			log.Errorf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
+			log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
 		}
 
 		if len(keyPem) == 0 || len(keyPem) == 0 {
-			log.Errorf("Failed to load x509 certificate from local file to retrieve tokens: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
+			log.Errorf("Failed to load x509 certificate from local file to get tokens: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
 			return nil
 		} else {
 
-			log.Debugf("Successfully loaded x509 certificate from local file to retrieve tokens: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
+			log.Debugf("Successfully loaded x509 certificate from local file to get tokens: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
 
 		}
 
-		log.Infof("Attempting to retrieve tokens from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
+		log.Infof("Attempting to get tokens from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
 
 		roleTokens, accessTokens, err := handler.GetToken(certPem, keyPem)
 		if err != nil {
-			log.Errorf("Error while retrieving tokens: %s", err.Error())
+			log.Warnf("Error while requesting tokens: %s", err.Error())
 			return err
 		}
 
-		log.Debugf("Successfully retrieved tokens from identity provider: roleTokens(%d), accessTokens(%d)", len(roleTokens), len(accessTokens))
+		log.Debugf("Successfully received tokens from identity provider: roleTokens(%d), accessTokens(%d)", len(roleTokens), len(accessTokens))
 
 		for _, r := range roleTokens {
 			var rt atomic.Value
@@ -204,7 +204,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	if idConfig.Init {
 		if err != nil {
-			log.Errorf("Failed to retrieve initial tokens after multiple retries: %s", err.Error())
+			log.Errorf("Failed to get initial tokens after multiple retries: %s", err.Error())
 		}
 
 		log.Infof("Token provider is disabled for init mode: address[%s]", idConfig.TokenServerAddr)

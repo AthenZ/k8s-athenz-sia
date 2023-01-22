@@ -329,7 +329,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 			//     https://github.com/AthenZ/athenz/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/servers/zts/src/main/java/com/yahoo/athenz/zts/cert/X509RoleCertRequest.java#L209
 			roleCert, err := roleCertClient.PostRoleCertificateRequest(zts.DomainName(dr[0]), zts.EntityName(dr[1]), roleRequest)
 			if err != nil {
-				return nil, fmt.Errorf("PostRoleCertificateRequest failed for Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
+				return nil, fmt.Errorf("PostRoleCertificateRequest failed for Subject CommonName[%s] to get Role Subject CommonName[%s], err: %v", x509Cert.Subject.CommonName, csrOption.Subject.CommonName, err)
 			}
 			x509RoleCert, err := util.CertificateFromPEMBytes([]byte(roleCert.Token))
 			if err != nil {
@@ -398,7 +398,7 @@ func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleT
 			if strings.Contains(h.config.TokenType, "accesstoken") {
 				request := athenzutils.GenerateAccessTokenRequestString(dr[0], h.service, dr[1], "", "", int(expireTimeMs))
 				accessTokenResponse, err := roleClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
-				if err != nil {
+				if err != nil || accessTokenResponse.Access_token == "" {
 					return nil, nil, fmt.Errorf("PostAccessTokenRequest failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
 				}
 				accesstokens = append(accesstokens, &AccessToken{
@@ -411,7 +411,7 @@ func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleT
 
 			if strings.Contains(h.config.TokenType, "roletoken") {
 				roletokenResponse, err := roleClient.GetRoleToken(zts.DomainName(dr[0]), zts.EntityList(dr[1]), &expireTimeMs, &expireTimeMs, "")
-				if err != nil {
+				if err != nil || roletokenResponse.Token == "" {
 					return nil, nil, fmt.Errorf("GetRoleToken failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
 				}
 				roletokens = append(roletokens, &RoleToken{

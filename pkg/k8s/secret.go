@@ -45,7 +45,7 @@ func NewSecretClient(name, namespace string) (*SecretsClient, error) {
 	}, nil
 }
 
-// GetIdentitySecret retrieves Kubernetes Secret
+// GetIdentitySecret gets Kubernetes Secret
 func (c *SecretsClient) GetIdentitySecret() (secret *corev1.Secret, isNotFound bool, err error) {
 	// Type: "k8s.io/api/core/v1".Secret
 	// See: https://github.com/kubernetes/api/blob/v0.23.5/core/v1/types.go#L6003-L6038

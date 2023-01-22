@@ -119,17 +119,17 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 
 	log.InitLogger(filepath.Join(logDir, fmt.Sprintf("%s.%s.log", serviceName, logLevel)), logLevel, true)
 	if !(mode == "init" || mode == "refresh") {
-		return nil, fmt.Errorf("Invalid mode %q must be one of init or refresh", mode)
+		return nil, fmt.Errorf("Invalid mode [%q] must be one of \"init\" or \"refresh\"", mode)
 	}
 	init := mode == "init"
 
 	ri, err := time.ParseDuration(refreshInterval)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid refresh interval %q, %v", refreshInterval, err)
+		return nil, fmt.Errorf("Invalid refresh interval [%q], %v", refreshInterval, err)
 	}
 	tri, err := time.ParseDuration(tokenRefreshInterval)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid token refresh interval %q, %v", tokenRefreshInterval, err)
+		return nil, fmt.Errorf("Invalid token refresh interval [%q], %v", tokenRefreshInterval, err)
 	}
 
 	pollInterval := ri
@@ -169,7 +169,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		if err := os.Remove(keyFile); err != nil {
 			log.Errorf("Error deleting %s file: %s", keyFile, err.Error())
 		}
-		return nil, errors.New("X.509 certificate already exists.")
+		return nil, errors.New("Deleted X.509 certificate that already existed.")
 	}
 	if !init && err != nil {
 		return nil, errors.Wrap(err, "unable to read key and cert")
