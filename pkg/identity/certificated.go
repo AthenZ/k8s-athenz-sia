@@ -14,6 +14,10 @@ import (
 
 func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
+	if idConfig.ProviderService != "" {
+		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idConfig.ProviderService)
+	}
+
 	if idConfig.TargetDomainRoles == "" || idConfig.RoleCertDir == "" {
 		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idConfig.TargetDomainRoles, idConfig.RoleCertDir)
 	}
@@ -28,6 +32,10 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	writeFiles := func(id *InstanceIdentity, keyPEM []byte, roleCerts [](*RoleCertificate)) error {
+
+		if id == nil {
+			return nil
+		}
 
 		w := util.NewWriter()
 
@@ -124,10 +132,6 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 				}
 			}
-		} else {
-
-			log.Infof("No provider service specified. Skipping to request x509 certificate to identity provider...")
-
 		}
 
 		if id == nil || len(keyPem) == 0 {
@@ -150,7 +154,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				}
 			} else {
 
-				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret")
+				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret[%s]", idConfig.CertSecret)
 
 			}
 		}
@@ -185,18 +189,19 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				}
 			}
 
-			log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
+			if id != nil && len(keyPem) != 0 {
+				log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
 
-			roleCerts, err = handler.GetX509RoleCert(id, keyPem)
-			if err != nil {
-				err = errors.Wrap(err, "Failed to get x509 role certs")
-				log.Errorf("%s", err.Error())
+				roleCerts, err = handler.GetX509RoleCert(id, keyPem)
+				if err != nil {
+					err = errors.Wrap(err, "Failed to get x509 role certs")
+					log.Errorf("%s", err.Error())
 
-				return err
-			} else {
-				log.Infoln("Successfully received x509 role certs from identity provider")
+					return err
+				} else {
+					log.Infoln("Successfully received x509 role certs from identity provider")
+				}
 			}
-
 		}
 
 		return writeFiles(id, keyPem, roleCerts)

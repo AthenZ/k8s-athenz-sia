@@ -156,7 +156,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	// to the kube and kubelet APIs. So, we might end up getting an X.509 certificate with the old pod IP.
 	// To avoid this, we fail the current run with an error to force SYNC the status on the pod resource and let
 	// the subsequent retry for the init container to attempt to get a new certificate from the identity provider.
-	if init && err == nil {
+	if init && err == nil && providerService != "" {
 		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", certFile)
 		cert, err := reloader.GetLatestCertificate()
 		if err != nil {

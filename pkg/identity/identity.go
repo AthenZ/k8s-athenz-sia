@@ -18,6 +18,7 @@ import (
 
 	"github.com/AthenZ/athenz/clients/go/zts"
 	"github.com/AthenZ/athenz/libs/go/athenzutils"
+	"github.com/yahoo/k8s-athenz-identity/pkg/log"
 	"github.com/yahoo/k8s-athenz-identity/pkg/util"
 
 	"github.com/AthenZ/k8s-athenz-sia/pkg/k8s"
@@ -95,7 +96,7 @@ type identityHandler struct {
 	domain         string
 	service        string
 	instanceid     string
-	csrOptions     util.CSROptions
+	csrOptions     *util.CSROptions
 	roleCsrOptions *[]util.CSROptions
 	secretClient   *k8s.SecretsClient
 }
@@ -180,7 +181,7 @@ func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
 		domain:         domain,
 		service:        service,
 		instanceid:     config.PodUID,
-		csrOptions:     *csrOptions,
+		csrOptions:     csrOptions,
 		roleCsrOptions: roleCsrOptions,
 		secretClient:   secretclient,
 	}, nil
@@ -219,7 +220,12 @@ func (h *identityHandler) ApplyX509CertToSecret(identity *InstanceIdentity, keyP
 
 // GetX509Cert makes ZTS API calls to generate an X.509 certificate
 func (h *identityHandler) GetX509Cert() (*InstanceIdentity, []byte, error) {
-	keyPEM, csrPEM, err := util.GenerateKeyAndCSR(h.csrOptions)
+
+	if h.csrOptions == nil {
+		return nil, nil, nil
+	}
+
+	keyPEM, csrPEM, err := util.GenerateKeyAndCSR(*h.csrOptions)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to generate key and csr, err: %v", err)
 	}
@@ -268,86 +274,87 @@ func (h *identityHandler) GetX509Cert() (*InstanceIdentity, []byte, error) {
 // GetX509RoleCert makes ZTS API calls to generate an X.509 role certificate
 func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (rolecerts [](*RoleCertificate), err error) {
 
-	if h.roleCsrOptions != nil {
+	if h.roleCsrOptions == nil {
+		return nil, nil
+	}
 
-		cert, err := tls.X509KeyPair([]byte(id.X509CertificatePEM), keyPEM)
+	cert, err := tls.X509KeyPair([]byte(id.X509CertificatePEM), keyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to set tls client key pair for PostRoleCertificateRequest, err: %v", err)
+	}
+	t := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			MinVersion:   tls.VersionTLS12,
+			Certificates: []tls.Certificate{cert},
+		},
+	}
+	if h.config.ServerCACert != "" {
+		certPool := x509.NewCertPool()
+		caCert, err := ioutil.ReadFile(h.config.ServerCACert)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to set tls client key pair for PostRoleCertificateRequest, err: %v", err)
+			return nil, fmt.Errorf("Failed to set tls client ca certificate for PostRoleCertificateRequest, err: %v", err)
 		}
-		t := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				MinVersion:   tls.VersionTLS12,
-				Certificates: []tls.Certificate{cert},
-			},
+		certPool.AppendCertsFromPEM(caCert)
+		t.TLSClientConfig.RootCAs = certPool
+	}
+
+	// In init mode, the existing ZTS Client does not have client certificate set.
+	// When config.Reloader.GetLatestCertificate() is called to load client certificate, the first certificate has not written to the file yet.
+	// Therefore, ZTS Client must be renewed to make sure the ZTS Client loads the latest client certificate.
+	//
+	// The intermediate certificates may be different between each ZTS.
+	// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
+	roleCertClient := zts.NewClient(h.config.Endpoint, t)
+
+	_, key, err := util.PrivateKeyFromPEMBytes(keyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to prepare csr, failed to read private key pem bytes for PostRoleCertificateRequest, err: %v", err)
+	}
+
+	for _, csrOption := range *h.roleCsrOptions {
+		dr := strings.Split(csrOption.Subject.CommonName, ":role.")
+		roleCsrPEM, err := util.GenerateCSR(key, csrOption)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to prepare csr, failed to generate csr for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
 		}
-		if h.config.ServerCACert != "" {
-			certPool := x509.NewCertPool()
-			caCert, err := ioutil.ReadFile(h.config.ServerCACert)
-			if err != nil {
-				return nil, fmt.Errorf("Failed to set tls client ca certificate for PostRoleCertificateRequest, err: %v", err)
-			}
-			certPool.AppendCertsFromPEM(caCert)
-			t.TLSClientConfig.RootCAs = certPool
+		x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			return nil, fmt.Errorf("Failed to prepare csr, failed to parse certificate for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
+		}
+		roleRequest := &zts.RoleCertificateRequest{
+			Csr:        string(roleCsrPEM),
+			ExpiryTime: int64(x509Cert.NotAfter.Sub(time.Now()).Minutes()) + int64(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT), // Extract NotAfter from the instance certificate
 		}
 
-		// In init mode, the existing ZTS Client does not have client certificate set.
-		// When config.Reloader.GetLatestCertificate() is called to load client certificate, the first certificate has not written to the file yet.
-		// Therefore, ZTS Client must be renewed to make sure the ZTS Client loads the latest client certificate.
+		// PostRoleCertificateRequest must be called instead of PostRoleCertificateRequestExt,
+		//     since the current version 1.9.21-SNAPSHOT set Principal Name in the Subject CommonName with PostRoleCertificateRequestExt API.
+		// Setting Principal Name in the Subject CommonName is not compatible with mTLS role-based authorization.
 		//
-		// The intermediate certificates may be different between each ZTS.
-		// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
-		roleCertClient := zts.NewClient(h.config.Endpoint, t)
-
-		_, key, err := util.PrivateKeyFromPEMBytes(keyPEM)
+		// See:
+		//     https://github.com/AthenZ/athenz/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/pom.xml#L23
+		//     https://github.com/AthenZ/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/servers/zts/src/main/java/com/yahoo/athenz/zts/ZTSImpl.java#L2229
+		//     https://github.com/AthenZ/athenz/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/servers/zts/src/main/java/com/yahoo/athenz/zts/ZTSImpl.java#L2283
+		//     https://github.com/AthenZ/athenz/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/servers/zts/src/main/java/com/yahoo/athenz/zts/cert/X509RoleCertRequest.java#L209
+		roleCert, err := roleCertClient.PostRoleCertificateRequest(zts.DomainName(dr[0]), zts.EntityName(dr[1]), roleRequest)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to prepare csr, failed to read private key pem bytes for PostRoleCertificateRequest, err: %v", err)
+			return nil, fmt.Errorf("PostRoleCertificateRequest failed for Subject CommonName[%s] to get Role Subject CommonName[%s], err: %v", x509Cert.Subject.CommonName, csrOption.Subject.CommonName, err)
 		}
-
-		for _, csrOption := range *h.roleCsrOptions {
-			dr := strings.Split(csrOption.Subject.CommonName, ":role.")
-			roleCsrPEM, err := util.GenerateCSR(key, csrOption)
-			if err != nil {
-				return nil, fmt.Errorf("Failed to prepare csr, failed to generate csr for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
-			}
-			x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
-			if err != nil {
-				return nil, fmt.Errorf("Failed to prepare csr, failed to parse certificate for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
-			}
-			roleRequest := &zts.RoleCertificateRequest{
-				Csr:        string(roleCsrPEM),
-				ExpiryTime: int64(x509Cert.NotAfter.Sub(time.Now()).Minutes()) + int64(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT), // Extract NotAfter from the instance certificate
-			}
-
-			// PostRoleCertificateRequest must be called instead of PostRoleCertificateRequestExt,
-			//     since the current version 1.9.21-SNAPSHOT set Principal Name in the Subject CommonName with PostRoleCertificateRequestExt API.
-			// Setting Principal Name in the Subject CommonName is not compatible with mTLS role-based authorization.
-			//
-			// See:
-			//     https://github.com/AthenZ/athenz/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/pom.xml#L23
-			//     https://github.com/AthenZ/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/servers/zts/src/main/java/com/yahoo/athenz/zts/ZTSImpl.java#L2229
-			//     https://github.com/AthenZ/athenz/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/servers/zts/src/main/java/com/yahoo/athenz/zts/ZTSImpl.java#L2283
-			//     https://github.com/AthenZ/athenz/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/servers/zts/src/main/java/com/yahoo/athenz/zts/cert/X509RoleCertRequest.java#L209
-			roleCert, err := roleCertClient.PostRoleCertificateRequest(zts.DomainName(dr[0]), zts.EntityName(dr[1]), roleRequest)
-			if err != nil {
-				return nil, fmt.Errorf("PostRoleCertificateRequest failed for Subject CommonName[%s] to get Role Subject CommonName[%s], err: %v", x509Cert.Subject.CommonName, csrOption.Subject.CommonName, err)
-			}
-			x509RoleCert, err := util.CertificateFromPEMBytes([]byte(roleCert.Token))
-			if err != nil {
-				return nil, fmt.Errorf("Failed to parse x509 certificate for PostRoleCertificateRequest response, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
-			}
-			rolecerts = append(rolecerts, &RoleCertificate{
-				Domain:          dr[0],
-				Role:            dr[1],
-				Subject:         x509RoleCert.Subject,
-				Issuer:          x509RoleCert.Issuer,
-				NotBefore:       x509RoleCert.NotBefore,
-				NotAfter:        x509RoleCert.NotAfter,
-				SerialNumber:    x509RoleCert.SerialNumber,
-				DNSNames:        x509RoleCert.DNSNames,
-				X509Certificate: roleCert.Token + id.X509CACertificatePEM, // Concatenate intermediate certificate with the role certificate
-			})
-
+		x509RoleCert, err := util.CertificateFromPEMBytes([]byte(roleCert.Token))
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse x509 certificate for PostRoleCertificateRequest response, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
 		}
+		rolecerts = append(rolecerts, &RoleCertificate{
+			Domain:          dr[0],
+			Role:            dr[1],
+			Subject:         x509RoleCert.Subject,
+			Issuer:          x509RoleCert.Issuer,
+			NotBefore:       x509RoleCert.NotBefore,
+			NotAfter:        x509RoleCert.NotAfter,
+			SerialNumber:    x509RoleCert.SerialNumber,
+			DNSNames:        x509RoleCert.DNSNames,
+			X509Certificate: roleCert.Token + id.X509CACertificatePEM, // Concatenate intermediate certificate with the role certificate
+		})
+
 	}
 
 	return rolecerts, err
@@ -356,71 +363,72 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 // GetToken makes ZTS API calls to generate an X.509 role certificate
 func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleToken), accesstokens [](*AccessToken), err error) {
 
-	if h.roleCsrOptions != nil {
+	if h.roleCsrOptions == nil {
+		return nil, nil, nil
+	}
 
-		//return nil, nil, fmt.Errorf("Failed to set tls client key pair for PostAccessTokenRequest, err: %v", err)
-		tlsConfig := &tls.Config{
-			MinVersion: tls.VersionTLS12,
+	//return nil, nil, fmt.Errorf("Failed to set tls client key pair for PostAccessTokenRequest, err: %v", err)
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		cert, err := tls.X509KeyPair(certPEM, keyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to set tls client key pair for PostAccessTokenRequest, err: %v", err)
 		}
-		tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			cert, err := tls.X509KeyPair(certPEM, keyPEM)
-			if err != nil {
-				return nil, fmt.Errorf("Failed to set tls client key pair for PostAccessTokenRequest, err: %v", err)
-			}
-			return &cert, nil
+		return &cert, nil
+	}
+	t := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+	if h.config.ServerCACert != "" {
+		certPool := x509.NewCertPool()
+		caCert, err := ioutil.ReadFile(h.config.ServerCACert)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to set tls client ca certificate for PostAccessTokenRequest, err: %v", err)
 		}
-		t := &http.Transport{
-			TLSClientConfig: tlsConfig,
+		certPool.AppendCertsFromPEM(caCert)
+		tlsConfig.RootCAs = certPool
+		t.TLSClientConfig = tlsConfig
+	}
+
+	// In init mode, the existing ZTS Client does not have client certificate set.
+	// When config.Reloader.GetLatestCertificate() is called to load client certificate, the first certificate has not written to the file yet.
+	// Therefore, ZTS Client must be renewed to make sure the ZTS Client loads the latest client certificate.
+	//
+	// The intermediate certificates may be different between each ZTS.
+	// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
+	roleClient := zts.NewClient(h.config.Endpoint, t)
+	expireTimeMs := int32(DEFAULT_TOKEN_EXPIRY_TIME_INT * 60)
+
+	for _, csrOption := range *h.roleCsrOptions {
+		dr := strings.Split(csrOption.Subject.CommonName, ":role.")
+
+		if strings.Contains(h.config.TokenType, "accesstoken") {
+			request := athenzutils.GenerateAccessTokenRequestString(dr[0], h.service, dr[1], "", "", int(expireTimeMs))
+			accessTokenResponse, err := roleClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
+			if err != nil || accessTokenResponse.Access_token == "" {
+				return nil, nil, fmt.Errorf("PostAccessTokenRequest failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
+			}
+			accesstokens = append(accesstokens, &AccessToken{
+				Domain:      dr[0],
+				Role:        dr[1],
+				TokenString: accessTokenResponse.Access_token,
+				Expiry:      int64(*accessTokenResponse.Expires_in),
+			})
 		}
-		if h.config.ServerCACert != "" {
-			certPool := x509.NewCertPool()
-			caCert, err := ioutil.ReadFile(h.config.ServerCACert)
-			if err != nil {
-				return nil, nil, fmt.Errorf("Failed to set tls client ca certificate for PostAccessTokenRequest, err: %v", err)
+
+		if strings.Contains(h.config.TokenType, "roletoken") {
+			roletokenResponse, err := roleClient.GetRoleToken(zts.DomainName(dr[0]), zts.EntityList(dr[1]), &expireTimeMs, &expireTimeMs, "")
+			if err != nil || roletokenResponse.Token == "" {
+				return nil, nil, fmt.Errorf("GetRoleToken failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
 			}
-			certPool.AppendCertsFromPEM(caCert)
-			tlsConfig.RootCAs = certPool
-			t.TLSClientConfig = tlsConfig
-		}
-
-		// In init mode, the existing ZTS Client does not have client certificate set.
-		// When config.Reloader.GetLatestCertificate() is called to load client certificate, the first certificate has not written to the file yet.
-		// Therefore, ZTS Client must be renewed to make sure the ZTS Client loads the latest client certificate.
-		//
-		// The intermediate certificates may be different between each ZTS.
-		// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
-		roleClient := zts.NewClient(h.config.Endpoint, t)
-		expireTimeMs := int32(DEFAULT_TOKEN_EXPIRY_TIME_INT * 60)
-
-		for _, csrOption := range *h.roleCsrOptions {
-			dr := strings.Split(csrOption.Subject.CommonName, ":role.")
-
-			if strings.Contains(h.config.TokenType, "accesstoken") {
-				request := athenzutils.GenerateAccessTokenRequestString(dr[0], h.service, dr[1], "", "", int(expireTimeMs))
-				accessTokenResponse, err := roleClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
-				if err != nil || accessTokenResponse.Access_token == "" {
-					return nil, nil, fmt.Errorf("PostAccessTokenRequest failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
-				}
-				accesstokens = append(accesstokens, &AccessToken{
-					Domain:      dr[0],
-					Role:        dr[1],
-					TokenString: accessTokenResponse.Access_token,
-					Expiry:      int64(*accessTokenResponse.Expires_in),
-				})
-			}
-
-			if strings.Contains(h.config.TokenType, "roletoken") {
-				roletokenResponse, err := roleClient.GetRoleToken(zts.DomainName(dr[0]), zts.EntityList(dr[1]), &expireTimeMs, &expireTimeMs, "")
-				if err != nil || roletokenResponse.Token == "" {
-					return nil, nil, fmt.Errorf("GetRoleToken failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
-				}
-				roletokens = append(roletokens, &RoleToken{
-					Domain:      dr[0],
-					Role:        dr[1],
-					TokenString: roletokenResponse.Token,
-					Expiry:      roletokenResponse.ExpiryTime,
-				})
-			}
+			roletokens = append(roletokens, &RoleToken{
+				Domain:      dr[0],
+				Role:        dr[1],
+				TokenString: roletokenResponse.Token,
+				Expiry:      roletokenResponse.ExpiryTime,
+			})
 		}
 	}
 
@@ -462,6 +470,11 @@ func (h *identityHandler) InstanceID() string {
 // PrepareIdentityCsrOptions prepares csrOptions for an X.509 certificate
 func PrepareIdentityCsrOptions(config *IdentityConfig, domain, service string) (*util.CSROptions, error) {
 
+	if config.ProviderService == "" {
+		log.Debugf("Skipping to prepare csr with provider service[%s]", config.ProviderService)
+		return nil, nil
+	}
+
 	domainDNSPart := extutil.DomainToDNSPart(domain)
 
 	ip := net.ParseIP(config.PodIP)
@@ -502,6 +515,11 @@ func PrepareRoleCsrOptions(config *IdentityConfig, domain, service string) (*[]u
 
 	var roleCsrOptions []util.CSROptions
 
+	if config.TargetDomainRoles == "" {
+		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s]", config.TargetDomainRoles)
+		return nil, nil
+	}
+
 	for _, domainrole := range strings.Split(config.TargetDomainRoles, ",") {
 		// referred to SplitRoleName()
 		// https://github.com/AthenZ/athenz/blob/73b25572656f289cce501b4c2fe78f86656082e7/libs/go/sia/util/util.go#L69-L78
@@ -538,7 +556,8 @@ func PrepareRoleCsrOptions(config *IdentityConfig, domain, service string) (*[]u
 		roleCsrOption := util.CSROptions{
 			Subject: subject,
 			SANs: util.SubjectAlternateNames{
-				DNSNames: sans,
+				DNSNames:    sans,
+				IPAddresses: []net.IP{ip},
 				URIs: []url.URL{
 					*spiffeURI,
 				},
