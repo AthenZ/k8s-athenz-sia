@@ -132,7 +132,14 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 		log.Infof("Successfully updated token cache: roleTokens(%d), accessTokens(%d)", len(roleTokens), len(accessTokens))
 
-		return writeFiles()
+		if idConfig.TokenDir != "" {
+			return writeFiles()
+		} else {
+
+			log.Debugf("Skipping to write token files to directory[%s]", idConfig.TokenDir)
+
+			return nil
+		}
 	}
 
 	tokenHandler := func(w http.ResponseWriter, r *http.Request) {
