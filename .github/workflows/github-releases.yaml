@@ -1,17 +1,96 @@
-name: Github Releases
+name: Create Github Releases with Packages
 
 on:
   push:
     # Publish semver tags as releases.
+    #
+    # If any commit message in your push or the HEAD commit of your PR contains the strings
+    # [skip ci], [ci skip], [no ci], [skip actions], or [actions skip]
+    # workflows triggered on the push or pull_request events will be skipped.
+    # https://github.blog/changelog/2021-02-08-github-actions-skip-pull-request-and-push-workflows-with-skip-ci/
     tags: [ 'v[0-9]+.[0-9]+.[0-9]+' ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
+      actions: none
+      checks: none
       contents: write
+      deployments: none
+      issues: none
+      discussions: none
+      packages: none
+      pull-requests: none
+      repository-projects: none
+      security-events: none
+      statuses: none
+
     steps:
-    - uses: actions/checkout@v3
-    - uses: ncipollo/release-action@v1
-      with:
-        generateReleaseNotes: true
+      # A GitHub Action to expose useful environment variables.
+      # https://github.com/FranzDiebold/github-env-vars-action
+      -
+        name: GitHub Environment Variables Action
+        id: env
+        # uses: https://github.com/FranzDiebold/github-env-vars-action/tags
+        uses: FranzDiebold/github-env-vars-action@v2
+
+      # This action checks-out your repository under $GITHUB_WORKSPACE, so your workflow can access it.
+      # https://github.com/actions/checkout
+      -
+        name: Checkout repository
+        id: checkout
+        # You may pin to the exact commit or the version.
+        # uses: https://github.com/actions/checkout/tags
+        uses: actions/checkout@v3
+
+      # A GitHub Action to update git submodules
+      -
+        name: Update submodules
+        id: update_submodules
+        run: |
+          git submodule update --recursive --init --remote
+
+      # This action sets up a go environment for use in actions by:
+      # - Optionally downloading and caching a version of Go by version and adding to PATH.
+      # - Registering problem matchers for error output.
+      # https://github.com/actions/setup-go
+      -
+        name: Setup Golang
+        id: setup-go
+        # You may pin to the exact commit or the version.
+        # uses: https://github.com/actions/setup-go/tags
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+
+      # A GitHub Action to set environment variables for Go
+      -
+        name: Set Golang env
+        id: go-env
+        run: |
+          go env | grep GOPATH | sed -e 's/"//g' >> $GITHUB_ENV
+
+      # A GitHub Action to Create Packages
+      - 
+        name: Create packages with nFPM
+        id: nfpm
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          make
+          cp ${{ env.GOPATH }}/bin/athenz-sia .
+          SEMVER=${{ env.CI_REF_NAME }} nfpm pkg -f nfpm/linux/amd64/nfpm.yaml -p rpm -t .
+          SEMVER=${{ env.CI_REF_NAME }} nfpm pkg -f nfpm/linux/amd64/nfpm.yaml -p deb -t .
+          GOARCH=arm64 make
+          cp ${{ env.GOPATH }}/bin/athenz-sia .
+          SEMVER=${{ env.CI_REF_NAME }} nfpm pkg -f nfpm/linux/arm64/nfpm.yaml -p rpm -t .
+          SEMVER=${{ env.CI_REF_NAME }} nfpm pkg -f nfpm/linux/arm64/nfpm.yaml -p deb -t .
+
+      # This action will create a GitHub release and optionally upload an artifact to it.
+      # https://github.com/ncipollo/release-action
+      -
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          generateReleaseNotes: true
+          artifacts: "*.deb,*.rpm"

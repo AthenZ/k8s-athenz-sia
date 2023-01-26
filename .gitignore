@@ -18,6 +18,12 @@ vendor/*
 
 # Go build binary
 k8s-athenz-sia
+athenz-sia
+
+# packages
+*.rpm
+*.deb
+*.apk
 
 # IDE
 .idea*

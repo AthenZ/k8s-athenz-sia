@@ -55,7 +55,6 @@ func envOrDefault(name string, defaultValue string) string {
 func parseFlags(program string, args []string) (*identity.IdentityConfig, error) {
 	var (
 		mode                  = envOrDefault("MODE", "init")
-		backup, _             = strconv.ParseBool(envOrDefault("BACKUP", "true"))
 		endpoint              = envOrDefault("ENDPOINT", DEFAULT_ENDPOINT)
 		providerService       = envOrDefault("PROVIDER_SERVICE", "")
 		dnsSuffix             = envOrDefault("DNS_SUFFIX", DEFAULT_DNS_SUFFIX)
@@ -63,15 +62,19 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		delayJitterSeconds, _ = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
 		keyFile               = envOrDefault("KEY_FILE", "")
 		certFile              = envOrDefault("CERT_FILE", "")
-		certSecret            = envOrDefault("CERT_SECRET", "")
 		caCertFile            = envOrDefault("CA_CERT_FILE", "")
 		logDir                = envOrDefault("LOG_DIR", "")
 		logLevel              = envOrDefault("LOG_LEVEL", "INFO")
+		backup, _             = strconv.ParseBool(envOrDefault("BACKUP", "true"))
+		certSecret            = envOrDefault("CERT_SECRET", "")
 		namespace             = envOrDefault("NAMESPACE", "")
+		athenzDomain          = envOrDefault("ATHENZ_DOMAIN", "")
+		athenzPrefix          = envOrDefault("ATHENZ_PREFIX", "")
+		athenzSuffix          = envOrDefault("ATHENZ_SUFFIX", "")
 		serviceAccount        = envOrDefault("SERVICEACCOUNT", "")
+		saTokenFile           = envOrDefault("SA_TOKEN_FILE", "")
 		podIP                 = envOrDefault("POD_IP", "")
 		podUID                = envOrDefault("POD_UID", "")
-		saTokenFile           = envOrDefault("SA_TOKEN_FILE", "")
 		serverCACert          = envOrDefault("SERVER_CA_CERT", "")
 		targetDomainRoles     = envOrDefault("TARGET_DOMAIN_ROLES", "")
 		roleCertDir           = envOrDefault("ROLECERT_DIR", "")
@@ -84,7 +87,6 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
 	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh")
-	f.BoolVar(&backup, "backup", backup, "backup certificate to Kubernetes secret (must be run uniquely for each secret to prevent conflict)")
 	f.StringVar(&endpoint, "endpoint", endpoint, "Athenz ZTS endpoint (required for identity certificate provisioning)")
 	f.StringVar(&providerService, "provider-service", providerService, "Identity Provider service (required for identity certificate provisioning)")
 	f.StringVar(&dnsSuffix, "dns-suffix", dnsSuffix, "DNS Suffix for x509 identity/role certificates")
@@ -92,10 +94,11 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.Int64Var(&delayJitterSeconds, "delay-jitter-seconds", delayJitterSeconds, "delay boot with random jitter within the specified seconds (0 to disable)")
 	f.StringVar(&keyFile, "key", keyFile, "key file for the certificate")
 	f.StringVar(&certFile, "cert", certFile, "certificate file to identity a service")
-	f.StringVar(&certSecret, "cert-secret", certSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
 	f.StringVar(&caCertFile, "out-ca-cert", caCertFile, "CA certificate file to write")
-	f.StringVar(&logDir, "log-dir", logDir, "directory to store the server log files")
+	f.StringVar(&logDir, "log-dir", logDir, "directory to store the log files")
 	f.StringVar(&logLevel, "log-level", logLevel, "logging level")
+	f.BoolVar(&backup, "backup", backup, "backup certificate to Kubernetes secret (must be run uniquely for each secret to prevent conflict)")
+	f.StringVar(&certSecret, "cert-secret", certSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
 	f.StringVar(&saTokenFile, "sa-token-file", saTokenFile, "bound sa jwt token file location")
 	f.StringVar(&serverCACert, "server-ca-cert", serverCACert, "path to CA certificate file to verify ZTS server certs")
 	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain:role.admin,sys.auth:role.providers)")
@@ -116,8 +119,8 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		log.InitLogger(filepath.Join(logDir, fmt.Sprintf("%s.%s.log", serviceName, logLevel)), logLevel, true)
 		return nil, err
 	}
-
 	log.InitLogger(filepath.Join(logDir, fmt.Sprintf("%s.%s.log", serviceName, logLevel)), logLevel, true)
+
 	if !(mode == "init" || mode == "refresh") {
 		return nil, fmt.Errorf("Invalid mode [%q] must be one of \"init\" or \"refresh\"", mode)
 	}
@@ -177,23 +180,26 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 
 	return &identity.IdentityConfig{
 		Init:               init,
-		Backup:             backup,
-		KeyFile:            keyFile,
-		CertFile:           certFile,
-		CertSecret:         certSecret,
-		CaCertFile:         caCertFile,
-		Refresh:            ri,
-		DelayJitterSeconds: delayJitterSeconds,
-		Reloader:           reloader,
-		ServerCACert:       serverCACert,
-		SaTokenFile:        saTokenFile,
 		Endpoint:           endpoint,
 		ProviderService:    providerService,
 		DNSSuffix:          dnsSuffix,
+		Refresh:            ri,
+		DelayJitterSeconds: delayJitterSeconds,
+		KeyFile:            keyFile,
+		CertFile:           certFile,
+		CaCertFile:         caCertFile,
+		Backup:             backup,
+		CertSecret:         certSecret,
 		Namespace:          namespace,
+		AthenzDomain:       athenzDomain,
+		AthenzPrefix:       athenzPrefix,
+		AthenzSuffix:       athenzSuffix,
 		ServiceAccount:     serviceAccount,
+		SaTokenFile:        saTokenFile,
 		PodIP:              podIP,
 		PodUID:             podUID,
+		Reloader:           reloader,
+		ServerCACert:       serverCACert,
 		TargetDomainRoles:  targetDomainRoles,
 		RoleCertDir:        roleCertDir,
 		TokenType:          tokenType,

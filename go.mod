@@ -1,6 +1,6 @@
 module github.com/AthenZ/k8s-athenz-sia
 
-go 1.17
+go 1.19
 
 replace github.com/AthenZ/k8s-athenz-sia/pkg/identity => ./pkg/identity
 

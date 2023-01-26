@@ -1,0 +1,34 @@
+# https://nfpm.goreleaser.com/configuration/
+name: athenz-sia
+description: Package for Athenz service identity agent
+maintainer: CNCF Athenz Maintainers <cncf-athenz-maintainers@lists.cncf.io>
+vendor: CNCF Athenz Maintainers
+homepage: https://www.athenz.io
+license: MIT
+arch: arm64
+platform: linux
+version: ${SEMVER}
+version_schema: semver
+suggests:
+  - openssl
+  - curl
+  - jq
+contents:
+  - src: athenz-sia
+    dst: /usr/bin/athenz-sia
+  - src: nfpm/linux/amd64/athenz-sia.service
+    dst: /etc/systemd/system/athenz-sia.service
+    type: config|noreplace
+  - src: nfpm/linux/amd64/athenz-sia.conf
+    dst: /etc/athenz/athenz-sia.conf
+    type: config|noreplace
+  - dst: /etc/systemd/system/athenz-sia.service.d
+    type: ghost
+  - dst: /var/log/athenz-sia/*.log
+    type: ghost
+  - dst: /var/run/athenz
+    type: dir
+    file_info:
+      mode: 0755
+      owner: nobody
+      group: nobody

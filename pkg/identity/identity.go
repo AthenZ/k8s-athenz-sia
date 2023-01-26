@@ -28,23 +28,26 @@ import (
 // IdentityConfig from cmd line args
 type IdentityConfig struct {
 	Init               bool
-	Backup             bool
-	KeyFile            string
-	CertFile           string
-	CertSecret         string
-	CaCertFile         string
-	Refresh            time.Duration
-	DelayJitterSeconds int64
-	Reloader           *util.CertReloader
-	ServerCACert       string
-	SaTokenFile        string
 	Endpoint           string
 	ProviderService    string
 	DNSSuffix          string
+	Refresh            time.Duration
+	DelayJitterSeconds int64
+	KeyFile            string
+	CertFile           string
+	CaCertFile         string
+	Backup             bool
+	CertSecret         string
 	Namespace          string
+	AthenzDomain       string
+	AthenzPrefix       string
+	AthenzSuffix       string
 	ServiceAccount     string
+	SaTokenFile        string
 	PodIP              string
 	PodUID             string
+	Reloader           *util.CertReloader
+	ServerCACert       string
 	TargetDomainRoles  string
 	RoleCertDir        string
 	TokenType          string
@@ -155,7 +158,7 @@ func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
 
 	client := zts.NewClient(config.Endpoint, t)
 
-	domain := extutil.NamespaceToDomain(config.Namespace)
+	domain := extutil.NamespaceToDomain(config.Namespace, config.AthenzPrefix, config.AthenzDomain, config.AthenzSuffix)
 	service := extutil.ServiceAccountToService(config.ServiceAccount)
 
 	csrOptions, err := PrepareIdentityCsrOptions(config, domain, service)
