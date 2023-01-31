@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -114,7 +115,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 				log.Infoln("Successfully received x509 certificate from identity provider")
 
-				if idConfig.CertSecret != "" && idConfig.Backup {
+				if idConfig.CertSecret != "" && strings.Contains(idConfig.Backup, "write") {
 
 					log.Infof("Attempting to save x509 certificate to kubernetes secret[%s]...", idConfig.CertSecret)
 
@@ -136,7 +137,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 		if id == nil || len(keyPem) == 0 {
 
-			if idConfig.CertSecret != "" {
+			if idConfig.CertSecret != "" && strings.Contains(idConfig.Backup, "read") {
 
 				log.Infof("Attempting to load x509 certificate temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
 

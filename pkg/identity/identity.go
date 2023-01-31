@@ -36,7 +36,7 @@ type IdentityConfig struct {
 	KeyFile            string
 	CertFile           string
 	CaCertFile         string
-	Backup             bool
+	Backup             string
 	CertSecret         string
 	Namespace          string
 	AthenzDomain       string
