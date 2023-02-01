@@ -114,7 +114,7 @@ func (c *SecretsClient) ApplyIdentitySecret(key, cert []byte) (*corev1.Secret, e
 	}
 
 	// See: https://github.com/kubernetes/client-go/blob/v0.23.5/kubernetes/typed/core/v1/secret.go#L184-L208
-	return c.client.Apply(context.TODO(), applyConfig, metav1.ApplyOptions{FieldManager: "application/apply-patch"})
+	return c.client.Apply(context.TODO(), applyConfig, metav1.ApplyOptions{FieldManager: "application/apply-patch", Force: true})
 }
 
 func prepareNewTLSSecret(name, namespace string, key, cert []byte) *corev1.Secret {
