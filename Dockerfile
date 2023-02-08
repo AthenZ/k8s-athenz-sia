@@ -29,12 +29,6 @@ USER nobody
 ENV KEY_FILE /var/run/athenz/service.key.pem
 ENV CERT_FILE /var/run/athenz/service.cert.pem
 ENV CA_CERT_FILE /var/run/athenz/ca.cert.pem
-ENV LOG_DIR /var/log/athenz-sia
-ENV SA_TOKEN_FILE /var/run/secrets/kubernetes.io/bound-serviceaccount/token
-ENV ROLECERT_DIR /var/run/athenz/
-ENV TOKEN_DIR /var/run/athenz/
-ENV TOKEN_SERVER_ADDR :8880
-ENV METRICS_SERVER_ADDR :9999
 
 # --interval=DURATION (default: 30s)
 # --timeout=DURATION (default: 30s)

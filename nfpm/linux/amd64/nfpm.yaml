@@ -16,8 +16,8 @@ suggests:
 contents:
   - src: athenz-sia
     dst: /usr/bin/athenz-sia
-  - src: nfpm/linux/amd64/athenz-sia.conf
-    dst: /etc/athenz/athenz-sia.conf
+  - src: athenz-sia.env
+    dst: /etc/athenz/athenz-sia.env
     type: config|noreplace
     file_info:
       mode: 0640
@@ -25,7 +25,7 @@ contents:
       group: users
   - dst: /etc/systemd/system/athenz-sia.service.d
     type: ghost
-  - src: nfpm/linux/amd64/athenz-sia.service
+  - src: athenz-sia.service
     dst: /etc/systemd/system/athenz-sia.service
     type: config|noreplace
     file_info:

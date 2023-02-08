@@ -9,7 +9,7 @@ User=root
 Group=root
 WorkingDirectory=/var/run/athenz
 PIDFile=/var/run/athenz/athenz-sia.pid
-ExecStart=source /var/run/athenz-sia.conf && /usr/bin/athenz-sia
+ExecStart=source /var/run/athenz-sia.env && /usr/bin/athenz-sia
 # If your systemd is newer than 231, you should use `Special executable prefixes` instead of `PermissionStartOnly`.
 PermissionsStartOnly=true
 # If the User=/Group= is changed, the WorkingDirectory ownership should be changed as well.
