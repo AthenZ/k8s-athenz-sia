@@ -478,7 +478,7 @@ func PrepareIdentityCsrOptions(config *IdentityConfig, domain, service string) (
 
 	ip := net.ParseIP(config.PodIP)
 	if ip == nil {
-		return nil, errors.New("pod IP is nil")
+		return nil, errors.New("pod IP for identity csr is nil")
 	}
 	spiffeURI, err := extutil.ServiceSpiffeURI(domain, service)
 	if err != nil {
@@ -533,7 +533,7 @@ func PrepareRoleCsrOptions(config *IdentityConfig, domain, service string) (*[]u
 
 		ip := net.ParseIP(config.PodIP)
 		if ip == nil {
-			return nil, errors.New("pod IP is nil")
+			return nil, errors.New("pod IP for role csr is nil")
 		}
 		spiffeURI, err := extutil.RoleSpiffeURI(targetDomain, targetRole)
 		if err != nil {
