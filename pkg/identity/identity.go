@@ -366,10 +366,6 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 // GetToken makes ZTS API calls to generate an X.509 role certificate
 func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleToken), accesstokens [](*AccessToken), err error) {
 
-	if h.roleCsrOptions == nil {
-		return nil, nil, nil
-	}
-
 	//return nil, nil, fmt.Errorf("Failed to set tls client key pair for PostAccessTokenRequest, err: %v", err)
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
@@ -404,8 +400,8 @@ func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleT
 	roleClient := zts.NewClient(h.config.Endpoint, t)
 	expireTimeMs := int32(DEFAULT_TOKEN_EXPIRY_TIME_INT * 60)
 
-	for _, csrOption := range *h.roleCsrOptions {
-		dr := strings.Split(csrOption.Subject.CommonName, ":role.")
+	for _, domainrole := range strings.Split(h.config.TargetDomainRoles, ",") {
+		dr := strings.Split(domainrole, ":role.")
 
 		if strings.Contains(h.config.TokenType, "accesstoken") {
 			request := athenzutils.GenerateAccessTokenRequestString(dr[0], h.service, dr[1], "", "", int(expireTimeMs))
@@ -518,8 +514,8 @@ func PrepareRoleCsrOptions(config *IdentityConfig, domain, service string) (*[]u
 
 	var roleCsrOptions []util.CSROptions
 
-	if config.TargetDomainRoles == "" {
-		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s]", config.TargetDomainRoles)
+	if config.TargetDomainRoles == "" || config.RoleCertDir == "" {
+		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", config.TargetDomainRoles, config.RoleCertDir)
 		return nil, nil
 	}
 
