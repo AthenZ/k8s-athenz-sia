@@ -183,6 +183,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			}
 			errMsg = fmt.Sprintf("error writing json response with: %s[%s] %s[%s] error[%s].", domainHeader, domain, roleHeader, role, errMsg)
 			log.Warnf(errMsg)
+			w.WriteHeader(http.StatusBadRequest)
 			io.WriteString(w, fmt.Sprintf("%s", response))
 			return
 		}
