@@ -22,7 +22,7 @@ on:
     branches: [ main ]
 
 env:
-  DOCKER_BUILDX_PLATFORM: linux/amd64
+  DOCKER_BUILDX_PLATFORM: linux/amd64,linux/arm64,linux/arm/v7
   DOCKER_REGISTRY_URL: ghcr.io
   GOLANG_VERSION: ^1.18
 

@@ -15,7 +15,7 @@ import (
 
 func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
-	if idConfig.ProviderService != "" {
+	if idConfig.ProviderService == "" {
 		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idConfig.ProviderService)
 	}
 
