@@ -27,35 +27,36 @@ import (
 
 // IdentityConfig from cmd line args
 type IdentityConfig struct {
-	Init               bool
-	Endpoint           string
-	ProviderService    string
-	DNSSuffix          string
-	Refresh            time.Duration
-	DelayJitterSeconds int64
-	KeyFile            string
-	CertFile           string
-	CaCertFile         string
-	Backup             string
-	CertSecret         string
-	Namespace          string
-	AthenzDomain       string
-	AthenzPrefix       string
-	AthenzSuffix       string
-	ServiceAccount     string
-	SaTokenFile        string
-	PodIP              string
-	PodUID             string
-	Reloader           *util.CertReloader
-	ServerCACert       string
-	TargetDomainRoles  string
-	RoleCertDir        string
-	TokenType          string
-	TokenRefresh       time.Duration
-	TokenServerAddr    string
-	TokenDir           string
-	MetricsServerAddr  string
-	DeleteInstanceID   bool
+	Init                      bool
+	Endpoint                  string
+	ProviderService           string
+	DNSSuffix                 string
+	Refresh                   time.Duration
+	DelayJitterSeconds        int64
+	KeyFile                   string
+	CertFile                  string
+	CaCertFile                string
+	Backup                    string
+	CertSecret                string
+	Namespace                 string
+	AthenzDomain              string
+	AthenzPrefix              string
+	AthenzSuffix              string
+	ServiceAccount            string
+	SaTokenFile               string
+	PodIP                     string
+	PodUID                    string
+	Reloader                  *util.CertReloader
+	ServerCACert              string
+	TargetDomainRoles         string
+	RoleCertDir               string
+	RoleCertFilenameDelimiter string
+	TokenType                 string
+	TokenRefresh              time.Duration
+	TokenServerAddr           string
+	TokenDir                  string
+	MetricsServerAddr         string
+	DeleteInstanceID          bool
 }
 
 // RoleCertificate stores role certificate
@@ -94,14 +95,13 @@ type InstanceIdentity struct {
 }
 
 type identityHandler struct {
-	config         *IdentityConfig
-	client         zts.ZTSClient
-	domain         string
-	service        string
-	instanceid     string
-	csrOptions     *util.CSROptions
-	roleCsrOptions *[]util.CSROptions
-	secretClient   *k8s.SecretsClient
+	config       *IdentityConfig
+	client       zts.ZTSClient
+	domain       string
+	service      string
+	instanceid   string
+	csrOptions   *util.CSROptions
+	secretClient *k8s.SecretsClient
 }
 
 // default values for X.509 certificate signing request
@@ -165,10 +165,6 @@ func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	roleCsrOptions, err := PrepareRoleCsrOptions(config, domain, service)
-	if err != nil {
-		return nil, err
-	}
 
 	var secretclient *k8s.SecretsClient
 	if config.CertSecret != "" {
@@ -179,14 +175,13 @@ func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
 	}
 
 	return &identityHandler{
-		config:         config,
-		client:         client,
-		domain:         domain,
-		service:        service,
-		instanceid:     config.PodUID,
-		csrOptions:     csrOptions,
-		roleCsrOptions: roleCsrOptions,
-		secretClient:   secretclient,
+		config:       config,
+		client:       client,
+		domain:       domain,
+		service:      service,
+		instanceid:   config.PodUID,
+		csrOptions:   csrOptions,
+		secretClient: secretclient,
 	}, nil
 }
 
@@ -277,14 +272,26 @@ func (h *identityHandler) GetX509Cert() (*InstanceIdentity, []byte, error) {
 // GetX509RoleCert makes ZTS API calls to generate an X.509 role certificate
 func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (rolecerts [](*RoleCertificate), err error) {
 
-	if h.roleCsrOptions == nil {
-		return nil, nil
-	}
-
 	cert, err := tls.X509KeyPair([]byte(id.X509CertificatePEM), keyPEM)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to set tls client key pair for PostRoleCertificateRequest, err: %v", err)
+		return nil, fmt.Errorf("Failed to load tls client key pair for PostRoleCertificateRequest, err: %v", err)
 	}
+	x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse identity certificate for PostRoleCertificateRequest, err: %v", err)
+	}
+	ds := strings.Split(x509Cert.Subject.CommonName, ".")
+	if len(ds) < 2 || len(ds[0]) == 0 || len(ds[len(ds)-1]) == 0 {
+		return nil, fmt.Errorf("Invalid domain service name: '%s', expected format {domain}.{service}", x509Cert.Subject.CommonName)
+	}
+	domain := strings.Join(ds[:len(ds)-1], ".")
+	service := ds[len(ds)-1]
+
+	roleCsrOptions, err := PrepareRoleCsrOptions(h.config, domain, service)
+	if err != nil || roleCsrOptions == nil {
+		return nil, err
+	}
+
 	t := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			MinVersion:   tls.VersionTLS12,
@@ -295,7 +302,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 		certPool := x509.NewCertPool()
 		caCert, err := ioutil.ReadFile(h.config.ServerCACert)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to set tls client ca certificate for PostRoleCertificateRequest, err: %v", err)
+			return nil, fmt.Errorf("Failed to load tls client ca certificate for PostRoleCertificateRequest, err: %v", err)
 		}
 		certPool.AppendCertsFromPEM(caCert)
 		t.TLSClientConfig.RootCAs = certPool
@@ -314,7 +321,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 		return nil, fmt.Errorf("Failed to prepare csr, failed to read private key pem bytes for PostRoleCertificateRequest, err: %v", err)
 	}
 
-	for _, csrOption := range *h.roleCsrOptions {
+	for _, csrOption := range *roleCsrOptions {
 		dr := strings.Split(csrOption.Subject.CommonName, ":role.")
 		roleCsrPEM, err := util.GenerateCSR(key, csrOption)
 		if err != nil {
@@ -366,14 +373,13 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 // GetToken makes ZTS API calls to generate an X.509 role certificate
 func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleToken), accesstokens [](*AccessToken), err error) {
 
-	//return nil, nil, fmt.Errorf("Failed to set tls client key pair for PostAccessTokenRequest, err: %v", err)
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
 	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		cert, err := tls.X509KeyPair(certPEM, keyPEM)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to set tls client key pair for PostAccessTokenRequest, err: %v", err)
+			return nil, fmt.Errorf("Failed to load tls client key pair for PostAccessTokenRequest, err: %v", err)
 		}
 		return &cert, nil
 	}
@@ -384,7 +390,7 @@ func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleT
 		certPool := x509.NewCertPool()
 		caCert, err := ioutil.ReadFile(h.config.ServerCACert)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Failed to set tls client ca certificate for PostAccessTokenRequest, err: %v", err)
+			return nil, nil, fmt.Errorf("Failed to load tls client ca certificate for PostAccessTokenRequest, err: %v", err)
 		}
 		certPool.AppendCertsFromPEM(caCert)
 		tlsConfig.RootCAs = certPool

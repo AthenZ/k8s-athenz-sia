@@ -213,33 +213,34 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		io.WriteString(w, fmt.Sprintf("%s", response))
 	}
 
-	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
-
-	if idConfig.Init {
-		if err != nil {
-			log.Errorf("Failed to get initial tokens after multiple retries: %s", err.Error())
-		}
-
-		log.Infof("Token provider is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
-
-		return err
-	}
-
-	httpServer := &http.Server{
-		Addr:    idConfig.TokenServerAddr,
-		Handler: http.HandlerFunc(tokenHandler),
-	}
-
 	go func() {
 
-		log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
+		err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
 
-		if err := httpServer.ListenAndServe(); err != nil {
-			log.Errorf("Failed to start token provider: %s", err.Error())
+		if idConfig.Init {
+			if err != nil {
+				log.Errorf("Failed to get initial tokens after multiple retries: %s", err.Error())
+			}
+
+			log.Infof("Token provider is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
+
+			return
 		}
-	}()
 
-	go func() {
+		httpServer := &http.Server{
+			Addr:    idConfig.TokenServerAddr,
+			Handler: http.HandlerFunc(tokenHandler),
+		}
+
+		go func() {
+
+			log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
+
+			if err := httpServer.ListenAndServe(); err != nil {
+				log.Errorf("Failed to start token provider: %s", err.Error())
+			}
+		}()
+
 		t := time.NewTicker(idConfig.TokenRefresh)
 		defer t.Stop()
 

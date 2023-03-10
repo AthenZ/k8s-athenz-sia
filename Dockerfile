@@ -14,7 +14,9 @@ ARG ATHENZ_SIA_DEFAULT_ORGANIZATION
 ARG ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
 ARG ATHENZ_SIA_DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES
 
-RUN apk add --no-cache make
+RUN apk add --no-cache make git
+
+RUN git submodule update --recursive --init --remote
 
 RUN make build
 

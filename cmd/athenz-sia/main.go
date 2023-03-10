@@ -25,6 +25,8 @@ var VERSION, BUILD_DATE string
 
 var DEFAULT_ENDPOINT, DEFAULT_DNS_SUFFIX string
 
+var DEFAULT_ROLE_CERT_FILENAME_DELIMITER = ":role."
+
 // printVersion returns the version and the built date of the executable itself
 func printVersion() {
 	if VERSION == "" || BUILD_DATE == "" {
@@ -39,6 +41,7 @@ func printVersion() {
 		fmt.Printf("Organization: %s\n", identity.DEFAULT_ORGANIZATION)
 		fmt.Printf("OrganizationalUnit: %s\n", identity.DEFAULT_ORGANIZATIONAL_UNIT)
 		fmt.Printf("Role Cert Expiry Time Buffer Minutes: %d\n", identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT)
+		fmt.Printf("Role Cert Filename Delimiter: %s\n", DEFAULT_ROLE_CERT_FILENAME_DELIMITER)
 	}
 }
 
@@ -54,36 +57,37 @@ func envOrDefault(name string, defaultValue string) string {
 // parseFlags parses ENV and cmd line args and returns an IdentityConfig object
 func parseFlags(program string, args []string) (*identity.IdentityConfig, error) {
 	var (
-		mode                  = envOrDefault("MODE", "init")
-		endpoint              = envOrDefault("ENDPOINT", DEFAULT_ENDPOINT)
-		providerService       = envOrDefault("PROVIDER_SERVICE", "")
-		dnsSuffix             = envOrDefault("DNS_SUFFIX", DEFAULT_DNS_SUFFIX)
-		refreshInterval       = envOrDefault("REFRESH_INTERVAL", "24h")
-		delayJitterSeconds, _ = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
-		keyFile               = envOrDefault("KEY_FILE", "")
-		certFile              = envOrDefault("CERT_FILE", "")
-		caCertFile            = envOrDefault("CA_CERT_FILE", "")
-		logDir                = envOrDefault("LOG_DIR", "")
-		logLevel              = envOrDefault("LOG_LEVEL", "INFO")
-		backup                = envOrDefault("BACKUP", "read+write")
-		certSecret            = envOrDefault("CERT_SECRET", "")
-		namespace             = envOrDefault("NAMESPACE", "")
-		athenzDomain          = envOrDefault("ATHENZ_DOMAIN", "")
-		athenzPrefix          = envOrDefault("ATHENZ_PREFIX", "")
-		athenzSuffix          = envOrDefault("ATHENZ_SUFFIX", "")
-		serviceAccount        = envOrDefault("SERVICEACCOUNT", "")
-		saTokenFile           = envOrDefault("SA_TOKEN_FILE", "")
-		podIP                 = envOrDefault("POD_IP", "")
-		podUID                = envOrDefault("POD_UID", "")
-		serverCACert          = envOrDefault("SERVER_CA_CERT", "")
-		targetDomainRoles     = envOrDefault("TARGET_DOMAIN_ROLES", "")
-		roleCertDir           = envOrDefault("ROLECERT_DIR", "")
-		tokenDir              = envOrDefault("TOKEN_DIR", "")
-		tokenType             = envOrDefault("TOKEN_TYPE", "accesstoken")
-		tokenRefreshInterval  = envOrDefault("TOKEN_REFRESH_INTERVAL", "30m")
-		tokenServerAddr       = envOrDefault("TOKEN_SERVER_ADDR", "")
-		metricsServerAddr     = envOrDefault("METRICS_SERVER_ADDR", "")
-		deleteInstanceID, _   = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
+		mode                      = envOrDefault("MODE", "init")
+		endpoint                  = envOrDefault("ENDPOINT", DEFAULT_ENDPOINT)
+		providerService           = envOrDefault("PROVIDER_SERVICE", "")
+		dnsSuffix                 = envOrDefault("DNS_SUFFIX", DEFAULT_DNS_SUFFIX)
+		refreshInterval           = envOrDefault("REFRESH_INTERVAL", "24h")
+		delayJitterSeconds, _     = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
+		keyFile                   = envOrDefault("KEY_FILE", "")
+		certFile                  = envOrDefault("CERT_FILE", "")
+		caCertFile                = envOrDefault("CA_CERT_FILE", "")
+		logDir                    = envOrDefault("LOG_DIR", "")
+		logLevel                  = envOrDefault("LOG_LEVEL", "INFO")
+		backup                    = envOrDefault("BACKUP", "read+write")
+		certSecret                = envOrDefault("CERT_SECRET", "")
+		namespace                 = envOrDefault("NAMESPACE", "")
+		athenzDomain              = envOrDefault("ATHENZ_DOMAIN", "")
+		athenzPrefix              = envOrDefault("ATHENZ_PREFIX", "")
+		athenzSuffix              = envOrDefault("ATHENZ_SUFFIX", "")
+		serviceAccount            = envOrDefault("SERVICEACCOUNT", "")
+		saTokenFile               = envOrDefault("SA_TOKEN_FILE", "")
+		podIP                     = envOrDefault("POD_IP", "127.0.0.1")
+		podUID                    = envOrDefault("POD_UID", "")
+		serverCACert              = envOrDefault("SERVER_CA_CERT", "")
+		targetDomainRoles         = envOrDefault("TARGET_DOMAIN_ROLES", "")
+		roleCertDir               = envOrDefault("ROLECERT_DIR", "")
+		roleCertFilenameDelimiter = envOrDefault("ROLE_CERT_FILENAME_DELIMITER", DEFAULT_ROLE_CERT_FILENAME_DELIMITER)
+		tokenDir                  = envOrDefault("TOKEN_DIR", "")
+		tokenType                 = envOrDefault("TOKEN_TYPE", "accesstoken")
+		tokenRefreshInterval      = envOrDefault("TOKEN_REFRESH_INTERVAL", "30m")
+		tokenServerAddr           = envOrDefault("TOKEN_SERVER_ADDR", "")
+		metricsServerAddr         = envOrDefault("METRICS_SERVER_ADDR", "")
+		deleteInstanceID, _       = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
 	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh")
@@ -101,7 +105,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	f.StringVar(&certSecret, "cert-secret", certSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
 	f.StringVar(&saTokenFile, "sa-token-file", saTokenFile, "bound sa jwt token file location")
 	f.StringVar(&serverCACert, "server-ca-cert", serverCACert, "path to CA certificate file to verify ZTS server certs")
-	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain:role.admin,sys.auth:role.providers)")
+	f.StringVar(&targetDomainRoles, "target-domain-roles", targetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+roleCertFilenameDelimiter+"admin,sys.auth"+roleCertFilenameDelimiter+"providers)")
 	f.StringVar(&roleCertDir, "rolecert-dir", roleCertDir, "directory to write role certificate files")
 	f.StringVar(&tokenDir, "token-dir", tokenDir, "directory to write token files")
 	f.StringVar(&tokenType, "token-type", tokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\", required for token provisioning)")
@@ -179,35 +183,36 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	}
 
 	return &identity.IdentityConfig{
-		Init:               init,
-		Endpoint:           endpoint,
-		ProviderService:    providerService,
-		DNSSuffix:          dnsSuffix,
-		Refresh:            ri,
-		DelayJitterSeconds: delayJitterSeconds,
-		KeyFile:            keyFile,
-		CertFile:           certFile,
-		CaCertFile:         caCertFile,
-		Backup:             backup,
-		CertSecret:         certSecret,
-		Namespace:          namespace,
-		AthenzDomain:       athenzDomain,
-		AthenzPrefix:       athenzPrefix,
-		AthenzSuffix:       athenzSuffix,
-		ServiceAccount:     serviceAccount,
-		SaTokenFile:        saTokenFile,
-		PodIP:              podIP,
-		PodUID:             podUID,
-		Reloader:           reloader,
-		ServerCACert:       serverCACert,
-		TargetDomainRoles:  targetDomainRoles,
-		RoleCertDir:        roleCertDir,
-		TokenType:          tokenType,
-		TokenRefresh:       tri,
-		TokenServerAddr:    tokenServerAddr,
-		TokenDir:           tokenDir,
-		MetricsServerAddr:  metricsServerAddr,
-		DeleteInstanceID:   deleteInstanceID,
+		Init:                      init,
+		Endpoint:                  endpoint,
+		ProviderService:           providerService,
+		DNSSuffix:                 dnsSuffix,
+		Refresh:                   ri,
+		DelayJitterSeconds:        delayJitterSeconds,
+		KeyFile:                   keyFile,
+		CertFile:                  certFile,
+		CaCertFile:                caCertFile,
+		Backup:                    backup,
+		CertSecret:                certSecret,
+		Namespace:                 namespace,
+		AthenzDomain:              athenzDomain,
+		AthenzPrefix:              athenzPrefix,
+		AthenzSuffix:              athenzSuffix,
+		ServiceAccount:            serviceAccount,
+		SaTokenFile:               saTokenFile,
+		PodIP:                     podIP,
+		PodUID:                    podUID,
+		Reloader:                  reloader,
+		ServerCACert:              serverCACert,
+		TargetDomainRoles:         targetDomainRoles,
+		RoleCertDir:               roleCertDir,
+		RoleCertFilenameDelimiter: roleCertFilenameDelimiter,
+		TokenType:                 tokenType,
+		TokenRefresh:              tri,
+		TokenServerAddr:           tokenServerAddr,
+		TokenDir:                  tokenDir,
+		MetricsServerAddr:         metricsServerAddr,
+		DeleteInstanceID:          deleteInstanceID,
 	}, nil
 }
 
@@ -220,8 +225,6 @@ func main() {
 	}
 
 	certificateChan := make(chan struct{})
-	tokenChan := make(chan struct{})
-	metricsChan := make(chan struct{})
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGTERM, os.Interrupt)
 
@@ -238,20 +241,11 @@ func main() {
 	if err != nil && err != errEarlyExit {
 		log.Fatalln(err)
 	}
-	err = identity.Tokend(idConfig, tokenChan)
-	if err != nil && err != errEarlyExit {
-		log.Fatalln(err)
-	}
-	err = identity.Metricsd(idConfig, metricsChan)
-	if err != nil && err != errEarlyExit {
-		log.Fatalln(err)
-	}
 
 	if !idConfig.Init {
 		<-ch // wait until receiving os.Signal from channel ch
 		log.Println("Shutting down...")
 	}
+
 	close(certificateChan)
-	close(tokenChan)
-	close(metricsChan)
 }

@@ -59,7 +59,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		}
 
 		caCertPEM := []byte(id.X509CACertificatePEM)
-		if len(caCertPEM) != 0 {
+		if len(caCertPEM) != 0 && idConfig.CaCertFile != "" {
 			log.Debugf("Saving x509 cacert[%d bytes] at %s", len(caCertPEM), idConfig.CaCertFile)
 			if err := w.AddBytes(idConfig.CaCertFile, 0644, caCertPEM); err != nil {
 				return errors.Wrap(err, "unable to save x509 cacert")
@@ -72,8 +72,8 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				if len(roleCertPEM) != 0 {
 					log.Infof("[New Role Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
 						rolecert.Subject, rolecert.Issuer, rolecert.NotBefore, rolecert.NotAfter, rolecert.SerialNumber, rolecert.DNSNames)
-					outPath := filepath.Join(idConfig.RoleCertDir, rolecert.Domain+":role."+rolecert.Role+".cert.pem")
-					log.Debugf("Saving x509 role cert[%d bytes] at %s", len(roleCertPEM), outPath)
+					outPath := filepath.Join(idConfig.RoleCertDir, rolecert.Domain+idConfig.RoleCertFilenameDelimiter+rolecert.Role+".cert.pem")
+					log.Debugf("Saving x509 role cert[%d bytes] at [%s]", len(roleCertPEM), outPath)
 					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {
 						return errors.Wrap(err, "unable to save x509 role cert")
 					}
@@ -185,8 +185,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 				roleCerts, err = handler.GetX509RoleCert(id, keyPem)
 				if err != nil {
-					err = errors.Wrap(err, "Failed to get x509 role certs")
-					log.Errorf("%s", err.Error())
+					log.Warnf("Error while requesting x509 role certificate to identity provider: %s", err.Error())
 					return err
 				} else {
 					log.Infoln("Successfully received x509 role certs from identity provider")
@@ -227,23 +226,37 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		time.Sleep(sleep)
 	}
 
-	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
+	go func() {
 
-	if idConfig.Init {
-		if err != nil {
-			log.Errorf("Failed to get initial certificate after multiple retries: %s", err.Error())
+		err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
+
+		if idConfig.Init {
+			if err != nil {
+				log.Errorf("Failed to get initial certificate after multiple retries: %s", err.Error())
+			}
+
+			return
 		}
 
-		return err
-	}
+		tokenChan := make(chan struct{})
+		metricsChan := make(chan struct{})
+		err = Tokend(idConfig, tokenChan)
+		if err != nil {
+			log.Errorf("Error starting token provider[%s]", err)
+			return
+		}
+		err = Metricsd(idConfig, metricsChan)
+		if err != nil {
+			log.Errorf("Error starting metrics exporter[%s]", err)
+			return
+		}
 
-	go func() {
 		t := time.NewTicker(idConfig.Refresh)
 		defer t.Stop()
 
 		for {
 
-			log.Infof("Refreshing key[%s], cert[%s] and certificates for roles[%v] in %s", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles, idConfig.Refresh)
+			log.Infof("Refreshing key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] in %s", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles, idConfig.ProviderService, idConfig.Backup, idConfig.CertSecret, idConfig.Refresh)
 
 			select {
 			case <-t.C:
@@ -256,6 +269,8 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				if err != nil {
 					log.Errorf("Failed to delete certificate record after multiple retries: %s", err.Error())
 				}
+				close(metricsChan)
+				close(tokenChan)
 				return
 			}
 		}
