@@ -226,17 +226,15 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		time.Sleep(sleep)
 	}
 
-	go func() {
-
+	if idConfig.Init {
 		err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
-
-		if idConfig.Init {
-			if err != nil {
-				log.Errorf("Failed to get initial certificate after multiple retries: %s", err.Error())
-			}
-
-			return
+		if err != nil {
+			log.Errorf("Failed to get initial certificate after multiple retries: %s", err.Error())
+			return err
 		}
+	}
+
+	go func() {
 
 		tokenChan := make(chan struct{})
 		metricsChan := make(chan struct{})

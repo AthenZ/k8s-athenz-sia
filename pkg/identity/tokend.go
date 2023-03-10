@@ -210,6 +210,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 			return
 		}
 
+		log.Debugf("Returning %s for domain[%s], role[%s]", idConfig.TokenType, domain, role)
 		io.WriteString(w, fmt.Sprintf("%s", response))
 	}
 
