@@ -266,10 +266,16 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	go func() {
 
 		tokenChan := make(chan struct{})
+		authorizerChan := make(chan struct{})
 		metricsChan := make(chan struct{})
 		err = Tokend(idConfig, tokenChan)
 		if err != nil {
 			log.Errorf("Error starting token provider[%s]", err)
+			return
+		}
+		err = Authorizerd(idConfig, metricsChan)
+		if err != nil {
+			log.Errorf("Error starting authorizer[%s]", err)
 			return
 		}
 		err = Metricsd(idConfig, metricsChan)
@@ -297,6 +303,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 					log.Errorf("Failed to delete x509 certificate Instance ID record: %s", err.Error())
 				}
 				close(metricsChan)
+				close(authorizerChan)
 				close(tokenChan)
 				return
 			}
