@@ -9,8 +9,9 @@ replace github.com/AthenZ/k8s-athenz-sia/pkg/k8s => ./pkg/k8s
 replace golang.org/x/net => golang.org/x/net v0.7.0
 
 require (
-	github.com/AthenZ/athenz v1.11.23
+	github.com/AthenZ/athenz v1.11.24
 	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/golang-jwt/jwt/v5 v5.0.0-rc.1
 	github.com/pkg/errors v0.9.1
 	github.com/yahoo/k8s-athenz-identity v0.0.0-20210320000321-b0ce39fad833
 	k8s.io/api v0.26.3

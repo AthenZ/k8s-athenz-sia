@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	jwt "github.com/golang-jwt/jwt/v5"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	applyconfigcorev1 "k8s.io/client-go/applyconfigurations/core/v1"
 	applyconfigmetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -19,6 +21,8 @@ type SecretsClient struct {
 	client    typedcorev1.SecretInterface
 	name      string
 	namespace string
+	saName    string
+	saUID     string
 }
 
 // NewSecretClient initializes Kubernetes SecretClient
@@ -31,6 +35,17 @@ func NewSecretClient(name, namespace string) (*SecretsClient, error) {
 		return nil, err
 	}
 
+	// get service account info from the token (token verification is done by API server)
+	token, _, err := jwt.NewParser().ParseUnverified(config.BearerToken, jwt.MapClaims{})
+	if err != nil {
+		return nil, err
+	}
+	claims, _ := token.Claims.(jwt.MapClaims)
+	claims, _ = claims["kubernetes.io"].(map[string]interface{})
+	claims, _ = claims["serviceaccount"].(map[string]interface{})
+	saName := claims["name"].(string)
+	saUID := claims["uid"].(string)
+
 	// Example: https://github.com/kubernetes/client-go/blob/v0.23.5/examples/in-cluster-client-configuration/main.go
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -42,6 +57,8 @@ func NewSecretClient(name, namespace string) (*SecretsClient, error) {
 		client:    clientset.CoreV1().Secrets(namespace),
 		name:      name,
 		namespace: namespace,
+		saName:    saName,
+		saUID:     saUID,
 	}, nil
 }
 
@@ -78,23 +95,38 @@ func GetKeyAndCertificateFromSecret(secret *corev1.Secret) ([]byte, []byte) {
 
 // CreateIdentitySecret creates Kubernetes Secret
 func (c *SecretsClient) CreateIdentitySecret(key, cert []byte) (*corev1.Secret, error) {
-	secret := prepareNewTLSSecret(c.name, c.namespace, key, cert)
+	secret := c.prepareNewTLSSecret(key, cert)
 
 	// See: https://github.com/kubernetes/client-go/blob/v0.23.5/kubernetes/typed/core/v1/secret.go#L115-L126
 	return c.client.Create(context.TODO(), secret, metav1.CreateOptions{})
 }
 
-// CreateIdentitySecret updates Kubernetes Secret
+// UpdateIdentitySecret updates Kubernetes Secret
 func (c *SecretsClient) UpdateIdentitySecret(key, cert []byte) (*corev1.Secret, error) {
-	secret := prepareNewTLSSecret(c.name, c.namespace, key, cert)
+	secret := c.prepareNewTLSSecret(key, cert)
 
 	// See: https://github.com/kubernetes/client-go/blob/v0.23.5/kubernetes/typed/core/v1/secret.go#L128-L140
 	return c.client.Update(context.TODO(), secret, metav1.UpdateOptions{})
 }
 
-// CreateIdentitySecret applies/patches Kubernetes Secret
+// ApplyIdentitySecret applies/patches Kubernetes Secret
 func (c *SecretsClient) ApplyIdentitySecret(key, cert []byte) (*corev1.Secret, error) {
-	secret := prepareNewTLSSecret(c.name, c.namespace, key, cert)
+	secret := c.prepareNewTLSSecret(key, cert)
+	ors := make([]applyconfigmetav1.OwnerReferenceApplyConfiguration, len(secret.OwnerReferences))
+	for i, or := range secret.OwnerReferences {
+		ac := *applyconfigmetav1.OwnerReference().
+			WithAPIVersion(or.APIVersion).
+			WithKind(or.Kind).
+			WithName(or.Name).
+			WithUID(or.UID)
+		if or.Controller != nil {
+			ac.WithController(*or.Controller)
+		}
+		if or.BlockOwnerDeletion != nil {
+			ac.WithBlockOwnerDeletion(*or.BlockOwnerDeletion)
+		}
+		ors[i] = ac
+	}
 	// Type: "k8s.io/client-go/applyconfigurations/core/v1".SecretApplyConfiguration
 	// See: https://github.com/kubernetes/client-go/blob/v0.23.5/applyconfigurations/core/v1/secret.go
 	applyConfig := &applyconfigcorev1.SecretApplyConfiguration{
@@ -103,9 +135,10 @@ func (c *SecretsClient) ApplyIdentitySecret(key, cert []byte) (*corev1.Secret, e
 			APIVersion: &secret.TypeMeta.APIVersion,
 		},
 		ObjectMetaApplyConfiguration: &applyconfigmetav1.ObjectMetaApplyConfiguration{
-			Name:        &secret.Name,
-			Labels:      secret.Labels,
-			Annotations: secret.Annotations,
+			Name:            &secret.Name,
+			Labels:          secret.Labels,
+			Annotations:     secret.Annotations,
+			OwnerReferences: ors,
 		},
 		Type:       &secret.Type,
 		Data:       secret.Data,
@@ -117,7 +150,7 @@ func (c *SecretsClient) ApplyIdentitySecret(key, cert []byte) (*corev1.Secret, e
 	return c.client.Apply(context.TODO(), applyConfig, metav1.ApplyOptions{FieldManager: "application/apply-patch", Force: true})
 }
 
-func prepareNewTLSSecret(name, namespace string, key, cert []byte) *corev1.Secret {
+func (c *SecretsClient) prepareNewTLSSecret(key, cert []byte) *corev1.Secret {
 	// Type: "k8s.io/api/core/v1".Secret
 	// See: https://github.com/kubernetes/api/blob/v0.23.5/core/v1/types.go#L6003-L6038
 	return &corev1.Secret{
@@ -126,8 +159,16 @@ func prepareNewTLSSecret(name, namespace string, key, cert []byte) *corev1.Secre
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:      c.name,
+			Namespace: c.namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "v1",
+					Kind:       "ServiceAccount",
+					Name:       c.saName,
+					UID:        types.UID(c.saUID),
+				},
+			},
 		},
 		// See: https://github.com/kubernetes/kubernetes/blob/v1.23.5/pkg/apis/core/types.go#L5259-L5272
 		Data: map[string][]byte{
