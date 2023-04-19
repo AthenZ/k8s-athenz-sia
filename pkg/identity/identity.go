@@ -226,7 +226,7 @@ func (h *identityHandler) ApplyX509CertToSecret(identity *InstanceIdentity, keyP
 }
 
 // GetX509Cert makes ZTS API calls to generate an X.509 certificate
-func (h *identityHandler) GetX509Cert() (*InstanceIdentity, []byte, error) {
+func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte, error) {
 
 	if h.csrOptions == nil {
 		return nil, nil, nil
@@ -243,7 +243,7 @@ func (h *identityHandler) GetX509Cert() (*InstanceIdentity, []byte, error) {
 	}
 
 	var id *zts.InstanceIdentity
-	if h.config.Init {
+	if h.config.Init || forceInit {
 		id, _, err = h.client.PostInstanceRegisterInformation(&zts.InstanceRegisterInformation{
 			Provider:        zts.ServiceName(h.config.ProviderService),
 			Domain:          zts.DomainName(h.domain),
