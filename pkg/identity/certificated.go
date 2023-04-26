@@ -34,35 +34,33 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	writeFiles := func(id *InstanceIdentity, keyPEM []byte, roleCerts [](*RoleCertificate)) error {
 
-		if id == nil {
-			return nil
-		}
-
 		w := util.NewWriter()
 
-		leafPEM := []byte(id.X509CertificatePEM)
-		if len(leafPEM) != 0 && len(keyPEM) != 0 {
-			x509Cert, err := util.CertificateFromPEMBytes(leafPEM)
-			if err != nil {
-				return errors.Wrap(err, "unable to parse x509 cert")
+		if id != nil {
+			leafPEM := []byte(id.X509CertificatePEM)
+			if len(leafPEM) != 0 && len(keyPEM) != 0 {
+				x509Cert, err := util.CertificateFromPEMBytes(leafPEM)
+				if err != nil {
+					return errors.Wrap(err, "unable to parse x509 cert")
+				}
+				log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
+					x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
+				log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), idConfig.CertFile)
+				if err := w.AddBytes(idConfig.CertFile, 0644, leafPEM); err != nil {
+					return errors.Wrap(err, "unable to save x509 cert")
+				}
+				log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idConfig.KeyFile)
+				if err := w.AddBytes(idConfig.KeyFile, 0644, keyPEM); err != nil { // TODO: finalize perms and user
+					return errors.Wrap(err, "unable to save x509 key")
+				}
 			}
-			log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
-				x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
-			log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), idConfig.CertFile)
-			if err := w.AddBytes(idConfig.CertFile, 0644, leafPEM); err != nil {
-				return errors.Wrap(err, "unable to save x509 cert")
-			}
-			log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idConfig.KeyFile)
-			if err := w.AddBytes(idConfig.KeyFile, 0644, keyPEM); err != nil { // TODO: finalize perms and user
-				return errors.Wrap(err, "unable to save x509 key")
-			}
-		}
 
-		caCertPEM := []byte(id.X509CACertificatePEM)
-		if len(caCertPEM) != 0 && idConfig.CaCertFile != "" {
-			log.Debugf("Saving x509 cacert[%d bytes] at %s", len(caCertPEM), idConfig.CaCertFile)
-			if err := w.AddBytes(idConfig.CaCertFile, 0644, caCertPEM); err != nil {
-				return errors.Wrap(err, "unable to save x509 cacert")
+			caCertPEM := []byte(id.X509CACertificatePEM)
+			if len(caCertPEM) != 0 && idConfig.CaCertFile != "" {
+				log.Debugf("Saving x509 cacert[%d bytes] at %s", len(caCertPEM), idConfig.CaCertFile)
+				if err := w.AddBytes(idConfig.CaCertFile, 0644, caCertPEM); err != nil {
+					return errors.Wrap(err, "unable to save x509 cacert")
+				}
 			}
 		}
 
