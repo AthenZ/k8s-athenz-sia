@@ -10,10 +10,6 @@ on:
 
 env:
   # Use docker.io for Docker Hub if empty
-  DOCKER_REGISTRY_URL: ghcr.io
-  # DOCKER_REGISTRY_OWNER: ${{ env.CI_REPOSITORY_OWNER }}
-  # DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME }}
-  # DOCKER_REGISTRY_TOKEN: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
   DOCKER_TAEGET_PLATFORMS: linux/amd64,linux/arm64
   DOCKER_BUILD_ARGS: |
     BUILDER_IMAGE=docker.io/library/golang:1-alpine
