@@ -9,7 +9,6 @@ on:
   workflow_call:
 
 env:
-  # Use docker.io for Docker Hub if empty
   DOCKER_TAEGET_PLATFORMS: linux/amd64,linux/arm64
   DOCKER_BUILD_ARGS: |
     BUILDER_IMAGE=docker.io/library/golang:1-alpine
