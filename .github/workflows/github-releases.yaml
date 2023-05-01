@@ -9,13 +9,7 @@ on:
   workflow_call:
 
 env:
-  # Use docker.io for Docker Hub if empty
-  DOCKER_REGISTRY_URL: ghcr.io
-  # DOCKER_REGISTRY_OWNER: ${{ env.CI_REPOSITORY_OWNER }}
-  # DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME }}
-  # DOCKER_REGISTRY_TOKEN: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
   DOCKER_TAEGET_PLATFORMS: linux/amd64,linux/arm64
-  # DOCKER_BUILD_ARGS: |
   NFPM_SOURCE_IMAGES: k8s-athenz-sia
   NFPM_TARGET_PACKAGER: apk,deb,rpm
   NFPM_TARGET_COMPONENTS: nfpm
@@ -55,10 +49,10 @@ jobs:
         run: |
           # Use docker.io for Docker Hub if empty
           [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=docker.io" >> $GITHUB_ENV
-          [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER }}" >> $GITHUB_ENV
-          [[ "${{ env.DOCKER_REGISTRY_IMAGE }}" = "" ]] && echo "DOCKER_REGISTRY_IMAGE=${{ env.CI_REPOSITORY_NAME }}" >> $GITHUB_ENV
+          [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
+          [[ "${{ env.DOCKER_REGISTRY_IMAGE }}" = "" ]] && echo "DOCKER_REGISTRY_IMAGE=${{ env.CI_REPOSITORY_NAME_SLUG }}" >> $GITHUB_ENV
           [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_URL=ghcr.io" >> $GITHUB_ENV
-          [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER }}" >> $GITHUB_ENV
+          [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
           [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV || echo "DOCKER_REGISTRY_TOKEN=${{ secrets.DOCKER_REGISTRY_TOKEN }}" >> $GITHUB_ENV
 
       # This action checks-out your repository under $GITHUB_WORKSPACE, so your workflow can access it.
