@@ -136,6 +136,9 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 		if idConfig.ProviderService != "" {
 			err, identity, keyPem = identityProvisioningRequest(idConfig, handler, false)
+			if err != nil {
+				log.Errorf("Failed to reteieve x509 certificate from identity provider: %s", err.Error())
+			}
 		}
 
 		if identity == nil || len(keyPem) == 0 {
