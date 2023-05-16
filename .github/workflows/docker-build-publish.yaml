@@ -36,6 +36,9 @@ jobs:
       repository-projects: none
       security-events: none
       statuses: none
+    # Map a step output to a job output
+    outputs:
+      tag: ${{ steps.output_tag.outputs.tag }}
 
     steps:
       # A GitHub Action to expose useful environment variables.
@@ -50,14 +53,25 @@ jobs:
       -
         name: Set Default Environment Variables
         id: default_env
+        env:
+          DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME_SLUG }}
+          # Please customize your container image's values
+          # DOCKER_REGISTRY_URL: "ghcr.io"
+          # DOCKER_REGISTRY_OWNER: ${{ env.CI_REPOSITORY_OWNER_SLUG }}
         run: |
-          # Use docker.io for Docker Hub if empty
-          [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=docker.io" >> $GITHUB_ENV
-          [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
-          [[ "${{ env.DOCKER_REGISTRY_IMAGE }}" = "" ]] && echo "DOCKER_REGISTRY_IMAGE=${{ env.CI_REPOSITORY_NAME_SLUG }}" >> $GITHUB_ENV
-          [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_URL=ghcr.io" >> $GITHUB_ENV
-          [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
-          [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV || echo "DOCKER_REGISTRY_TOKEN=${{ secrets.DOCKER_REGISTRY_TOKEN }}" >> $GITHUB_ENV
+          # Push to Athenz's docker.io if secret exists, else push to actor's personal ghcr.io
+          if [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" != "" ]]; then
+            [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=docker.io" >> $GITHUB_ENV
+            [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
+            echo "DOCKER_REGISTRY_TOKEN=${{ secrets.DOCKER_REGISTRY_TOKEN }}" >> $GITHUB_ENV
+          else
+            [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=ghcr.io" >> $GITHUB_ENV
+            [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
+            echo "DOCKER_REGISTRY_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+          fi
+
+          # set image name
+          [[ "${{ env.DOCKER_REGISTRY_IMAGE }}" = "" ]] && echo "DOCKER_REGISTRY_IMAGE=${{ env.CI_REPOSITORY_NAME_SLUG }}" >> $GITHUB_ENV || echo "DOCKER_REGISTRY_IMAGE=${{ env.DOCKER_REGISTRY_IMAGE }}" >> $GITHUB_ENV
 
       # This action checks-out your repository under $GITHUB_WORKSPACE, so your workflow can access it.
       # https://github.com/actions/checkout
@@ -140,7 +154,7 @@ jobs:
       # https://github.com/actions/setup-go
       -
         name: Setup Golang
-        id: setup-go
+        id: setup_go
         # You may pin to the exact commit or the version.
         # uses: https://github.com/actions/setup-go/tags
         uses: actions/setup-go@v3
@@ -151,15 +165,23 @@ jobs:
       # A GitHub Action to set environment variables for Go
       -
         name: Set Golang env
-        id: go-env
+        id: go_env
         run: |
           go env | grep GOPATH | sed -e 's/"//g' >> $GITHUB_ENV
+
+          # set binary version
+          # TODO: [[ "${{ env.CI_EVENT_NAME }}" = 'push' ]] && ...
+          export ATHENZ_SIA_VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+          export DOCKER_BUILD_ARGS="${DOCKER_BUILD_ARGS}\nATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}"
+
+          echo "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}" >> $GITHUB_ENV
+          echo "DOCKER_BUILD_ARGS=${DOCKER_BUILD_ARGS}" >> $GITHUB_ENV
 
       # This action allows caching dependencies and build outputs to improve workflow execution time.
       # https://github.com/actions/cache
       -
         name: Cache Go Modules
-        id: cache-go
+        id: cache_go
         # users: https://github.com/actions/cache/tags
         uses: actions/cache@v3
         with:
@@ -173,12 +195,10 @@ jobs:
       # A GitHub Action for golang tests
       -
         name: Golang Tests
-        id: go-tests
+        id: go_tests
         run: |
           go version
-          rm -rf example
-          go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
-          go tool cover -html=coverage.out -o coverage.html
+          make test
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
@@ -196,3 +216,39 @@ jobs:
           platforms: ${{ env.DOCKER_TAEGET_PLATFORMS }}
           build-args: ${{ env.DOCKER_BUILD_ARGS }}
           cache-from: ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}
+          outputs: type=oci,dest=/tmp/image.tar
+
+      # https://docs.github.com/en/actions/using-jobs/defining-outputs-for-jobs
+      -
+        name: Output docker image tag
+        id: output_tag
+        run: echo 'tag=${{ fromJSON(steps.meta.outputs.json).tags[0] }}' >> "$GITHUB_OUTPUT"
+
+      # TODO: support testing on multiple architecture
+      -
+        name: Test Docker image
+        id: test_docker
+        run: |
+          file /tmp/image.tar || true
+          docker load --input /tmp/image.tar || true
+          docker image ls -a || true
+          docker run --rm ${{ fromJSON(steps.meta.outputs.json).tags[0] }} --version || true
+
+  # test_image:
+  #   runs-on: ubuntu-latest
+  #   needs:
+  #     - docker-build-publish
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       platform:
+  #         - linux/amd64
+  #         - linux/arm/v6
+  #         - linux/arm/v7
+  #         - linux/arm64
+  #   steps:
+  #     -
+  #       name: Test Docker image
+  #       id: test_docker
+  #       run: |
+  #         docker run --rm '${{ needs.docker-build-publish.outputs.tag }}' --version

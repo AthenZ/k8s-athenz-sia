@@ -30,6 +30,6 @@ jobs:
   github-releases:
     name: "Create Github Releases with Packages"
     needs: docker-build-publish
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.ref_type == 'tag'
     uses: ./.github/workflows/github-releases.yaml
     secrets: inherit

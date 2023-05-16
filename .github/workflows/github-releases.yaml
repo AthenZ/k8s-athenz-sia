@@ -47,10 +47,12 @@ jobs:
         name: Set Default Environment Variables
         id: default_env
         run: |
-          # Use docker.io for Docker Hub if empty
+          # Use docker.io by default
           [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=docker.io" >> $GITHUB_ENV
           [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
           [[ "${{ env.DOCKER_REGISTRY_IMAGE }}" = "" ]] && echo "DOCKER_REGISTRY_IMAGE=${{ env.CI_REPOSITORY_NAME_SLUG }}" >> $GITHUB_ENV
+
+          # Use ghcr.io if there is NO docker secret
           [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_URL=ghcr.io" >> $GITHUB_ENV
           [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
           [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV || echo "DOCKER_REGISTRY_TOKEN=${{ secrets.DOCKER_REGISTRY_TOKEN }}" >> $GITHUB_ENV
@@ -111,7 +113,7 @@ jobs:
       # https://github.com/actions/setup-go
       -
         name: Setup Golang
-        id: setup-go
+        id: setup_go
         # You may pin to the exact commit or the version.
         # uses: https://github.com/actions/setup-go/tags
         uses: actions/setup-go@v3
@@ -122,7 +124,7 @@ jobs:
       # A GitHub Action to set environment variables for Go
       -
         name: Set Golang env
-        id: go-env
+        id: go_env
         run: |
           go env | grep GOPATH | sed -e 's/"//g' >> $GITHUB_ENV
 
