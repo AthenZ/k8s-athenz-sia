@@ -170,12 +170,12 @@ jobs:
           go env | grep GOPATH | sed -e 's/"//g' >> "$GITHUB_ENV"
 
           # set binary version
-          # TODO: [[ "${{ env.CI_EVENT_NAME }}" = 'push' ]] && ...
-          export ATHENZ_SIA_VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+          SHA="${CI_PR_SHA_SHORT:=${CI_SHA_SHORT}}"
+          IMAGE_TAG="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}"
+          export ATHENZ_SIA_VERSION="$(printf '%s ($s)' "${SHA}" "${IMAGE_TAG}")"
           export DOCKER_BUILD_ARGS="$(printf '%s\n%s' "${DOCKER_BUILD_ARGS}" "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}")"
 
           echo "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}" >> "$GITHUB_ENV"
-
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "DOCKER_BUILD_ARGS<<$EOF" >> "$GITHUB_ENV"
           echo "${DOCKER_BUILD_ARGS}" >> "$GITHUB_ENV"
@@ -221,6 +221,7 @@ jobs:
           build-args: ${{ env.DOCKER_BUILD_ARGS }}
           cache-from: ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}
           outputs: type=oci,dest=/tmp/image.tar
+          provenance: false # https://github.com/docker/roadmap/issues/371#issuecomment-1416932433
 
       # https://docs.github.com/en/actions/using-jobs/defining-outputs-for-jobs
       -
