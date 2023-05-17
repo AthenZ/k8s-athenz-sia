@@ -36,6 +36,8 @@ var (
 	DEFAULT_ORGANIZATION        string
 	DEFAULT_ORGANIZATIONAL_UNIT = "Athenz"
 
+	DEFAULT_POLL_TOKEN_INTERVAL = 4 * time.Hour
+
 	// default values for role tokens and access tokens
 	DEFAULT_TOKEN_EXPIRY_TIME     = "120"
 	DEFAULT_TOKEN_EXPIRY_TIME_INT int

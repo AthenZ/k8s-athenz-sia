@@ -17,6 +17,7 @@ import (
 	"github.com/yahoo/k8s-athenz-identity/pkg/util"
 )
 
+// Tokend starts the token server and refreshes tokens periodically.
 func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 	if idConfig.TokenServerAddr == "" || idConfig.TargetDomainRoles == "" || idConfig.TokenType == "" {
@@ -214,39 +215,36 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		io.WriteString(w, string(response))
 	}
 
+	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
+
+	if idConfig.Init {
+		if err != nil {
+			log.Errorf("Failed to get initial tokens after multiple retries: %s", err.Error())
+		}
+
+		log.Infof("Token provider is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
+
+		return nil
+	}
+
+	httpServer := &http.Server{
+		Addr:    idConfig.TokenServerAddr,
+		Handler: http.HandlerFunc(tokenHandler),
+	}
+
 	go func() {
+		log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
 
-		err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
-
-		if idConfig.Init {
-			if err != nil {
-				log.Errorf("Failed to get initial tokens after multiple retries: %s", err.Error())
-			}
-
-			log.Infof("Token provider is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
-
-			return
+		if err := httpServer.ListenAndServe(); err != nil {
+			log.Errorf("Failed to start token provider: %s", err.Error())
 		}
+	}()
 
-		httpServer := &http.Server{
-			Addr:    idConfig.TokenServerAddr,
-			Handler: http.HandlerFunc(tokenHandler),
-		}
+	t := time.NewTicker(idConfig.TokenRefresh)
 
-		go func() {
-
-			log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
-
-			if err := httpServer.ListenAndServe(); err != nil {
-				log.Errorf("Failed to start token provider: %s", err.Error())
-			}
-		}()
-
-		t := time.NewTicker(idConfig.TokenRefresh)
+	go func() {
 		defer t.Stop()
-
 		for {
-
 			log.Infof("Refreshing tokens for roles[%v] in %s", idConfig.TargetDomainRoles, idConfig.TokenRefresh)
 
 			select {
@@ -256,7 +254,8 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 					log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 				}
 			case <-stopChan:
-				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
 				httpServer.SetKeepAlivesEnabled(false)
 				if err := httpServer.Shutdown(ctx); err != nil {
 					log.Errorf("Failed to shutdown token provider: %s", err.Error())
