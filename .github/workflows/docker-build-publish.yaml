@@ -61,17 +61,17 @@ jobs:
         run: |
           # Push to Athenz's docker.io if secret exists, else push to actor's personal ghcr.io
           if [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" != "" ]]; then
-            [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=docker.io" >> $GITHUB_ENV
-            [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
-            echo "DOCKER_REGISTRY_TOKEN=${{ secrets.DOCKER_REGISTRY_TOKEN }}" >> $GITHUB_ENV
+            [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=docker.io" >> "$GITHUB_ENV"
+            [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> "$GITHUB_ENV"
+            echo "DOCKER_REGISTRY_TOKEN=${{ secrets.DOCKER_REGISTRY_TOKEN }}" >> "$GITHUB_ENV"
           else
-            [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=ghcr.io" >> $GITHUB_ENV
-            [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
-            echo "DOCKER_REGISTRY_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+            [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=ghcr.io" >> "$GITHUB_ENV"
+            [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> "$GITHUB_ENV"
+            echo "DOCKER_REGISTRY_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> "$GITHUB_ENV"
           fi
 
           # set image name
-          [[ "${{ env.DOCKER_REGISTRY_IMAGE }}" = "" ]] && echo "DOCKER_REGISTRY_IMAGE=${{ env.CI_REPOSITORY_NAME_SLUG }}" >> $GITHUB_ENV || echo "DOCKER_REGISTRY_IMAGE=${{ env.DOCKER_REGISTRY_IMAGE }}" >> $GITHUB_ENV
+          [[ "${{ env.DOCKER_REGISTRY_IMAGE }}" = "" ]] && echo "DOCKER_REGISTRY_IMAGE=${{ env.CI_REPOSITORY_NAME_SLUG }}" >> "$GITHUB_ENV" || echo "DOCKER_REGISTRY_IMAGE=${{ env.DOCKER_REGISTRY_IMAGE }}" >> "$GITHUB_ENV"
 
       # This action checks-out your repository under $GITHUB_WORKSPACE, so your workflow can access it.
       # https://github.com/actions/checkout
@@ -167,15 +167,19 @@ jobs:
         name: Set Golang env
         id: go_env
         run: |
-          go env | grep GOPATH | sed -e 's/"//g' >> $GITHUB_ENV
+          go env | grep GOPATH | sed -e 's/"//g' >> "$GITHUB_ENV"
 
           # set binary version
           # TODO: [[ "${{ env.CI_EVENT_NAME }}" = 'push' ]] && ...
           export ATHENZ_SIA_VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
           export DOCKER_BUILD_ARGS="$(printf '%s\n%s' "${DOCKER_BUILD_ARGS}" "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}")"
 
-          echo "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}" >> $GITHUB_ENV
-          echo "DOCKER_BUILD_ARGS=${DOCKER_BUILD_ARGS}" >> $GITHUB_ENV
+          echo "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}" >> "$GITHUB_ENV"
+
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "DOCKER_BUILD_ARGS<<$EOF" >> "$GITHUB_ENV"
+          echo "${DOCKER_BUILD_ARGS}" >> "$GITHUB_ENV"
+          echo "$EOF" >> "$GITHUB_ENV"
 
       # This action allows caching dependencies and build outputs to improve workflow execution time.
       # https://github.com/actions/cache
