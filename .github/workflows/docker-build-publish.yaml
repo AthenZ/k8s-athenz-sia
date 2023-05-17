@@ -215,13 +215,13 @@ jobs:
         with:
           context: .
           # push: ${{ github.event_name != 'pull_request' }}
-          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ env.DOCKER_TAEGET_PLATFORMS }}
           build-args: ${{ env.DOCKER_BUILD_ARGS }}
           cache-from: ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}
-          outputs: type=tar,dest=/tmp/image.tar
+          push: true
+          # outputs: type=tar,dest=/tmp/image.tar
           # outputs: type=docker,dest=/tmp/image.tar
           # provenance: false # https://github.com/docker/roadmap/issues/371#issuecomment-1416932433
 
