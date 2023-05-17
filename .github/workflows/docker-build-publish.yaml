@@ -172,7 +172,7 @@ jobs:
           # set binary version
           # TODO: [[ "${{ env.CI_EVENT_NAME }}" = 'push' ]] && ...
           export ATHENZ_SIA_VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
-          export DOCKER_BUILD_ARGS="${DOCKER_BUILD_ARGS}\nATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}"
+          export DOCKER_BUILD_ARGS="$(printf '%s\n%s' "${DOCKER_BUILD_ARGS}" "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}")"
 
           echo "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}" >> $GITHUB_ENV
           echo "DOCKER_BUILD_ARGS=${DOCKER_BUILD_ARGS}" >> $GITHUB_ENV
