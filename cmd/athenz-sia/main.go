@@ -148,6 +148,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 	}
 	pollTokenInterval := tri
 	if pollTokenInterval > 4*time.Hour {
+		// TODO: var not used
 		pollTokenInterval = 4 * time.Hour
 	}
 	reloader, err := util.NewCertReloader(util.ReloadConfig{

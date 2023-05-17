@@ -1,4 +1,5 @@
 .PHONY: submodule-update build test clean
+.DEFAULT_GOAL := build
 
 ifeq ($(GOPATH),)
 	GOPATH := $(shell pwd)
