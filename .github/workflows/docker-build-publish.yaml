@@ -172,7 +172,7 @@ jobs:
           # set binary version
           SHA="${CI_PR_SHA_SHORT:=${CI_SHA_SHORT}}"
           IMAGE_TAG="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}"
-          export ATHENZ_SIA_VERSION="$(printf '%s ($s)' "${SHA}" "${IMAGE_TAG}")"
+          export ATHENZ_SIA_VERSION="$(printf '%s (%s)' "${SHA}" "${IMAGE_TAG}")"
           export DOCKER_BUILD_ARGS="$(printf '%s\n%s' "${DOCKER_BUILD_ARGS}" "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}")"
 
           echo "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}" >> "$GITHUB_ENV"
