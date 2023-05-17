@@ -6,7 +6,8 @@ COPY . .
 
 RUN apk add --no-cache make git
 
-RUN make build
+ARG ATHENZ_SIA_VERSION=''
+RUN ATHENZ_SIA_VERSION="${ATHENZ_SIA_VERSION}" make build
 
 FROM docker.io/alpine:3
 
