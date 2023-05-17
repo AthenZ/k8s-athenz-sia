@@ -239,7 +239,7 @@ jobs:
           file /tmp/image.tar || true
           docker load --input /tmp/image.tar || true
           docker image ls -a || true
-          docker run --rm ${{ fromJSON(steps.meta.outputs.json).tags[0] }} --version || true
+          docker run --rm ${{ fromJSON(steps.meta.outputs.json).tags[0] }} version || true
 
   test_image:
     runs-on: ubuntu-latest
@@ -258,4 +258,4 @@ jobs:
         name: Test Docker image
         id: test_docker
         run: |
-          docker run --rm '${{ needs.docker-build-publish.outputs.tag }}' --version
+          docker run --rm '${{ needs.docker-build-publish.outputs.tag }}' version
