@@ -214,13 +214,14 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          # push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ !github.event.pull_request.head.repo.fork }} # skip pushing when PR from a fork
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ env.DOCKER_TAEGET_PLATFORMS }}
           build-args: ${{ env.DOCKER_BUILD_ARGS }}
-          cache-from: ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}
-          push: true
+          # cache-from: ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}
+          cache-from: type=gha # https://docs.docker.com/build/ci/github-actions/cache/
+          cache-to: type=gha,mode=max
           # outputs: type=tar,dest=/tmp/image.tar
           # outputs: type=docker,dest=/tmp/image.tar
           # provenance: false # https://github.com/docker/roadmap/issues/371#issuecomment-1416932433
