@@ -18,11 +18,11 @@ import (
 )
 
 // Tokend starts the token server and refreshes tokens periodically.
-func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
+func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
 
 	if idConfig.TokenServerAddr == "" || idConfig.TargetDomainRoles == "" || idConfig.TokenType == "" {
 		log.Infof("Token provider is disabled with empty options: address[%s], roles[%s], token-type[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles, idConfig.TokenType)
-		return nil
+		return nil, nil
 	}
 
 	// map[domain][role][RoleToken.TokenString]
@@ -35,7 +35,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
 		log.Errorf("Failed to initialize client for tokens: %s", err.Error())
-		return err
+		return err, nil
 	}
 
 	writeFiles := func() error {
@@ -224,7 +224,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 		log.Infof("Token provider is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
 
-		return nil
+		return nil, nil
 	}
 
 	httpServer := &http.Server{
@@ -240,10 +240,12 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		}
 	}()
 
+	shutdownChan := make(chan struct{}, 1)
 	t := time.NewTicker(idConfig.TokenRefresh)
-
 	go func() {
 		defer t.Stop()
+		defer close(shutdownChan)
+
 		for {
 			log.Infof("Refreshing tokens for roles[%v] in %s", idConfig.TargetDomainRoles, idConfig.TokenRefresh)
 
@@ -265,5 +267,5 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		}
 	}()
 
-	return nil
+	return nil, shutdownChan
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/yahoo/k8s-athenz-identity/pkg/util"
 )
 
-func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
+func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
 
 	if idConfig.ProviderService == "" {
 		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idConfig.ProviderService)
@@ -29,7 +29,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
 		log.Errorf("Failed to initialize client for certificates: %s", err.Error())
-		return err
+		return err, nil
 	}
 
 	writeFiles := func(id *InstanceIdentity, keyPEM []byte, roleCerts [](*RoleCertificate)) error {
@@ -228,27 +228,30 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	if idConfig.Init {
 		if err != nil {
 			log.Errorf("Failed to get initial certificate after multiple retries: %s", err.Error())
-			return err
+			return err, nil
 		}
 	}
 
+	tokenChan := make(chan struct{}, 1)
+	err, tokenSdChan := Tokend(idConfig, tokenChan)
+	if err != nil {
+		log.Errorf("Error starting token provider[%s]", err)
+		return err, nil
+	}
+
+	metricsChan := make(chan struct{}, 1)
+	err, metricsSdChan := Metricsd(idConfig, metricsChan)
+	if err != nil {
+		log.Errorf("Error starting metrics exporter[%s]", err)
+		close(tokenChan)
+		return err, nil
+	}
+
+	shutdownChan := make(chan struct{}, 1)
+	t := time.NewTicker(idConfig.Refresh)
 	go func() {
-
-		tokenChan := make(chan struct{})
-		metricsChan := make(chan struct{})
-		err = Tokend(idConfig, tokenChan)
-		if err != nil {
-			log.Errorf("Error starting token provider[%s]", err)
-			return
-		}
-		err = Metricsd(idConfig, metricsChan)
-		if err != nil {
-			log.Errorf("Error starting metrics exporter[%s]", err)
-			return
-		}
-
-		t := time.NewTicker(idConfig.Refresh)
 		defer t.Stop()
+		defer close(shutdownChan)
 
 		for {
 
@@ -267,10 +270,12 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 				}
 				close(metricsChan)
 				close(tokenChan)
+				<-tokenSdChan
+				<-metricsSdChan
 				return
 			}
 		}
 	}()
 
-	return nil
+	return nil, shutdownChan
 }

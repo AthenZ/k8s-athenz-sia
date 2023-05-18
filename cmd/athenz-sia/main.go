@@ -229,7 +229,7 @@ func main() {
 		return
 	}
 
-	certificateChan := make(chan struct{})
+	certificateChan := make(chan struct{}, 1)
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGTERM, os.Interrupt)
 
@@ -242,9 +242,10 @@ func main() {
 	}
 	log.Infoln("Booting up with args", os.Args)
 
-	err = identity.Certificated(idConfig, certificateChan)
+	err, sdChan := identity.Certificated(idConfig, certificateChan)
 	if err != nil && err != errEarlyExit {
 		log.Fatalln(err)
+		return
 	}
 
 	if !idConfig.Init {
@@ -253,4 +254,6 @@ func main() {
 	}
 
 	close(certificateChan)
+	<-sdChan
+	log.Println("Shut down complete!")
 }
