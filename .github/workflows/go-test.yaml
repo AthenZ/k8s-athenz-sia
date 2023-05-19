@@ -62,6 +62,7 @@ jobs:
         id: go_tests
         run: |
           go version
+          go env
           echo $GOPATH
           ls $GOPATH
           go mod tidy || true
