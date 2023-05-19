@@ -181,7 +181,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ env.DOCKER_BUILD_ARGS }}
-          load: true
           outputs: type=image,name=${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           # cache-from: ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}
           cache-from: type=gha # https://docs.docker.com/build/ci/github-actions/cache/
