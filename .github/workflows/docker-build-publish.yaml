@@ -183,8 +183,8 @@ jobs:
           build-args: ${{ env.DOCKER_BUILD_ARGS }}
           outputs: type=image,name=${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           # cache-from: ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}
-          cache-from: type=gha # https://docs.docker.com/build/ci/github-actions/cache/
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ github.ref_name }}-${{ matrix.platform }} # https://docs.docker.com/build/ci/github-actions/cache/, https://docs.docker.com/build/cache/backends/gha/#scope
+          cache-to: type=gha,scope=${{ github.ref_name }}-${{ matrix.platform }},mode=max
           # outputs: type=tar,dest=/tmp/image.tar
           # outputs: type=docker,dest=/tmp/image.tar
           # provenance: false # https://github.com/docker/roadmap/issues/371#issuecomment-1416932433
@@ -304,16 +304,18 @@ jobs:
           echo "---------------------------------"
           jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON"
           printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *
-          ls /tmp/digests
+          ls -l /tmp/digests
           echo "---------------------------------"
-          docker buildx imagetools create -t "ghcr.io/windzcuhk/k8s-athenz-sia:latest" \
+          echo docker buildx imagetools create --dry-run $(printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *)
+          echo "---------------------------------"
+          echo docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *)
-
-          # docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-          #   $(printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *)
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *)
       -
         name: Inspect image
         run: |
+          export DOCKER_BUILDKIT=0
           docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
 
       -
