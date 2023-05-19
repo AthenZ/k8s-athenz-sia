@@ -51,8 +51,10 @@ jobs:
         # uses: https://github.com/actions/setup-go/tags
         uses: actions/setup-go@v4
         with:
-          go-version: stable
+          # go-version: stable
+          go-version-file: './go.mod'
           check-latest: true
+          cache: true
 
       # A GitHub Action for golang tests
       -
@@ -60,4 +62,7 @@ jobs:
         id: go_tests
         run: |
           go version
+          echo $GOPATH
+          ls $GOPATH
+          go mod tidy || true
           make test
