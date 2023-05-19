@@ -196,9 +196,8 @@ jobs:
         run: |
           # file ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }} || true
           # docker load --input ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }} || true
-          docker image ls -a || true
           # docker run --rm ${{ fromJSON(steps.meta.outputs.json).tags[0] }} version || true
-          docker run --rm "${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@${{ steps.build_and_push.outputs.digest }}" || true
+          docker run --rm "${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@${{ steps.build_and_push.outputs.digest }}" version || true
 
       -
         name: Export digest
@@ -222,6 +221,19 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - docker-build
+    # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
+    permissions:
+      actions: none
+      checks: none
+      contents: read
+      deployments: none
+      issues: none
+      discussions: none
+      packages: write
+      pull-requests: none
+      repository-projects: none
+      security-events: none
+      statuses: none
     steps:
       -
         name: Download digests
