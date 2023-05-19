@@ -296,7 +296,11 @@ jobs:
         run: |
           docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
 
-    - name: Add PR Status with tag
+      -
+        name: Add PR Status with tag
+        env:
+          # Default Github Token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         if: ${{ github.event_name == 'pull_request' }}
         uses: teamniteo/pull_request_status_action@v1.0.0
         with:
@@ -320,7 +324,3 @@ jobs:
 
           # A short description of the status (Optional)
           description: "${{ fromJSON(steps.meta.outputs.json).tags[0] }}"
-
-        env:
-          # Default Github Token
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
