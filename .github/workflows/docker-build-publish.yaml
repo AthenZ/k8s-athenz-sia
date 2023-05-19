@@ -19,10 +19,16 @@ env:
     UID=1000
 
 jobs:
-
-  docker-build-publish:
-
+  docker-build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm/v6
+          - linux/arm/v7
+          - linux/arm64
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
     permissions:
       actions: none
@@ -36,10 +42,6 @@ jobs:
       repository-projects: none
       security-events: none
       statuses: none
-    # Map a step output to a job output
-    outputs:
-      tag: ${{ steps.output_tag.outputs.tag }}
-
     steps:
       # A GitHub Action to expose useful environment variables.
       # https://github.com/FranzDiebold/github-env-vars-action
@@ -148,27 +150,11 @@ jobs:
         # uses: https://github.com/docker/setup-buildx-action/tags
         uses: docker/setup-buildx-action@v2
 
-      # This action sets up a go environment for use in actions by:
-      # - Optionally downloading and caching a version of Go by version and adding to PATH.
-      # - Registering problem matchers for error output.
-      # https://github.com/actions/setup-go
-      -
-        name: Setup Golang
-        id: setup_go
-        # You may pin to the exact commit or the version.
-        # uses: https://github.com/actions/setup-go/tags
-        uses: actions/setup-go@v3
-        with:
-          go-version: stable
-          check-latest: true
-
       # A GitHub Action to set environment variables for Go
       -
         name: Set Golang env
         id: go_env
         run: |
-          go env | grep GOPATH | sed -e 's/"//g' >> "$GITHUB_ENV"
-
           # set binary version
           SHA="${CI_PR_SHA_SHORT:=${CI_SHA_SHORT}}"
           IMAGE_TAG="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}"
@@ -181,44 +167,22 @@ jobs:
           echo "${DOCKER_BUILD_ARGS}" >> "$GITHUB_ENV"
           echo "$EOF" >> "$GITHUB_ENV"
 
-      # This action allows caching dependencies and build outputs to improve workflow execution time.
-      # https://github.com/actions/cache
-      -
-        name: Cache Go Modules
-        id: cache_go
-        # users: https://github.com/actions/cache/tags
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      # A GitHub Action for golang tests
-      -
-        name: Golang Tests
-        id: go_tests
-        run: |
-          go version
-          make test
-
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       -
-        name: Build and push Docker image for ${{ env.DOCKER_TAEGET_PLATFORMS }}
+        name: Build and push Docker image for ${{ matrix.platform }}
         id: build_and_push
         # You may pin to the exact commit or the version.
         # uses: https://github.com/docker/build-push-action/tags
         uses: docker/build-push-action@v4
         with:
           context: .
-          push: ${{ !github.event.pull_request.head.repo.fork }} # skip pushing when PR from a fork
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: ${{ env.DOCKER_TAEGET_PLATFORMS }}
           build-args: ${{ env.DOCKER_BUILD_ARGS }}
+          load: true
+          outputs: type=image,name=${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           # cache-from: ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}
           cache-from: type=gha # https://docs.docker.com/build/ci/github-actions/cache/
           cache-to: type=gha,mode=max
@@ -226,37 +190,108 @@ jobs:
           # outputs: type=docker,dest=/tmp/image.tar
           # provenance: false # https://github.com/docker/roadmap/issues/371#issuecomment-1416932433
 
-      # https://docs.github.com/en/actions/using-jobs/defining-outputs-for-jobs
-      -
-        name: Output docker image tag
-        id: output_tag
-        run: echo 'tag=${{ fromJSON(steps.meta.outputs.json).tags[0] }}' >> "$GITHUB_OUTPUT"
-
       # TODO: support testing on multiple architecture
       -
         name: Test Docker image
-        id: test_docker
+        id: test_image
         run: |
-          file /tmp/image.tar || true
-          docker load --input /tmp/image.tar || true
+          file ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }} || true
+          docker load --input ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }} || true
           docker image ls -a || true
           docker run --rm ${{ fromJSON(steps.meta.outputs.json).tags[0] }} version || true
 
-  test_image:
+      -
+        name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      # Upload digest of the container image
+      # https://github.com/actions/upload-artifact
+      -
+        name: Upload digests
+        uses: actions/upload-artifact@v3
+        with:
+          name: digests
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-publish:
     runs-on: ubuntu-latest
     needs:
-      - docker-build-publish
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - linux/amd64
-          - linux/arm/v6
-          - linux/arm/v7
-          - linux/arm64
+      - docker-build
     steps:
       -
-        name: Test Docker image
-        id: test_docker
+        name: Download digests
+        uses: actions/download-artifact@v3
+        with:
+          name: digests
+          path: /tmp/digests
+
+
+      # TODO: remove duplication
+      -
+        name: GitHub Environment Variables Action
+        id: env
+        uses: FranzDiebold/github-env-vars-action@v2
+      -
+        name: Set Default Environment Variables
+        id: default_env
+        env:
+          DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME_SLUG }}
         run: |
-          docker run --rm '${{ needs.docker-build-publish.outputs.tag }}' version
+          # Push to Athenz's docker.io if secret exists, else push to actor's personal ghcr.io
+          if [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" != "" ]]; then
+            [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=docker.io" >> "$GITHUB_ENV"
+            [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> "$GITHUB_ENV"
+            echo "DOCKER_REGISTRY_TOKEN=${{ secrets.DOCKER_REGISTRY_TOKEN }}" >> "$GITHUB_ENV"
+          else
+            [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=ghcr.io" >> "$GITHUB_ENV"
+            [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> "$GITHUB_ENV"
+            echo "DOCKER_REGISTRY_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> "$GITHUB_ENV"
+          fi
+
+          # set image name
+          [[ "${{ env.DOCKER_REGISTRY_IMAGE }}" = "" ]] && echo "DOCKER_REGISTRY_IMAGE=${{ env.CI_REPOSITORY_NAME_SLUG }}" >> "$GITHUB_ENV" || echo "DOCKER_REGISTRY_IMAGE=${{ env.DOCKER_REGISTRY_IMAGE }}" >> "$GITHUB_ENV"
+      -
+        name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}
+          flavor: |
+            latest=true
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'customized') }}
+            type=ref,event=pr
+            type=semver,pattern=v{{version}}
+            type=schedule,pattern=nightly
+      -
+        name: Docker Login to registry ${{ env.DOCKER_REGISTRY_URL }}
+        id: login
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.DOCKER_REGISTRY_URL }} # optional
+          username: ${{ env.DOCKER_REGISTRY_OWNER }} # optional
+          password: ${{ env.DOCKER_REGISTRY_TOKEN }} # optional
+          logout: true # optional, default is true
+      # TODO: remove duplication END
+
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      -
+        name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *)
+      -
+        name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}

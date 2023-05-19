@@ -21,8 +21,15 @@ on:
 jobs:
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
+  go-test:
+    name: "Run unit test"
+    uses: ./.github/workflows/go-test.yaml
+    secrets: inherit
+
+  # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   docker-build-publish:
     name: "Build and Publish Docker Images"
+    needs: go-test
     uses: ./.github/workflows/docker-build-publish.yaml
     secrets: inherit
 
