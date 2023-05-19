@@ -301,9 +301,12 @@ jobs:
         name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
+          echo "---------------------------------"
           jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON"
           printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *
-          docker buildx imagetools create "ghcr.io/windzcuhk/k8s-athenz-sia:latest" \
+          ls /tmp/digests
+          echo "---------------------------------"
+          docker buildx imagetools create -t "ghcr.io/windzcuhk/k8s-athenz-sia:latest" \
             $(printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *)
 
           # docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
