@@ -295,3 +295,32 @@ jobs:
         name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
+
+    - name: Add PR Status with tag
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: teamniteo/pull_request_status_action@v1.0.0
+        with:
+          # Pull Request number (Mandatory)
+          pr_number: 1
+
+          # State to apply (Mandatory)
+          # Any of the (error | failure | pending | success) states
+          state: success
+
+          # Name of the repository in {organization}/{repo_name} format (Mandatory)
+          repository: ${{ github.repository }}
+
+          # Name to identify the Status (Optional)
+          # Defaults to `default`
+          context: "Container image tag"
+
+          # The target URL to associate with the Status (Optional)
+          # This URL will be linked from the Github UI to allow users to easily see the source of the status.
+          # target_url: https://example.target_url.com
+
+          # A short description of the status (Optional)
+          description: "${{ fromJSON(steps.meta.outputs.json).tags[0] }}"
+
+        env:
+          # Default Github Token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
