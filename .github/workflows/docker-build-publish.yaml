@@ -181,7 +181,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ env.DOCKER_BUILD_ARGS }}
-          outputs: type=image,name=${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=false
+          outputs: type=image,name=${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           # cache-from: ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}
           cache-from: type=gha # https://docs.docker.com/build/ci/github-actions/cache/
           cache-to: type=gha,mode=max
@@ -194,16 +194,17 @@ jobs:
         name: Test Docker image
         id: test_image
         run: |
-          file ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }} || true
-          docker load --input ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }} || true
+          # file ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }} || true
+          # docker load --input ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }} || true
           docker image ls -a || true
-          docker run --rm ${{ fromJSON(steps.meta.outputs.json).tags[0] }} version || true
+          # docker run --rm ${{ fromJSON(steps.meta.outputs.json).tags[0] }} version || true
+          docker run --rm "${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@${{ steps.build_and_push.outputs.digest }}" || true
 
       -
         name: Export digest
         run: |
           mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
+          digest="${{ steps.build_and_push.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
 
       # Upload digest of the container image
