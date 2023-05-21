@@ -233,7 +233,7 @@ jobs:
       pull-requests: none
       repository-projects: none
       security-events: none
-      statuses: none
+      statuses: write
     steps:
       -
         name: Download digests
