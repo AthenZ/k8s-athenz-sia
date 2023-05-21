@@ -302,20 +302,22 @@ jobs:
         working-directory: /tmp/digests
         run: |
           echo "---------------------------------"
+          export DOCKER_BUILDKIT=0
+          export COMPOSE_DOCKER_CLI_BUILD=0
+          docker context ls
+          echo "---------------------------------"
           jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON"
           printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *
           ls -l /tmp/digests
           echo "---------------------------------"
           echo docker buildx imagetools create --dry-run $(printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *)
           echo "---------------------------------"
-          docker context ls
           docker buildx imagetools create --pull=false --debug \
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}@sha256:%s ' *)
       -
         name: Inspect image
         run: |
-          export DOCKER_BUILDKIT=0
           docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
 
       -
