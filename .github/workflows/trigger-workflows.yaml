@@ -46,6 +46,9 @@ jobs:
           json_array="[${json_array%?}]" # Remove the trailing comma, add square backet
           echo "DOCKER_TAEGET_PLATFORMS_JSON=${json_array}" >> "$GITHUB_OUTPUT"
 
+          echo "DOCKER_TAEGET_PLATFORMS_JSON=${json_array}"
+
+
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   docker-build-publish:
     name: "Build and Publish Docker Images"
@@ -53,7 +56,7 @@ jobs:
     uses: ./.github/workflows/docker-build-publish.yaml
     secrets: inherit
     with:
-      DOCKER_TAEGET_PLATFORMS: ${{ format('[{0}]', needs.set-platforms.outputs.DOCKER_TAEGET_PLATFORMS_JSON) }}
+      DOCKER_TAEGET_PLATFORMS: ${{ needs.set-platforms.outputs.DOCKER_TAEGET_PLATFORMS_JSON }}
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   github-releases:
