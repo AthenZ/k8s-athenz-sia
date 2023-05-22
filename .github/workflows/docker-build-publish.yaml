@@ -45,33 +45,34 @@ jobs:
       -
         name: Set docker Environment Variables
         id: docker_env
-        env:
-          DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME_SLUG }}
-          # Please customize your container image's values
-          # DOCKER_REGISTRY_URL: "ghcr.io"
+        # env: # Please customize your container image's values
+          # DOCKER_REGISTRY_URL: 'ghcr.io'
           # DOCKER_REGISTRY_OWNER: ${{ env.CI_REPOSITORY_OWNER_SLUG }}
+          # DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME_SLUG }}
+          # DOCKER_REGISTRY_TOKEN_NAME: 'GITHUB_TOKEN'
         run: |
-          # Push to Athenz's docker.io if secret exists, else push to actor's personal ghcr.io
+
+          # Push to Athenz's docker.io if docker secret exists, else push to actor's personal ghcr.io
           if [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" != "" ]]; then
-            [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=docker.io" >> "$GITHUB_OUTPUT"
-            [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> "$GITHUB_OUTPUT"
-            echo "DOCKER_REGISTRY_TOKEN_NAME=DOCKER_REGISTRY_TOKEN" >> "$GITHUB_OUTPUT"
+            DOCKER_REGISTRY_URL="${DOCKER_REGISTRY_URL:='docker.io'}"
+            DOCKER_REGISTRY_TOKEN_NAME='DOCKER_REGISTRY_TOKEN'
           else
-            [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=ghcr.io" >> "$GITHUB_OUTPUT"
-            [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> "$GITHUB_OUTPUT"
-            echo "DOCKER_REGISTRY_TOKEN_NAME=GITHUB_TOKEN" >> "$GITHUB_OUTPUT"
+            DOCKER_REGISTRY_URL="${DOCKER_REGISTRY_URL:='ghcr.io'}"
+            DOCKER_REGISTRY_TOKEN_NAME='GITHUB_TOKEN'
           fi
 
-          # Set image name and reference
-          if [[ "${{ env.DOCKER_REGISTRY_IMAGE }}" = "" ]]; then
-            echo "DOCKER_REGISTRY_IMAGE=${{ env.CI_REPOSITORY_NAME_SLUG }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "DOCKER_REGISTRY_IMAGE=${{ env.DOCKER_REGISTRY_IMAGE }}" >> "$GITHUB_OUTPUT"
-          fi
-          echo "DOCKER_REGISTRY_REF=${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${{ env.DOCKER_REGISTRY_IMAGE }}" >> "$GITHUB_OUTPUT"
-
-          # SHA short
+          # Set default values and create image reference
+          DOCKER_REGISTRY_OWNER="${DOCKER_REGISTRY_OWNER:=${CI_REPOSITORY_OWNER_SLUG}}"
+          DOCKER_REGISTRY_IMAGE="${DOCKER_REGISTRY_IMAGE:=${CI_REPOSITORY_NAME_SLUG}}"
+          DOCKER_REGISTRY_REF=${DOCKER_REGISTRY_URL}/${DOCKER_REGISTRY_OWNER}/${DOCKER_REGISTRY_IMAGE}
           SHA_SHORT="${CI_PR_SHA_SHORT:=${CI_SHA_SHORT}}"
+
+          # github output
+          echo "DOCKER_REGISTRY_URL=${DOCKER_REGISTRY_URL}" >> "$GITHUB_OUTPUT"
+          echo "DOCKER_REGISTRY_TOKEN_NAME=${DOCKER_REGISTRY_TOKEN_NAME}" >> "$GITHUB_OUTPUT"
+          echo "DOCKER_REGISTRY_OWNER=${DOCKER_REGISTRY_OWNER}" >> "$GITHUB_OUTPUT"
+          echo "DOCKER_REGISTRY_IMAGE=${DOCKER_REGISTRY_IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "DOCKER_REGISTRY_REF=${DOCKER_REGISTRY_REF}" >> "$GITHUB_OUTPUT"
           echo "SHA_SHORT=${SHA_SHORT}" >> "$GITHUB_OUTPUT"
 
       # Extract metadata (tags, labels) for Docker
