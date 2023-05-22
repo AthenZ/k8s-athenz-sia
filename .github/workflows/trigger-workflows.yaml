@@ -18,6 +18,13 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  DOCKER_TAEGET_PLATFORMS:
+    - linux/amd64
+    # - linux/arm/v6
+    # - linux/arm/v7
+    - linux/arm64
+
 jobs:
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
@@ -31,6 +38,8 @@ jobs:
     needs: go-test
     uses: ./.github/workflows/docker-build-publish.yaml
     secrets: inherit
+    with:
+      DOCKER_TAEGET_PLATFORMS: ${{ toJSON(env.DOCKER_TAEGET_PLATFORMS) }}
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   github-releases:
@@ -40,6 +49,7 @@ jobs:
     uses: ./.github/workflows/github-releases.yaml
     secrets: inherit
     with:
+      DOCKER_TAEGET_PLATFORMS: ${{ join(env.DOCKER_TAEGET_PLATFORMS, ',') }}
       DOCKER_REGISTRY_URL: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_URL }}
       DOCKER_REGISTRY_OWNER: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_OWNER }}
       DOCKER_REGISTRY_TOKEN_NAME: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_TOKEN_NAME }}

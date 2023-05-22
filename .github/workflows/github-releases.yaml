@@ -8,6 +8,9 @@ name: Create Github Releases with Packages
 on:
   workflow_call:
     inputs:
+      DOCKER_TAEGET_PLATFORMS:
+        required: true
+        type: string
       DOCKER_REGISTRY_URL:
         required: true
         type: string
@@ -25,7 +28,6 @@ on:
         type: string
 
 env:
-  DOCKER_TAEGET_PLATFORMS: linux/amd64,linux/arm64
   NFPM_SOURCE_IMAGES: k8s-athenz-sia
   NFPM_TARGET_PACKAGER: apk,deb,rpm
   NFPM_TARGET_COMPONENTS: nfpm
