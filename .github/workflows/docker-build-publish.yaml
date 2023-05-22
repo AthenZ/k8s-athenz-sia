@@ -171,8 +171,8 @@ jobs:
         name: Set DOCKER_BUILD_ARGS
         id: build_args
         env:
-          SHA_SHORT=${{ needs.docker-env.outputs.SHA_SHORT }}
-          IMAGE_TAG=${{ needs.docker-env.outputs.version }}
+          SHA_SHORT: ${{ needs.docker-env.outputs.SHA_SHORT }}
+          IMAGE_TAG: ${{ needs.docker-env.outputs.version }}
         run: |
           # set binary version
           export ATHENZ_SIA_VERSION="$(printf '%s (%s)' "${SHA}" "${IMAGE_TAG}")"
