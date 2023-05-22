@@ -24,7 +24,6 @@ jobs:
   go-test:
     name: "Run unit test"
     uses: ./.github/workflows/go-test.yaml
-    secrets: inherit
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   docker-build-publish:
@@ -40,3 +39,9 @@ jobs:
     # if: github.ref_type == 'tag'
     uses: ./.github/workflows/github-releases.yaml
     secrets: inherit
+    with:
+      DOCKER_REGISTRY_URL: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_URL }}
+      DOCKER_REGISTRY_OWNER: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_OWNER }}
+      DOCKER_REGISTRY_TOKEN_NAME: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_TOKEN_NAME }}
+      DOCKER_REGISTRY_REF: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_REF }}
+      version: ${{ needs.docker-build-publish.outputs.version }}

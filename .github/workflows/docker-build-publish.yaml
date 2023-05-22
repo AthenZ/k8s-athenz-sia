@@ -7,6 +7,22 @@ name: Build and Publish Docker Image
 
 on:
   workflow_call:
+    outputs:
+      DOCKER_REGISTRY_URL:
+        description: "docker registry URL of the container image"
+        value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_URL }}
+      DOCKER_REGISTRY_OWNER:
+        description: "docker registry owner of the container image"
+        value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_OWNER }}
+      DOCKER_REGISTRY_TOKEN_NAME:
+        description: "docker registry secret name of the container image for login"
+        value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_TOKEN_NAME }}
+      DOCKER_REGISTRY_REF:
+        description: "docker registry reference of the container image"
+        value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_REF }}
+      version:
+        description: "Container image version"
+        value: ${{ jobs.docker-env.outputs.version }}
 
 env:
   DOCKER_BUILD_ARGS: |
