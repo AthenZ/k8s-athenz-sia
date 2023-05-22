@@ -308,6 +308,6 @@ jobs:
         with:
           status: "${{ job.status }}"
           name: "Container image tag"
-          description: "${{ join(needs.docker-env.outputs.tags, ',') }}"
+          description: "${{ join(fromJSON(needs.docker-env.outputs.json).tags, ',') }}"
           ignoreForks: true # pull_request ONLY, Default is true
           addHoldComment: false # pull_request ONLY, Default is false
