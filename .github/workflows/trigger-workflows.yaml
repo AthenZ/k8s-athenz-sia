@@ -20,7 +20,7 @@ on:
 
 env:
   # DOCKER_TAEGET_PLATFORMS: linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
-  DEFAULT_DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm64"
+  DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm64"
 
 jobs:
 
@@ -35,10 +35,8 @@ jobs:
     needs: go-test
     uses: ./.github/workflows/docker-build-publish.yaml
     secrets: inherit
-    env:
-      DOCKER_TAEGET_PLATFORMS: ${{ env.DEFAULT_DOCKER_TAEGET_PLATFORMS }}
     with:
-      DOCKER_TAEGET_PLATFORMS: ${{ env.DOCKER_TAEGET_PLATFORMS }}
+      DOCKER_TAEGET_PLATFORMS: ${{ jobs.go-test.env.DOCKER_TAEGET_PLATFORMS }}
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   github-releases:
