@@ -35,6 +35,8 @@ jobs:
     needs: go-test
     uses: ./.github/workflows/docker-build-publish.yaml
     secrets: inherit
+    env:
+      DOCKER_TAEGET_PLATFORMS: ${{ env.DOCKER_TAEGET_PLATFORMS }}
     with:
       DOCKER_TAEGET_PLATFORMS: ${{ env.DOCKER_TAEGET_PLATFORMS }}
 
@@ -45,6 +47,8 @@ jobs:
     # if: github.ref_type == 'tag'
     uses: ./.github/workflows/github-releases.yaml
     secrets: inherit
+    env:
+      DOCKER_TAEGET_PLATFORMS: ${{ env.DOCKER_TAEGET_PLATFORMS }}
     with:
       DOCKER_TAEGET_PLATFORMS: ${{ env.DOCKER_TAEGET_PLATFORMS }}
       DOCKER_REGISTRY_URL: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_URL }}
