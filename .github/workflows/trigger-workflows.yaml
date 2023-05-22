@@ -34,11 +34,19 @@ jobs:
     needs: go-test
     outputs:
       DOCKER_TAEGET_PLATFORMS: ${{ steps.set_platforms.outputs.DOCKER_TAEGET_PLATFORMS }}
+      DOCKER_TAEGET_PLATFORMS_JSON: ${{ steps.set_platforms.outputs.DOCKER_TAEGET_PLATFORMS_JSON }}
     steps:
       - name: Set platforms
         id: set_platforms
         run: |
-          echo "DOCKER_TAEGET_PLATFORMS=${DOCKER_TAEGET_PLATFORMS}" >> $GITHUB_OUTPUT
+          echo "DOCKER_TAEGET_PLATFORMS=${DOCKER_TAEGET_PLATFORMS}" >> "$GITHUB_OUTPUT"
+
+          IFS=',' read -ra platforms <<< "${DOCKER_TAEGET_PLATFORMS}" # split
+          json_array="$(printf '"%s",' "${platforms[@]}")" # double quote
+          json_array="[${json_array%?}]" # Remove the trailing comma
+          echo "DOCKER_TAEGET_PLATFORMS_JSON=${json_array}" >> "$GITHUB_OUTPUT"
+
+          echo "DOCKER_TAEGET_PLATFORMS_JSON=${json_array}"
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   docker-build-publish:
@@ -47,12 +55,14 @@ jobs:
     uses: ./.github/workflows/docker-build-publish.yaml
     secrets: inherit
     with:
-      DOCKER_TAEGET_PLATFORMS: ${{ format('[{0}]', needs.set-platforms.outputs.DOCKER_TAEGET_PLATFORMS) }}
+      DOCKER_TAEGET_PLATFORMS: ${{ format('[{0}]', needs.set-platforms.outputs.DOCKER_TAEGET_PLATFORMS_JSON) }}
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   github-releases:
     name: "Create Github Releases with Packages"
-    needs: docker-build-publish
+    needs:
+      - docker-build-publish
+      - set-platforms
     # if: github.ref_type == 'tag'
     uses: ./.github/workflows/github-releases.yaml
     secrets: inherit
