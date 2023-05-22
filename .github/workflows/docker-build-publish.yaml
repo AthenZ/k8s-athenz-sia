@@ -287,19 +287,10 @@ jobs:
         env:
           DOCKER_METADATA_OUTPUT_JSON: ${{ needs.docker-env.outputs.json }}
         run: |
-          echo "---------------------------------"
-          # export DOCKER_BUILDKIT=0
-          # export COMPOSE_DOCKER_CLI_BUILD=0
-          # docker context ls
-          # docker buildx imagetools create --help
-          echo "---------------------------------"
-          jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON"
-          printf '${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}@sha256:%s ' *
           ls -l /tmp/digests
-          echo "---------------------------------"
-          echo docker buildx imagetools create --dry-run $(printf '${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}@sha256:%s ' *)
-          docker buildx imagetools create --dry-run $(printf '${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}@sha256:%s ' *)
-          echo "---------------------------------"
+          echo 'tags parameters: ' "$(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
+          echo 'image references: ' "$(printf '${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}@sha256:%s ' *)"
+
           docker buildx imagetools create \
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}@sha256:%s ' *)
@@ -317,6 +308,6 @@ jobs:
         with:
           status: "${{ job.status }}"
           name: "Container image tag"
-          description: "${{ join(needs.docker-env.outputs.DOCKER_REGISTRY_REF, ',') }}"
+          description: "${{ join(needs.docker-env.outputs.tags, ',') }}"
           ignoreForks: true # pull_request ONLY, Default is true
           addHoldComment: false # pull_request ONLY, Default is false
