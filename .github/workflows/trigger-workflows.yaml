@@ -19,8 +19,8 @@ on:
     branches: [ main ]
 
 env:
-  DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64"
-  # DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm64"
+  # DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64"
+  DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm64"
 
 jobs:
 
@@ -60,9 +60,9 @@ jobs:
   github-releases:
     name: "Create Github Releases with Packages"
     needs:
-      - docker-build-publish
       - set-platforms
-    # if: github.ref_type == 'tag'
+      - docker-build-publish
+    if: github.ref_type == 'tag'
     uses: ./.github/workflows/github-releases.yaml
     secrets: inherit
     with:

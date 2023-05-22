@@ -133,7 +133,6 @@ jobs:
       -
         name: Create GitHub Release
         id: create_release
-        if: github.ref_type == 'tag'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -149,7 +148,6 @@ jobs:
       -
         name: Upload GitHub Release Assets
         id: upload_release_assets
-        if: github.ref_type == 'tag'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
