@@ -42,11 +42,9 @@ jobs:
           echo "DOCKER_TAEGET_PLATFORMS=${DOCKER_TAEGET_PLATFORMS}" >> "$GITHUB_OUTPUT"
 
           IFS=',' read -ra platforms <<< "${DOCKER_TAEGET_PLATFORMS}" # split
-          json_array="$(printf '"%s",' "${platforms[@]}")" # double quote
-          json_array="[${json_array%?}]" # Remove the trailing comma
+          json_array="$(printf '\"%s\",' "${platforms[@]}")" # double quote with escape
+          json_array="[${json_array%?}]" # Remove the trailing comma, add square backet
           echo "DOCKER_TAEGET_PLATFORMS_JSON=${json_array}" >> "$GITHUB_OUTPUT"
-
-          echo "DOCKER_TAEGET_PLATFORMS_JSON=${json_array}"
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   docker-build-publish:
