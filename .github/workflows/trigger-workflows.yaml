@@ -20,7 +20,7 @@ on:
 
 env:
   # DOCKER_TAEGET_PLATFORMS: linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
-  DOCKER_TAEGET_PLATFORMS: linux/amd64,linux/arm64
+  DEFAULT_DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm64"
 
 jobs:
 
@@ -36,7 +36,7 @@ jobs:
     uses: ./.github/workflows/docker-build-publish.yaml
     secrets: inherit
     env:
-      DOCKER_TAEGET_PLATFORMS: ${{ env.DOCKER_TAEGET_PLATFORMS }}
+      DOCKER_TAEGET_PLATFORMS: ${{ env.DEFAULT_DOCKER_TAEGET_PLATFORMS }}
     with:
       DOCKER_TAEGET_PLATFORMS: ${{ env.DOCKER_TAEGET_PLATFORMS }}
 
@@ -47,10 +47,9 @@ jobs:
     # if: github.ref_type == 'tag'
     uses: ./.github/workflows/github-releases.yaml
     secrets: inherit
-    env:
-      DOCKER_TAEGET_PLATFORMS: ${{ env.DOCKER_TAEGET_PLATFORMS }}
     with:
-      DOCKER_TAEGET_PLATFORMS: ${{ env.DOCKER_TAEGET_PLATFORMS }}
+      # DOCKER_TAEGET_PLATFORMS: ${{ env.DOCKER_TAEGET_PLATFORMS }}
+      DOCKER_TAEGET_PLATFORMS: "abc"
       DOCKER_REGISTRY_URL: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_URL }}
       DOCKER_REGISTRY_OWNER: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_OWNER }}
       DOCKER_REGISTRY_TOKEN_NAME: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_TOKEN_NAME }}
