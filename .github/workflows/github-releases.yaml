@@ -91,7 +91,7 @@ jobs:
               docker image prune -fa
               # Decompress docker image tarball
               mkdir "${image}_${arch}" && tar xvf "${image}_${arch}.tgz" --directory "${image}_${arch}"
-              cat "${image}_${arch}/manifest.json" | jq -r .[].Layers.[] | xargs -I% tar xvf "${image}_${arch}/%" --directory "${image}_${arch}" || true
+              cat "${image}_${arch}/manifest.json" | jq -r '.[].Layers[]' | xargs -I% tar xvf "${image}_${arch}/%" --directory "${image}_${arch}" || true
               set +x
             done
           done
