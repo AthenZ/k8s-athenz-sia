@@ -46,10 +46,10 @@ jobs:
         name: Set docker Environment Variables
         id: docker_env
         # env: # Please customize your container image's values
-          # DOCKER_REGISTRY_URL: 'ghcr.io'
+          # DOCKER_REGISTRY_URL: "ghcr.io"
           # DOCKER_REGISTRY_OWNER: ${{ env.CI_REPOSITORY_OWNER_SLUG }}
           # DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME_SLUG }}
-          # DOCKER_REGISTRY_TOKEN_NAME: 'GITHUB_TOKEN'
+          # DOCKER_REGISTRY_TOKEN_NAME: "GITHUB_TOKEN"
         run: |
 
           # Push to Athenz's docker.io if docker secret exists, else push to actor's personal ghcr.io
@@ -176,8 +176,8 @@ jobs:
           IMAGE_TAG: ${{ needs.docker-env.outputs.version }}
         run: |
           # set binary version
-          export ATHENZ_SIA_VERSION="$(printf '%s (%s)' "${SHA}" "${IMAGE_TAG}")"
-          export DOCKER_BUILD_ARGS="$(printf '%s\n%s' "${DOCKER_BUILD_ARGS}" "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}")"
+          export ATHENZ_SIA_VERSION="$(printf '%s (%s)' "${SHA_SHORT}" "${IMAGE_TAG}")"
+          export DOCKER_BUILD_ARGS="$(printf '%s\n%s' "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}" "${DOCKER_BUILD_ARGS}")"
 
           # export to GITHUB_ENV
           echo "ATHENZ_SIA_VERSION=${ATHENZ_SIA_VERSION}" >> "$GITHUB_ENV"
@@ -317,6 +317,6 @@ jobs:
         with:
           status: "${{ job.status }}"
           name: "Container image tag"
-          description: "${{ fromJSON(steps.meta.outputs.json).tags[0] }}"
+          description: "${{ join(needs.docker-env.outputs.DOCKER_REGISTRY_REF, ',') }}"
           ignoreForks: true # pull_request ONLY, Default is true
           addHoldComment: false # pull_request ONLY, Default is false
