@@ -46,7 +46,6 @@ jobs:
       DOCKER_REGISTRY_OWNER: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_OWNER }}
       DOCKER_REGISTRY_TOKEN_NAME: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_TOKEN_NAME }}
       DOCKER_REGISTRY_REF: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_REF }}
-      DOCKER_TAEGET_PLATFORMS: ${{ toJSON(steps.split.outputs._*) }}
       SHA_SHORT: ${{ steps.docker_env.outputs.SHA_SHORT }}
       version: ${{ steps.meta.outputs.version }}
       tags: ${{ steps.meta.outputs.tags }}
@@ -122,22 +121,13 @@ jobs:
             type=semver,pattern=v{{version}}
             type=schedule,pattern=nightly
 
-      # Split comma separated input
-      # https://github.com/JungWinter/split
-      - uses: jungwinter/split@v2
-        id: split
-        with:
-          msg: ${{ inputs.DOCKER_TAEGET_PLATFORMS }}
-          separator: ","
-          maxsplit: -1
-
   docker-build:
     runs-on: ubuntu-latest
     needs: docker-env
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ fromJSON(needs.docker-env.outputs.DOCKER_TAEGET_PLATFORMS) }}
+        platform: ${{ fromJSON(inputs.DOCKER_TAEGET_PLATFORMS) }}
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
     permissions:
       actions: none
