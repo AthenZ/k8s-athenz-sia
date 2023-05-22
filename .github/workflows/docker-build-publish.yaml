@@ -9,11 +9,6 @@ on:
   workflow_call:
 
 env:
-  DOCKER_TAEGET_PLATFORMS:
-    - linux/amd64
-    - linux/arm/v6
-    - linux/arm/v7
-    - linux/arm64
   DOCKER_BUILD_ARGS: |
     BUILDER_IMAGE=docker.io/library/golang:1-alpine
     RUNTIME_IMAGE=docker.io/library/alpine:3
@@ -111,7 +106,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ env.DOCKER_TAEGET_PLATFORMS }}
+        platform:
+          - linux/amd64
+          - linux/arm/v6
+          - linux/arm/v7
+          - linux/arm64
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
     permissions:
       actions: none
