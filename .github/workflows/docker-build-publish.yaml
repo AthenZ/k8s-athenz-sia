@@ -229,7 +229,7 @@ jobs:
       -
         name: Test run container image
         id: test_run
-        if: !github.event.pull_request.head.repo.fork
+        if: "!github.event.pull_request.head.repo.fork"
         run: |
           docker run --rm --platform '${{ matrix.platform }}' '${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}@${{ steps.build_and_push.outputs.digest }}' version
 
@@ -255,7 +255,7 @@ jobs:
 
   docker-publish:
     runs-on: ubuntu-latest
-    if: !github.event.pull_request.head.repo.fork
+    if: "!github.event.pull_request.head.repo.fork"
     needs:
       - docker-env
       - docker-build
