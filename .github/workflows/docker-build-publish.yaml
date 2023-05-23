@@ -65,9 +65,9 @@ jobs:
       -
         name: Set docker Environment Variables
         id: docker_env
-        # env: # Please customize your container image's values
+        env: # Please customize your container image's values
           # DOCKER_REGISTRY_URL: "ghcr.io"
-          # DOCKER_REGISTRY_OWNER: ${{ env.CI_REPOSITORY_OWNER_SLUG }}
+          DOCKER_REGISTRY_OWNER: ${{ env.CI_ACTOR }}
           # DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME_SLUG }}
           # DOCKER_REGISTRY_TOKEN_NAME: "GITHUB_TOKEN"
         run: |
