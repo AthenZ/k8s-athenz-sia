@@ -1,10 +1,11 @@
 .PHONY: submodule-update build test clean
+.DEFAULT_GOAL := build
 
-ifeq ($(GOPATH),)
-	GOPATH := $(shell pwd)
-endif
+# ifeq ($(GOPATH),)
+# 	GOPATH := $(shell pwd)
+# endif
 
-export GOPATH
+# export GOPATH
 
 LDFLAGS :=
 ifneq ($(ATHENZ_SIA_VERSION),)
@@ -57,10 +58,10 @@ build: submodule-update
 	go mod tidy
 	CGO_ENABLED=0 go build $(LDFLAGS) -o $(GOPATH)/bin/athenz-sia cmd/athenz-sia/*.go
 
-test: build
+test:
 	@echo "Testing..."
-	go test ./...
-	CGO_ENABLED=1 go build $(LDFLAGS) -race -o $(GOPATH)/bin/athenz-sia cmd/athenz-sia/*.go
+	go test -v -failfast -timeout 1m -race -covermode=atomic -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
 
 clean:
 	rm -rf $(shell pwd)/bin || true

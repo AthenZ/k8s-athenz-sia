@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -17,52 +17,96 @@ import (
 	"github.com/yahoo/k8s-athenz-identity/pkg/util"
 )
 
-func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
+type TokenCache interface {
+	Update(token Token)
+	Load(domain, role string) Token
+	Range(func(Token) error) error
+}
+
+type LockedTokenCache struct {
+	cache map[string]map[string]Token
+	lock  sync.RWMutex
+}
+
+func (c *LockedTokenCache) Update(t Token) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	roleMap := c.cache[t.Domain()]
+	if roleMap == nil {
+		roleMap = make(map[string]Token)
+	}
+	roleMap[t.Role()] = t
+}
+
+func (c *LockedTokenCache) Load(domain, role string) Token {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	roleMap := c.cache[domain]
+	return roleMap[role]
+}
+
+func (c *LockedTokenCache) Range(f func(Token) error) error {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	for _, roleMap := range c.cache {
+		for _, token := range roleMap {
+			err := f(token)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Tokend starts the token server and refreshes tokens periodically.
+func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
 
 	if idConfig.TokenServerAddr == "" || idConfig.TargetDomainRoles == "" || idConfig.TokenType == "" {
 		log.Infof("Token provider is disabled with empty options: address[%s], roles[%s], token-type[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles, idConfig.TokenType)
-		return nil
+		return nil, nil
 	}
 
-	// map[domain][role][RoleToken.TokenString]
-	var roleTokenCache = make(map[string]map[string](*atomic.Value))
-	// map[domain][role][AccessToken.TokenString]
-	var accessTokenCache = make(map[string]map[string](*atomic.Value))
+	var roleTokenCache, accessTokenCache TokenCache
+	roleTokenCache = &LockedTokenCache{}
+	accessTokenCache = &LockedTokenCache{}
 
 	var keyPem, certPem []byte
 
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
 		log.Errorf("Failed to initialize client for tokens: %s", err.Error())
-		return err
+		return err, nil
 	}
 
 	writeFiles := func() error {
 
 		w := util.NewWriter()
 
-		for domain, atdcache := range accessTokenCache {
-			for role, atrcache := range atdcache {
-				at := atrcache.Load().(*AccessToken).TokenString
-				log.Infof("[New Access Token] Domain: %s, Role: %s", domain, role)
-				outPath := filepath.Join(idConfig.TokenDir, domain+":role."+role+".accesstoken")
-				log.Debugf("Saving Access Token[%d bytes] at %s", len(at), outPath)
-				if err := w.AddBytes(outPath, 0644, []byte(at)); err != nil {
-					return errors.Wrap(err, "unable to save access token")
-				}
+		accessTokenCache.Range(func(t Token) error {
+			domain := t.Domain()
+			role := t.Raw()
+			at := t.Raw()
+			log.Infof("[New Access Token] Domain: %s, Role: %s", domain, role)
+			outPath := filepath.Join(idConfig.TokenDir, domain+":role."+role+".accesstoken")
+			log.Debugf("Saving Access Token[%d bytes] at %s", len(at), outPath)
+			if err := w.AddBytes(outPath, 0644, []byte(at)); err != nil {
+				return errors.Wrap(err, "unable to save access token")
 			}
-		}
-		for domain, rtdcache := range roleTokenCache {
-			for role, rtrcache := range rtdcache {
-				rt := rtrcache.Load().(*RoleToken).TokenString
-				log.Infof("[New Role Token] Domain: %s, Role: %s", domain, role)
-				outPath := filepath.Join(idConfig.TokenDir, domain+":role."+role+".roletoken")
-				log.Debugf("Saving Role Token[%d bytes] at %s", len(rt), outPath)
-				if err := w.AddBytes(outPath, 0644, []byte(rt)); err != nil {
-					return errors.Wrap(err, "unable to save role token")
-				}
+			return nil
+		})
+		roleTokenCache.Range(func(t Token) error {
+			domain := t.Domain()
+			role := t.Raw()
+			rt := t.Raw()
+			log.Infof("[New Role Token] Domain: %s, Role: %s", domain, role)
+			outPath := filepath.Join(idConfig.TokenDir, domain+":role."+role+".roletoken")
+			log.Debugf("Saving Role Token[%d bytes] at %s", len(rt), outPath)
+			if err := w.AddBytes(outPath, 0644, []byte(rt)); err != nil {
+				return errors.Wrap(err, "unable to save role token")
 			}
-		}
+			return nil
+		})
 
 		return w.Save()
 	}
@@ -114,20 +158,10 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		log.Debugf("Successfully received tokens from identity provider: roleTokens(%d), accessTokens(%d)", len(roleTokens), len(accessTokens))
 
 		for _, r := range roleTokens {
-			var rt atomic.Value
-			rt.Store(r)
-			if roleTokenCache[r.Domain] == nil {
-				roleTokenCache[r.Domain] = make(map[string](*atomic.Value))
-			}
-			roleTokenCache[r.Domain][r.Role] = &rt
+			roleTokenCache.Update(r)
 		}
 		for _, a := range accessTokens {
-			var at atomic.Value
-			at.Store(a)
-			if accessTokenCache[a.Domain] == nil {
-				accessTokenCache[a.Domain] = make(map[string](*atomic.Value))
-			}
-			accessTokenCache[a.Domain][a.Role] = &at
+			accessTokenCache.Update(a)
 		}
 
 		log.Infof("Successfully updated token cache: roleTokens(%d), accessTokens(%d)", len(roleTokens), len(accessTokens))
@@ -135,9 +169,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		if idConfig.TokenDir != "" {
 			return writeFiles()
 		} else {
-
 			log.Debugf("Skipping to write token files to directory[%s]", idConfig.TokenDir)
-
 			return nil
 		}
 	}
@@ -149,6 +181,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		role := r.Header.Get(roleHeader)
 		at, rt, errMsg, response := "", "", "", []byte("")
 		var err error
+		var aToken, rToken Token
 
 		if domain == "" || role == "" {
 			errMsg = fmt.Sprintf("http headers not set: %s[%s] %s[%s].", domainHeader, domain, roleHeader, role)
@@ -156,21 +189,19 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 		switch idConfig.TokenType {
 		case "roletoken":
-			if roleTokenCache[domain] == nil {
-				errMsg = fmt.Sprintf("domain[%s] was not found in cache.", domain)
-			} else if roleTokenCache[domain][role] == nil {
+			rToken := roleTokenCache.Load(domain, role)
+			if rToken == nil {
 				errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 			}
 		case "accesstoken":
-			if accessTokenCache[domain] == nil {
-				errMsg = fmt.Sprintf("domain[%s] was not found in cache.", domain)
-			} else if accessTokenCache[domain][role] == nil {
+			aToken := accessTokenCache.Load(domain, role)
+			if aToken == nil {
 				errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 			}
 		case "roletoken+accesstoken":
-			if accessTokenCache[domain] == nil || roleTokenCache[domain] == nil {
-				errMsg = fmt.Sprintf("domain[%s] was not found in cache.", domain)
-			} else if accessTokenCache[domain][role] == nil || roleTokenCache[domain][role] == nil {
+			rToken := roleTokenCache.Load(domain, role)
+			aToken := accessTokenCache.Load(domain, role)
+			if rToken == nil || aToken == nil {
 				errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 			}
 		}
@@ -190,16 +221,16 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 
 		switch idConfig.TokenType {
 		case "roletoken":
-			rt = roleTokenCache[domain][role].Load().(*RoleToken).TokenString
+			rt = rToken.Raw()
 			w.Header().Set(idConfig.RoleAuthHeader, rt)
 			response, err = json.Marshal(map[string]string{"roletoken": rt})
 		case "accesstoken":
-			at = accessTokenCache[domain][role].Load().(*AccessToken).TokenString
+			at = aToken.Raw()
 			w.Header().Set("Authorization", "bearer "+at)
 			response, err = json.Marshal(map[string]string{"accesstoken": at})
 		case "roletoken+accesstoken":
-			at = accessTokenCache[domain][role].Load().(*AccessToken).TokenString
-			rt = roleTokenCache[domain][role].Load().(*RoleToken).TokenString
+			rt = rToken.Raw()
+			at = aToken.Raw()
 			w.Header().Set("Authorization", "bearer "+at)
 			w.Header().Set(idConfig.RoleAuthHeader, rt)
 			response, err = json.Marshal(map[string]string{"accesstoken": at, "roletoken": rt})
@@ -214,39 +245,36 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		io.WriteString(w, string(response))
 	}
 
+	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
+	if err != nil {
+		log.Errorf("Failed to get initial tokens after multiple retries: %s", err.Error())
+	}
+
+	if idConfig.Init {
+		log.Infof("Token provider is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
+		return nil, nil
+	}
+
+	httpServer := &http.Server{
+		Addr:    idConfig.TokenServerAddr,
+		Handler: http.HandlerFunc(tokenHandler),
+	}
+
 	go func() {
+		log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
 
-		err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
-
-		if idConfig.Init {
-			if err != nil {
-				log.Errorf("Failed to get initial tokens after multiple retries: %s", err.Error())
-			}
-
-			log.Infof("Token provider is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
-
-			return
+		if err := httpServer.ListenAndServe(); err != nil {
+			log.Errorf("Failed to start token provider: %s", err.Error())
 		}
+	}()
 
-		httpServer := &http.Server{
-			Addr:    idConfig.TokenServerAddr,
-			Handler: http.HandlerFunc(tokenHandler),
-		}
-
-		go func() {
-
-			log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
-
-			if err := httpServer.ListenAndServe(); err != nil {
-				log.Errorf("Failed to start token provider: %s", err.Error())
-			}
-		}()
-
-		t := time.NewTicker(idConfig.TokenRefresh)
+	shutdownChan := make(chan struct{}, 1)
+	t := time.NewTicker(idConfig.TokenRefresh)
+	go func() {
 		defer t.Stop()
+		defer close(shutdownChan)
 
 		for {
-
 			log.Infof("Refreshing tokens for roles[%v] in %s", idConfig.TargetDomainRoles, idConfig.TokenRefresh)
 
 			select {
@@ -256,7 +284,8 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 					log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 				}
 			case <-stopChan:
-				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
 				httpServer.SetKeepAlivesEnabled(false)
 				if err := httpServer.Shutdown(ctx); err != nil {
 					log.Errorf("Failed to shutdown token provider: %s", err.Error())
@@ -266,5 +295,5 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		}
 	}()
 
-	return nil
+	return nil, shutdownChan
 }

@@ -4,20 +4,23 @@ import (
 	"strings"
 	"time"
 
-	internal "github.com/AthenZ/k8s-athenz-sia/pkg/metrics"
 	"github.com/yahoo/k8s-athenz-identity/pkg/log"
+
+	// using git submodule to import internal package (special package in golang)
+	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
+	internal "github.com/AthenZ/k8s-athenz-sia/pkg/metrics"
 )
 
-func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
+func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
 
 	if idConfig.Init {
 		log.Infof("Metrics exporter is disabled for init mode: address[%s]", idConfig.MetricsServerAddr)
-		return nil
+		return nil, nil
 	}
 
 	if idConfig.MetricsServerAddr == "" {
 		log.Infof("Metrics exporter is disabled with empty options: address[%s]", idConfig.MetricsServerAddr)
-		return nil
+		return nil, nil
 	}
 
 	log.Infof("Starting metrics exporter[%s]", idConfig.MetricsServerAddr)
@@ -61,5 +64,16 @@ func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		}
 	}()
 
-	return nil
+	shutdownChan := make(chan struct{}, 1)
+	go func() {
+		defer close(shutdownChan)
+
+		<-stopChan
+		err := exporter.Shutdown()
+		if err != nil {
+			log.Errorf("Failed to shutdown metrics exporter: %s", err.Error())
+		}
+	}()
+
+	return nil, shutdownChan
 }

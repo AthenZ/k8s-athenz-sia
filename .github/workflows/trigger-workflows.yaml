@@ -18,18 +18,56 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  # DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64"
+  DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm64"
+
 jobs:
+
+  # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
+  go-test:
+    name: "Run unit test"
+    uses: ./.github/workflows/go-test.yaml
+
+  set-platforms:
+    runs-on: ubuntu-latest
+    outputs:
+      DOCKER_TAEGET_PLATFORMS: ${{ steps.set_platforms.outputs.DOCKER_TAEGET_PLATFORMS }}
+      DOCKER_TAEGET_PLATFORMS_JSON: ${{ steps.set_platforms.outputs.DOCKER_TAEGET_PLATFORMS_JSON }}
+    steps:
+      - name: Set platforms
+        id: set_platforms
+        run: |
+          echo "DOCKER_TAEGET_PLATFORMS=${DOCKER_TAEGET_PLATFORMS}" >> "$GITHUB_OUTPUT"
+
+          # convert to JSON string
+          IFS=',' read -ra platforms <<< "${DOCKER_TAEGET_PLATFORMS}" # split
+          json_array="$(printf '\"%s\",' "${platforms[@]}")" # double quote with escape
+          json_array="[${json_array%?}]" # Remove the trailing comma, add square backet
+          echo "DOCKER_TAEGET_PLATFORMS_JSON=${json_array}" >> "$GITHUB_OUTPUT"
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   docker-build-publish:
     name: "Build and Publish Docker Images"
+    needs: set-platforms
     uses: ./.github/workflows/docker-build-publish.yaml
     secrets: inherit
+    with:
+      DOCKER_TAEGET_PLATFORMS: ${{ needs.set-platforms.outputs.DOCKER_TAEGET_PLATFORMS_JSON }}
 
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   github-releases:
     name: "Create Github Releases with Packages"
-    needs: docker-build-publish
-    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - set-platforms
+      - docker-build-publish
+    if: github.ref_type == 'tag'
     uses: ./.github/workflows/github-releases.yaml
     secrets: inherit
+    with:
+      DOCKER_TAEGET_PLATFORMS: ${{ needs.set-platforms.outputs.DOCKER_TAEGET_PLATFORMS }}
+      DOCKER_REGISTRY_URL: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_URL }}
+      DOCKER_REGISTRY_OWNER: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_OWNER }}
+      DOCKER_REGISTRY_TOKEN_NAME: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_TOKEN_NAME }}
+      DOCKER_REGISTRY_REF: ${{ needs.docker-build-publish.outputs.DOCKER_REGISTRY_REF }}
+      version: ${{ needs.docker-build-publish.outputs.version }}

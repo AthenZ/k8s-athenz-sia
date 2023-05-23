@@ -36,6 +36,8 @@ var (
 	DEFAULT_ORGANIZATION        string
 	DEFAULT_ORGANIZATIONAL_UNIT = "Athenz"
 
+	DEFAULT_POLL_TOKEN_INTERVAL = 4 * time.Hour
+
 	// default values for role tokens and access tokens
 	DEFAULT_TOKEN_EXPIRY_TIME     = "120"
 	DEFAULT_TOKEN_EXPIRY_TIME_INT int
@@ -106,20 +108,59 @@ type RoleCertificate struct {
 	X509Certificate string
 }
 
+type Token interface {
+	Domain() string
+	Role() string
+	Raw() string
+	Expiry() int64
+}
+
 // RoleToken stores role token
 type RoleToken struct {
-	Domain      string
-	Role        string
-	TokenString string
-	Expiry      int64
+	domain string
+	role   string
+	raw    string
+	expiry int64
+}
+
+func (t *RoleToken) Domain() string {
+	return t.domain
+}
+
+func (t *RoleToken) Role() string {
+	return t.role
+}
+
+func (t *RoleToken) Raw() string {
+	return t.raw
+}
+
+func (t *RoleToken) Expiry() int64 {
+	return t.expiry
 }
 
 // AccessToken stores access token
 type AccessToken struct {
-	Domain      string
-	Role        string
-	TokenString string
-	Expiry      int64
+	domain string
+	role   string
+	raw    string
+	expiry int64
+}
+
+func (t *AccessToken) Domain() string {
+	return t.domain
+}
+
+func (t *AccessToken) Role() string {
+	return t.role
+}
+
+func (t *AccessToken) Raw() string {
+	return t.raw
+}
+
+func (t *AccessToken) Expiry() int64 {
+	return t.expiry
 }
 
 // InstanceIdentity stores instance identity certificate
@@ -432,10 +473,10 @@ func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleT
 				return nil, nil, fmt.Errorf("PostAccessTokenRequest failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
 			}
 			accesstokens = append(accesstokens, &AccessToken{
-				Domain:      dr[0],
-				Role:        dr[1],
-				TokenString: accessTokenResponse.Access_token,
-				Expiry:      int64(*accessTokenResponse.Expires_in),
+				domain: dr[0],
+				role:   dr[1],
+				raw:    accessTokenResponse.Access_token,
+				expiry: int64(*accessTokenResponse.Expires_in),
 			})
 		}
 
@@ -445,10 +486,10 @@ func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleT
 				return nil, nil, fmt.Errorf("GetRoleToken failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
 			}
 			roletokens = append(roletokens, &RoleToken{
-				Domain:      dr[0],
-				Role:        dr[1],
-				TokenString: roletokenResponse.Token,
-				Expiry:      roletokenResponse.ExpiryTime,
+				domain: dr[0],
+				role:   dr[1],
+				raw:    roletokenResponse.Token,
+				expiry: roletokenResponse.ExpiryTime,
 			})
 		}
 	}

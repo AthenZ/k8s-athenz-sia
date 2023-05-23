@@ -1,12 +1,20 @@
-FROM docker.io/golang:1-alpine as builder
-
-WORKDIR /go/src/k8s-athenz-sia
-
-COPY . .
+FROM docker.io/golang:1-alpine as base
 
 RUN apk add --no-cache make git
 
-RUN make build
+WORKDIR /go/src/k8s-athenz-sia
+
+COPY go.mod .
+COPY go.sum .
+
+RUN GO111MODULE=on go mod download
+
+FROM base AS builder
+
+COPY . .
+
+ARG ATHENZ_SIA_VERSION=''
+RUN ATHENZ_SIA_VERSION="${ATHENZ_SIA_VERSION}" make build
 
 FROM docker.io/alpine:3
 

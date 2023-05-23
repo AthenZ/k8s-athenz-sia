@@ -6,7 +6,7 @@ This repository contains [Athenz SIA](https://github.com/AthenZ/athenz/blob/mast
 
 ## Usage
 
-```
+```sh
 $GOPATH/bin/athenz-sia --help
 ```
 
@@ -14,14 +14,14 @@ $GOPATH/bin/athenz-sia --help
 
 ### To update the git submodule from the latest commit (HEAD) hash of the remote repository
 
-```
+```sh
 git submodule update --recursive --init --remote
 make
 ```
 
 ### To update the git submodule from the remote repository
 
-```
+```sh
 git submodule update --recursive --init
 make
 ```

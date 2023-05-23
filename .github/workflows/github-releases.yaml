@@ -7,9 +7,27 @@ name: Create Github Releases with Packages
 
 on:
   workflow_call:
+    inputs:
+      DOCKER_TAEGET_PLATFORMS:
+        required: true
+        type: string
+      DOCKER_REGISTRY_URL:
+        required: true
+        type: string
+      DOCKER_REGISTRY_OWNER:
+        required: true
+        type: string
+      DOCKER_REGISTRY_TOKEN_NAME:
+        required: true
+        type: string
+      DOCKER_REGISTRY_REF:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
 
 env:
-  DOCKER_TAEGET_PLATFORMS: linux/amd64,linux/arm64
   NFPM_SOURCE_IMAGES: k8s-athenz-sia
   NFPM_TARGET_PACKAGER: apk,deb,rpm
   NFPM_TARGET_COMPONENTS: nfpm
@@ -17,7 +35,6 @@ env:
 jobs:
 
   github-releases:
-
     runs-on: ubuntu-latest
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
     permissions:
@@ -32,28 +49,7 @@ jobs:
       repository-projects: none
       security-events: none
       statuses: none
-
     steps:
-      # A GitHub Action to expose useful environment variables.
-      # https://github.com/FranzDiebold/github-env-vars-action
-      -
-        name: GitHub Environment Variables Action
-        id: env
-        # uses: https://github.com/FranzDiebold/github-env-vars-action/tags
-        uses: FranzDiebold/github-env-vars-action@v2
-
-      # A GitHub Action to prepare default environment variables.
-      -
-        name: Set Default Environment Variables
-        id: default_env
-        run: |
-          # Use docker.io for Docker Hub if empty
-          [[ "${{ env.DOCKER_REGISTRY_URL}}" = "" ]] && echo "DOCKER_REGISTRY_URL=docker.io" >> $GITHUB_ENV
-          [[ "${{ env.DOCKER_REGISTRY_OWNER }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
-          [[ "${{ env.DOCKER_REGISTRY_IMAGE }}" = "" ]] && echo "DOCKER_REGISTRY_IMAGE=${{ env.CI_REPOSITORY_NAME_SLUG }}" >> $GITHUB_ENV
-          [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_URL=ghcr.io" >> $GITHUB_ENV
-          [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_OWNER=${{ env.CI_REPOSITORY_OWNER_SLUG }}" >> $GITHUB_ENV
-          [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" = "" ]] && echo "DOCKER_REGISTRY_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV || echo "DOCKER_REGISTRY_TOKEN=${{ secrets.DOCKER_REGISTRY_TOKEN }}" >> $GITHUB_ENV
 
       # This action checks-out your repository under $GITHUB_WORKSPACE, so your workflow can access it.
       # https://github.com/actions/checkout
@@ -70,37 +66,34 @@ jobs:
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       -
-        name: Docker Login to registry ${{ env.DOCKER_REGISTRY_URL }}
+        name: Docker Login to registry ${{ inputs.DOCKER_REGISTRY_URL }}
         id: login
-        # You may pin to the exact commit or the version.
         # uses: https://github.com/docker/login-action/tags
         uses: docker/login-action@v2
         with:
-          # Server address of Docker registry. If not set then will default to Docker Hub
-          registry: ${{ env.DOCKER_REGISTRY_URL }} # optional
-          # Username used to log against the Docker registry
-          username: ${{ env.DOCKER_REGISTRY_OWNER }} # optional
-          # Password or personal access token used to log against the Docker registry
-          password: ${{ env.DOCKER_REGISTRY_TOKEN }} # optional
-          # Log out from the Docker registry at the end of a job
-          logout: true # optional, default is true
+          registry: ${{ inputs.DOCKER_REGISTRY_URL }} # Server address of Docker registry. If not set then will default to Docker Hub
+          username: ${{ inputs.DOCKER_REGISTRY_OWNER }} # Username used to log against the Docker registry
+          password: ${{ secrets[inputs.DOCKER_REGISTRY_TOKEN_NAME] }} # Password or personal access token used to log against the Docker registry
+          logout: true # Log out from the Docker registry at the end of a job, default is true
 
       -
         name: Extract files from Docker image
         id: extract
         run: |
-          tag=$(basename ${{ env.CI_REF }})
           for image in $(echo ${{ env.NFPM_SOURCE_IMAGES }} | tr "," "\n"); do
-            for platform in $(echo ${{ env.DOCKER_TAEGET_PLATFORMS }} | tr "," "\n"); do
+            IMG_REF_WITH_TAG="${{ inputs.DOCKER_REGISTRY_URL }}/${{ inputs.DOCKER_REGISTRY_OWNER }}/${image}:${{ inputs.version }}"
+            echo "IMG_REF_WITH_TAG=${IMG_REF_WITH_TAG}"
+
+            for platform in $(echo ${{ inputs.DOCKER_TAEGET_PLATFORMS }} | tr "," "\n"); do
               set -x
               # Download docker image to a tarball
-              docker pull --platform $platform ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${image}:$tag
-              arch=$(echo $platform | sed -e 's/\([^/]*\)\/\([^/]*\).*/\2/g')
-              docker save ${{ env.DOCKER_REGISTRY_URL }}/${{ env.DOCKER_REGISTRY_OWNER }}/${image}:$tag -o ${image}_${arch}.tgz
+              docker pull --platform "${platform}" "${IMG_REF_WITH_TAG}"
+              arch="$(echo ${platform} | sed -e 's/\([^/]*\)\/\([^/]*\).*/\2/g')"
+              docker save "${IMG_REF_WITH_TAG}" -o "${image}_${arch}.tgz"
               docker image prune -fa
               # Decompress docker image tarball
-              mkdir ${image}_${arch} && tar xvf ${image}_${arch}.tgz --directory ${image}_${arch}
-              cat ${image}_${arch}/manifest.json | jq -r .[].Layers.[] | xargs -I% tar xvf ${image}_${arch}/% --directory ${image}_${arch} || true
+              mkdir "${image}_${arch}" && tar xvf "${image}_${arch}.tgz" --directory "${image}_${arch}"
+              cat "${image}_${arch}/manifest.json" | jq -r '.[].Layers[]' | xargs -I% tar xvf "${image}_${arch}/%" --directory "${image}_${arch}" || true
               set +x
             done
           done
@@ -111,20 +104,15 @@ jobs:
       # https://github.com/actions/setup-go
       -
         name: Setup Golang
-        id: setup-go
+        id: setup_go
         # You may pin to the exact commit or the version.
         # uses: https://github.com/actions/setup-go/tags
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: stable
+          # go-version: stable
+          go-version-file: './go.mod'
           check-latest: true
-
-      # A GitHub Action to set environment variables for Go
-      -
-        name: Set Golang env
-        id: go-env
-        run: |
-          go env | grep GOPATH | sed -e 's/"//g' >> $GITHUB_ENV
+          cache: true
 
       # A GitHub Action to Create Packages
       -
@@ -132,11 +120,11 @@ jobs:
         id: nfpm
         run: |
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
-          for platform in $(echo ${{ env.DOCKER_TAEGET_PLATFORMS }} | tr "," "\n"); do
-            GOARCH=$(echo $platform | sed -e 's/\([^/]*\)\/\([^/]*\).*/\2/g')
+          for platform in $(echo ${{ inputs.DOCKER_TAEGET_PLATFORMS }} | tr "," "\n"); do
+            GOARCH=$(echo ${platform} | sed -e 's/\([^/]*\)\/\([^/]*\).*/\2/g')
             for packager in $(echo ${{ env.NFPM_TARGET_PACKAGER }} | tr "," "\n"); do
               for component in $(echo ${{ env.NFPM_TARGET_COMPONENTS }} | tr "," "\n"); do
-                SEMVER=${{ env.CI_REF_NAME }} nfpm pkg -f nfpm/linux/$GOARCH/$component.yaml -p $packager -t .
+                SEMVER='${{ inputs.version }}' nfpm pkg -f "nfpm/linux/${GOARCH}/${component}.yaml" -p "${packager}" -t .
               done
             done
           done
