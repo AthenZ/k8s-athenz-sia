@@ -84,7 +84,7 @@ jobs:
             IMG_REF_WITH_TAG="${{ inputs.DOCKER_REGISTRY_URL }}/${{ inputs.DOCKER_REGISTRY_OWNER }}/${image}:${{ inputs.version }}"
             echo "IMG_REF_WITH_TAG=${IMG_REF_WITH_TAG}"
 
-            for platform in $(echo ${{ env.DOCKER_TAEGET_PLATFORMS }} | tr "," "\n"); do
+            for platform in $(echo ${{ inputs.DOCKER_TAEGET_PLATFORMS }} | tr "," "\n"); do
               set -x
               # Download docker image to a tarball
               docker pull --platform "${platform}" "${IMG_REF_WITH_TAG}"
@@ -120,7 +120,7 @@ jobs:
         id: nfpm
         run: |
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
-          for platform in $(echo ${{ env.DOCKER_TAEGET_PLATFORMS }} | tr "," "\n"); do
+          for platform in $(echo ${{ inputs.DOCKER_TAEGET_PLATFORMS }} | tr "," "\n"); do
             GOARCH=$(echo ${platform} | sed -e 's/\([^/]*\)\/\([^/]*\).*/\2/g')
             for packager in $(echo ${{ env.NFPM_TARGET_PACKAGER }} | tr "," "\n"); do
               for component in $(echo ${{ env.NFPM_TARGET_COMPONENTS }} | tr "," "\n"); do
