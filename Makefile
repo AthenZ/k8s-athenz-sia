@@ -1,11 +1,11 @@
 .PHONY: submodule-update build test clean
 .DEFAULT_GOAL := build
 
-ifeq ($(GOPATH),)
-	GOPATH := $(shell pwd)
-endif
+# ifeq ($(GOPATH),)
+# 	GOPATH := $(shell pwd)
+# endif
 
-export GOPATH
+# export GOPATH
 
 LDFLAGS :=
 ifneq ($(ATHENZ_SIA_VERSION),)
