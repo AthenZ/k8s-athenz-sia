@@ -223,7 +223,7 @@ jobs:
             type=registry,ref=${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}
           cache-to: |
             type=gha,scope=${{ github.ref_name }}-${{ matrix.platform }},mode=max
-            type=registry,ref=${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}
+            ${{ !github.event.pull_request.head.repo.fork && format('type=registry,ref={0}', needs.docker-env.outputs.DOCKER_REGISTRY_REF) || '' }}
 
       # Test run the container image of the specific platform
       -
