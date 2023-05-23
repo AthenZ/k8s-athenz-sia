@@ -216,20 +216,20 @@ jobs:
           labels: ${{ needs.docker-env.outputs.labels }}
           build-args: ${{ env.DOCKER_BUILD_ARGS }}
           outputs: |
-            type=image,name=${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }},push-by-digest=true,name-canonical=true,push=${{ github.event.pull_request.head.repo.full_name != github.repository && 'true' || 'false' }}
+            type=image,name=${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }},push-by-digest=true,name-canonical=true,push=${{ github.event.pull_request.head.repo.full_name == github.repository && 'true' || 'false' }}
           # about cache, https://docs.docker.com/build/ci/github-actions/cache/, https://docs.docker.com/build/cache/backends/gha/#scope
           cache-from: |
             type=gha,scope=${{ github.ref_name }}-${{ matrix.platform }}
             type=registry,ref=${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}
           cache-to: |
             type=gha,scope=${{ github.ref_name }}-${{ matrix.platform }},mode=max
-            ${{ github.event.pull_request.head.repo.full_name != github.repository && format('type=registry,ref={0}', needs.docker-env.outputs.DOCKER_REGISTRY_REF) || '' }}
+            ${{ github.event.pull_request.head.repo.full_name == github.repository && format('type=registry,ref={0}', needs.docker-env.outputs.DOCKER_REGISTRY_REF) || '' }}
 
       # Test run the container image of the specific platform
       -
         name: Test run container image
         id: test_run
-        if: "github.event.pull_request.head.repo.full_name != github.repository"
+        if: "github.event.pull_request.head.repo.full_name == github.repository"
         run: |
           docker run --rm --platform '${{ matrix.platform }}' '${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}@${{ steps.build_and_push.outputs.digest }}' version
 
@@ -255,7 +255,7 @@ jobs:
 
   docker-publish:
     runs-on: ubuntu-latest
-    if: "github.event.pull_request.head.repo.full_name != github.repository"
+    if: "github.event.pull_request.head.repo.full_name == github.repository"
     needs:
       - docker-env
       - docker-build
