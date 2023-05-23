@@ -83,8 +83,6 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	}
 
 	identityProvisioningRequest := func(idConfig *IdentityConfig, handler *identityHandler, forceInit bool) (err error, identity *InstanceIdentity, keyPem []byte) {
-		log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idConfig.ProviderService)
-
 		log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
 
 		identity, keyPem, err = handler.GetX509Cert(forceInit)
@@ -135,6 +133,8 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 	run := func() error {
 
 		if idConfig.ProviderService != "" {
+			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idConfig.ProviderService)
+
 			err, identity, keyPem = identityProvisioningRequest(idConfig, handler, false)
 			if err != nil {
 				log.Errorf("Failed to reteieve x509 certificate from identity provider: %s", err.Error())
@@ -214,6 +214,8 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) error {
 		}
 
 		if backupIdentity != nil && len(backupKeyPem) != 0 && idConfig.ProviderService != "" {
+			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idConfig.ProviderService)
+
 			err, identity, keyPem = identityProvisioningRequest(idConfig, handler, true)
 			if err != nil {
 				log.Errorf("Failed to reteieve renewed x509 certificate from identity provider: %s", err.Error())
