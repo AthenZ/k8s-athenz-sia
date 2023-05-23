@@ -169,9 +169,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan s
 		if idConfig.TokenDir != "" {
 			return writeFiles()
 		} else {
-
 			log.Debugf("Skipping to write token files to directory[%s]", idConfig.TokenDir)
-
 			return nil
 		}
 	}
@@ -248,14 +246,12 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan s
 	}
 
 	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
+	if err != nil {
+		log.Errorf("Failed to get initial tokens after multiple retries: %s", err.Error())
+	}
 
 	if idConfig.Init {
-		if err != nil {
-			log.Errorf("Failed to get initial tokens after multiple retries: %s", err.Error())
-		}
-
 		log.Infof("Token provider is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
-
 		return nil, nil
 	}
 

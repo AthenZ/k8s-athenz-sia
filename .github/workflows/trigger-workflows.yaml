@@ -31,7 +31,6 @@ jobs:
 
   set-platforms:
     runs-on: ubuntu-latest
-    needs: go-test
     outputs:
       DOCKER_TAEGET_PLATFORMS: ${{ steps.set_platforms.outputs.DOCKER_TAEGET_PLATFORMS }}
       DOCKER_TAEGET_PLATFORMS_JSON: ${{ steps.set_platforms.outputs.DOCKER_TAEGET_PLATFORMS_JSON }}
