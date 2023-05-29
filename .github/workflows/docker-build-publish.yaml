@@ -25,7 +25,7 @@ on:
         description: "docker registry reference of the container image"
         value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_REF }}
       DOCKER_REGISTRY_PUSH:
-        description: "should push to docker registry"
+        description: "should push to docker registry (NOT pushing on pull_request)"
         value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_PUSH }}
       version:
         description: "Container image version"
