@@ -49,7 +49,9 @@ jobs:
   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   docker-build-publish:
     name: "Build and Publish Docker Images"
-    needs: set-platforms
+    needs:
+      - go-test
+      - set-platforms
     uses: ./.github/workflows/docker-build-publish.yaml
     secrets: inherit
     with:
@@ -61,7 +63,7 @@ jobs:
     needs:
       - set-platforms
       - docker-build-publish
-    if: github.ref_type == 'tag'
+    if: "needs.docker-build-publish.outputs.DOCKER_REGISTRY_PUSH == 'true'"
     uses: ./.github/workflows/github-releases.yaml
     secrets: inherit
     with:

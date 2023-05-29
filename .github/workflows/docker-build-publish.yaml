@@ -24,6 +24,9 @@ on:
       DOCKER_REGISTRY_REF:
         description: "docker registry reference of the container image"
         value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_REF }}
+      DOCKER_REGISTRY_PUSH:
+        description: "should push to docker registry (NOT pushing on pull_request)"
+        value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_PUSH }}
       version:
         description: "Container image version"
         value: ${{ jobs.docker-env.outputs.version }}
@@ -46,6 +49,7 @@ jobs:
       DOCKER_REGISTRY_OWNER: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_OWNER }}
       DOCKER_REGISTRY_TOKEN_NAME: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_TOKEN_NAME }}
       DOCKER_REGISTRY_REF: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_REF }}
+      DOCKER_REGISTRY_PUSH: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_PUSH }}
       SHA_SHORT: ${{ steps.docker_env.outputs.SHA_SHORT }}
       version: ${{ steps.meta.outputs.version }}
       tags: ${{ steps.meta.outputs.tags }}
@@ -65,11 +69,12 @@ jobs:
       -
         name: Set docker Environment Variables
         id: docker_env
-        # env: # Please customize your container image's values
+        env: # Please customize your container image's values
           # DOCKER_REGISTRY_URL: "ghcr.io"
           # DOCKER_REGISTRY_OWNER: ${{ env.CI_REPOSITORY_OWNER_SLUG }} # must be lowercase
           # DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME_SLUG }}
           # DOCKER_REGISTRY_TOKEN_NAME: "GITHUB_TOKEN"
+          DOCKER_REGISTRY_PUSH: ${{ github.event_name != 'pull_request' }}
         run: |
 
           # Push to Athenz's docker.io if docker secret exists, else push to actor's personal ghcr.io
@@ -85,6 +90,7 @@ jobs:
           DOCKER_REGISTRY_OWNER="${DOCKER_REGISTRY_OWNER:=${CI_REPOSITORY_OWNER_SLUG}}"
           DOCKER_REGISTRY_IMAGE="${DOCKER_REGISTRY_IMAGE:=${CI_REPOSITORY_NAME_SLUG}}"
           DOCKER_REGISTRY_REF=${DOCKER_REGISTRY_URL}/${DOCKER_REGISTRY_OWNER}/${DOCKER_REGISTRY_IMAGE}
+          DOCKER_REGISTRY_PUSH="${DOCKER_REGISTRY_PUSH:=false}"
           SHA_SHORT="${CI_PR_SHA_SHORT:=${CI_SHA_SHORT}}"
 
           # github output
@@ -93,6 +99,7 @@ jobs:
           echo "DOCKER_REGISTRY_OWNER=${DOCKER_REGISTRY_OWNER}" >> "$GITHUB_OUTPUT"
           echo "DOCKER_REGISTRY_IMAGE=${DOCKER_REGISTRY_IMAGE}" >> "$GITHUB_OUTPUT"
           echo "DOCKER_REGISTRY_REF=${DOCKER_REGISTRY_REF}" >> "$GITHUB_OUTPUT"
+          echo "DOCKER_REGISTRY_PUSH=${DOCKER_REGISTRY_PUSH}" >> "$GITHUB_OUTPUT"
           echo "SHA_SHORT=${SHA_SHORT}" >> "$GITHUB_OUTPUT"
 
       # Extract metadata (tags, labels) for Docker
@@ -216,20 +223,20 @@ jobs:
           labels: ${{ needs.docker-env.outputs.labels }}
           build-args: ${{ env.DOCKER_BUILD_ARGS }}
           outputs: |
-            type=image,name=${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }},push-by-digest=true,name-canonical=true,push=${{ github.event.pull_request.head.repo.full_name == github.repository && 'true' || 'false' }}
+            type=image,name=${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }},push-by-digest=true,name-canonical=true,push=${{ needs.docker-env.outputs.DOCKER_REGISTRY_PUSH == 'true' && 'true' || 'false' }}
           # about cache, https://docs.docker.com/build/ci/github-actions/cache/, https://docs.docker.com/build/cache/backends/gha/#scope
           cache-from: |
             type=gha,scope=${{ github.ref_name }}-${{ matrix.platform }}
             type=registry,ref=${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}
           cache-to: |
             type=gha,scope=${{ github.ref_name }}-${{ matrix.platform }},mode=max
-            ${{ github.event.pull_request.head.repo.full_name == github.repository && format('type=registry,ref={0}', needs.docker-env.outputs.DOCKER_REGISTRY_REF) || '' }}
+            ${{ needs.docker-env.outputs.DOCKER_REGISTRY_PUSH == 'true' && format('type=registry,ref={0}', needs.docker-env.outputs.DOCKER_REGISTRY_REF) || '' }}
 
       # Test run the container image of the specific platform
       -
         name: Test run container image
         id: test_run
-        if: "github.event.pull_request.head.repo.full_name == github.repository"
+        if: "needs.docker-env.outputs.DOCKER_REGISTRY_PUSH == 'true'"
         run: |
           docker run --rm --platform '${{ matrix.platform }}' '${{ needs.docker-env.outputs.DOCKER_REGISTRY_REF }}@${{ steps.build_and_push.outputs.digest }}' version
 
@@ -255,7 +262,7 @@ jobs:
 
   docker-publish:
     runs-on: ubuntu-latest
-    if: "github.event.pull_request.head.repo.full_name == github.repository"
+    if: "needs.docker-env.outputs.DOCKER_REGISTRY_PUSH == 'true'"
     needs:
       - docker-env
       - docker-build
