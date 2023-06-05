@@ -116,12 +116,12 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		return
 	}
 
-	roleCertProvisioningRequest := func(idConfig *IdentityConfig, handler *identityHandler) (roleCerts [](*RoleCertificate)) {
+	roleCertProvisioningRequest := func(idConfig *IdentityConfig, handler *identityHandler) (err error, roleCerts [](*RoleCertificate)) {
 		var roleIdentity *InstanceIdentity
 		var roleKeyPem, roleCertPem []byte
 
 		if idConfig.TargetDomainRoles == "" || idConfig.RoleCertDir == "" {
-			return nil
+			return nil, nil
 		}
 
 		if identity == nil || len(keyPem) == 0 {
@@ -152,7 +152,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		}
 
 		if roleIdentity == nil || len(roleKeyPem) == 0 {
-			return nil
+			return nil, nil
 		}
 
 		log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
@@ -160,11 +160,11 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		roleCerts, err = handler.GetX509RoleCert(roleIdentity, roleKeyPem)
 		if err != nil {
 			log.Warnf("Error while requesting x509 role certificate to identity provider: %s", err.Error())
-			return nil
+			return err, nil
 		}
 
 		log.Infoln("Successfully received x509 role certs from identity provider")
-		return roleCerts
+		return nil, roleCerts
 	}
 
 	// getExponentialBackoff will return a backoff config with first retry delay of 5s, and backoff retry
@@ -224,7 +224,11 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 			}
 		}
 
-		roleCerts := roleCertProvisioningRequest(idConfig, handler)
+		err, roleCerts := roleCertProvisioningRequest(idConfig, handler)
+		if err != nil {
+			return err
+		}
+
 		err = writeFiles(identity, keyPem, roleCerts)
 		if err != nil {
 			if forceInitIdentity != nil || forceInitKeyPem != nil {
