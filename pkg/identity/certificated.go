@@ -182,7 +182,6 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 	}
 
 	run := func() error {
-
 		if idConfig.ProviderService != "" {
 			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idConfig.ProviderService)
 
@@ -214,28 +213,26 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 			}
 		}
 
-		roleCerts := roleCertProvisioningRequest(idConfig, handler)
-
-		err = writeFiles(identity, keyPem, roleCerts)
-		if err != nil {
-			log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
-			return err
-		}
-
+		isForcefullyRenewed := false
 		if backupIdentity != nil && len(backupKeyPem) != 0 && idConfig.ProviderService != "" {
 			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idConfig.ProviderService)
 
 			err, identity, keyPem = identityProvisioningRequest(idConfig, handler, true)
 			if err != nil {
 				log.Errorf("Failed to retrieve renewed x509 certificate from identity provider: %s", err.Error())
-			}
-			err = writeFiles(identity, keyPem, nil)
-			if err != nil {
-				log.Errorf("Failed to save files for renewed key[%s] and renewed cert[%s]", idConfig.KeyFile, idConfig.CertFile)
-				return err
+			} else {
+				isForcefullyRenewed = true
 			}
 		}
 
+		roleCerts := roleCertProvisioningRequest(idConfig, handler)
+		err = writeFiles(identity, keyPem, roleCerts)
+		if err != nil && isForcefullyRenewed {
+			log.Errorf("Failed to save files for renewed key[%s] and renewed cert[%s]", idConfig.KeyFile, idConfig.CertFile)
+		}
+		if err != nil && !isForcefullyRenewed {
+			log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
+		}
 		return err
 	}
 
