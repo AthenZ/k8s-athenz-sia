@@ -23,8 +23,8 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idConfig.TargetDomainRoles, idConfig.RoleCertDir)
 	}
 
-	var identity, backupIdentity *InstanceIdentity
-	var keyPem, backupKeyPem []byte
+	var identity, backupIdentity, forceInitIdentity *InstanceIdentity
+	var keyPem, backupKeyPem, forceInitKeyPem []byte
 
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
@@ -213,26 +213,27 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 			}
 		}
 
-		isForcefullyRenewed := false
 		if backupIdentity != nil && len(backupKeyPem) != 0 && idConfig.ProviderService != "" {
 			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idConfig.ProviderService)
-
-			err, identity, keyPem = identityProvisioningRequest(idConfig, handler, true)
+			err, forceInitIdentity, forceInitKeyPem = identityProvisioningRequest(idConfig, handler, true)
 			if err != nil {
 				log.Errorf("Failed to retrieve renewed x509 certificate from identity provider: %s", err.Error())
 			} else {
-				isForcefullyRenewed = true
+				identity = forceInitIdentity
+				keyPem = forceInitKeyPem
 			}
 		}
 
 		roleCerts := roleCertProvisioningRequest(idConfig, handler)
 		err = writeFiles(identity, keyPem, roleCerts)
-		if err != nil && isForcefullyRenewed {
-			log.Errorf("Failed to save files for renewed key[%s] and renewed cert[%s]", idConfig.KeyFile, idConfig.CertFile)
+		if err != nil {
+			if forceInitIdentity != nil || forceInitKeyPem != nil {
+				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
+			} else {
+				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
+			}
 		}
-		if err != nil && !isForcefullyRenewed {
-			log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
-		}
+
 		return err
 	}
 
