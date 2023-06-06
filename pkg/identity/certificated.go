@@ -82,7 +82,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		return w.Save()
 	}
 
-	identityProvisioningRequest := func(idConfig *IdentityConfig, handler *identityHandler, forceInit bool) (err error, identity *InstanceIdentity, keyPem []byte) {
+	identityProvisioningRequest := func(forceInit bool) (err error, identity *InstanceIdentity, keyPem []byte) {
 		log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
 
 		identity, keyPem, err = handler.GetX509Cert(forceInit)
@@ -116,7 +116,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		return
 	}
 
-	roleCertProvisioningRequest := func(idConfig *IdentityConfig, handler *identityHandler) (err error, roleCerts [](*RoleCertificate)) {
+	roleCertProvisioningRequest := func() (err error, roleCerts [](*RoleCertificate)) {
 		var roleIdentity *InstanceIdentity
 		var roleKeyPem, roleCertPem []byte
 
@@ -185,7 +185,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		if idConfig.ProviderService != "" {
 			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idConfig.ProviderService)
 
-			err, identity, keyPem = identityProvisioningRequest(idConfig, handler, false)
+			err, identity, keyPem = identityProvisioningRequest(false)
 			if err != nil {
 				log.Errorf("Failed to retrieve x509 certificate from identity provider: %s", err.Error())
 			}
@@ -215,7 +215,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 
 		if backupIdentity != nil && len(backupKeyPem) != 0 && idConfig.ProviderService != "" {
 			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idConfig.ProviderService)
-			err, forceInitIdentity, forceInitKeyPem = identityProvisioningRequest(idConfig, handler, true)
+			err, forceInitIdentity, forceInitKeyPem = identityProvisioningRequest(true)
 			if err != nil {
 				log.Errorf("Failed to retrieve renewed x509 certificate from identity provider: %s", err.Error())
 			} else {
@@ -224,7 +224,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 			}
 		}
 
-		err, roleCerts := roleCertProvisioningRequest(idConfig, handler)
+		err, roleCerts := roleCertProvisioningRequest()
 		if err != nil {
 			return err
 		}
