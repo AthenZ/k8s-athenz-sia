@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,6 +13,9 @@ import (
 )
 
 func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
+	if stopChan == nil {
+		panic(fmt.Errorf("Metricsd: stopChan cannot be empty"))
+	}
 
 	if idConfig.Init {
 		log.Infof("Metrics exporter is disabled for init mode: address[%s]", idConfig.MetricsServerAddr)

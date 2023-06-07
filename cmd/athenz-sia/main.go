@@ -254,6 +254,8 @@ func main() {
 	}
 
 	close(certificateChan)
-	<-sdChan
+	if sdChan != nil {
+		<-sdChan
+	}
 	log.Println("Shut down complete!")
 }

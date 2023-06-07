@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"path/filepath"
@@ -14,6 +15,10 @@ import (
 )
 
 func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
+
+	if stopChan == nil {
+		panic(fmt.Errorf("Certificated: stopChan cannot be empty"))
+	}
 
 	if idConfig.ProviderService == "" {
 		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idConfig.ProviderService)
@@ -312,8 +317,12 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 				}
 				close(metricsChan)
 				close(tokenChan)
-				<-tokenSdChan
-				<-metricsSdChan
+				if tokenSdChan != nil {
+					<-tokenSdChan
+				}
+				if metricsSdChan != nil {
+					<-metricsSdChan
+				}
 				return
 			}
 		}

@@ -62,6 +62,10 @@ func (c *LockedTokenCache) Range(f func(Token) error) error {
 // Tokend starts the token server and refreshes tokens periodically.
 func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
 
+	if stopChan == nil {
+		panic(fmt.Errorf("Tokend: stopChan cannot be empty"))
+	}
+
 	if idConfig.TokenServerAddr == "" || idConfig.TargetDomainRoles == "" || idConfig.TokenType == "" {
 		log.Infof("Token provider is disabled with empty options: address[%s], roles[%s], token-type[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles, idConfig.TokenType)
 		return nil, nil
