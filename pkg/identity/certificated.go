@@ -187,7 +187,6 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 	}
 
 	run := func() error {
-		log.Infof("🔥 For test only")
 		if idConfig.ProviderService != "" {
 			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idConfig.ProviderService)
 
