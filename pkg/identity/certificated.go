@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"path/filepath"
@@ -15,6 +16,10 @@ import (
 
 func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
 
+	if stopChan == nil {
+		panic(fmt.Errorf("Certificated: stopChan cannot be empty"))
+	}
+
 	if idConfig.ProviderService == "" {
 		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idConfig.ProviderService)
 	}
@@ -23,8 +28,8 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idConfig.TargetDomainRoles, idConfig.RoleCertDir)
 	}
 
-	var identity *InstanceIdentity
-	var keyPem []byte
+	var identity, backupIdentity, forceInitIdentity *InstanceIdentity
+	var keyPem, backupKeyPem, forceInitKeyPem []byte
 
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
@@ -82,6 +87,91 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		return w.Save()
 	}
 
+	identityProvisioningRequest := func(forceInit bool) (err error, identity *InstanceIdentity, keyPem []byte) {
+		log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
+
+		identity, keyPem, err = handler.GetX509Cert(forceInit)
+
+		if err != nil {
+			log.Warnf("Error while requesting x509 certificate to identity provider: %s", err.Error())
+
+			if idConfig.CertSecret != "" && strings.Contains(idConfig.Backup, "write") {
+				log.Errorf("Failed to receive x509 certificate to update kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
+				return
+			}
+		} else {
+			log.Infoln("Successfully received x509 certificate from identity provider")
+
+			if idConfig.CertSecret != "" && strings.Contains(idConfig.Backup, "write") {
+
+				log.Infof("Attempting to save x509 certificate to kubernetes secret[%s]...", idConfig.CertSecret)
+
+				err = handler.ApplyX509CertToSecret(identity, keyPem)
+				if err != nil {
+					log.Errorf("Failed to save x509 certificate to kubernetes secret: %s", err.Error())
+					return
+				}
+
+				log.Infof("Successfully saved x509 certificate to kubernetes secret")
+			} else {
+				log.Debugf("Skipping to save x509 certificate temporary backup to Kubernetes secret[%s]", idConfig.CertSecret)
+			}
+		}
+
+		return
+	}
+
+	roleCertProvisioningRequest := func() (err error, roleCerts [](*RoleCertificate)) {
+		var roleIdentity *InstanceIdentity
+		var roleKeyPem, roleCertPem []byte
+
+		if idConfig.TargetDomainRoles == "" || idConfig.RoleCertDir == "" {
+			return nil, nil
+		}
+
+		if identity == nil || len(keyPem) == 0 {
+			log.Debugf("Attempting to load x509 certificate from local file to get x509 role certs: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
+
+			roleCertPem, err = ioutil.ReadFile(idConfig.CertFile)
+			if err != nil {
+				log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
+			}
+			roleKeyPem, err = ioutil.ReadFile(idConfig.KeyFile)
+			if err != nil {
+				log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
+			}
+
+			roleIdentity, err = InstanceIdentityFromPEMBytes(roleCertPem)
+			if err != nil {
+				log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
+			}
+
+			if roleIdentity == nil || len(roleKeyPem) == 0 {
+				log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(roleKeyPem), len(roleCertPem))
+			} else {
+				log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(roleKeyPem), len(roleCertPem))
+			}
+		} else {
+			roleIdentity = identity
+			roleKeyPem = keyPem
+		}
+
+		if roleIdentity == nil || len(roleKeyPem) == 0 {
+			return nil, nil
+		}
+
+		log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
+
+		roleCerts, err = handler.GetX509RoleCert(roleIdentity, roleKeyPem)
+		if err != nil {
+			log.Warnf("Error while requesting x509 role certificate to identity provider: %s", err.Error())
+			return err, nil
+		}
+
+		log.Infoln("Successfully received x509 role certs from identity provider")
+		return nil, roleCerts
+	}
+
 	// getExponentialBackoff will return a backoff config with first retry delay of 5s, and backoff retry
 	// until REFRESH_INTERVAL / 4
 	getExponentialBackoff := func() *backoff.ExponentialBackOff {
@@ -97,38 +187,12 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 	}
 
 	run := func() error {
-
 		if idConfig.ProviderService != "" {
 			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idConfig.ProviderService)
 
-			log.Infof("Mapped Athenz domain[%s], service[%s]", handler.Domain(), handler.Service())
-
-			identity, keyPem, err = handler.GetX509Cert()
-
+			err, identity, keyPem = identityProvisioningRequest(false)
 			if err != nil {
-				log.Warnf("Error while requesting x509 certificate to identity provider: %s", err.Error())
-
-				if idConfig.CertSecret != "" && strings.Contains(idConfig.Backup, "write") {
-					log.Errorf("Failed to receive x509 certificate to update kubernetes secret[%s]: %s", idConfig.CertSecret, err.Error())
-					return err
-				}
-			} else {
-				log.Infoln("Successfully received x509 certificate from identity provider")
-
-				if idConfig.CertSecret != "" && strings.Contains(idConfig.Backup, "write") {
-
-					log.Infof("Attempting to save x509 certificate to kubernetes secret[%s]...", idConfig.CertSecret)
-
-					err = handler.ApplyX509CertToSecret(identity, keyPem)
-					if err != nil {
-						log.Errorf("Failed to save x509 certificate to kubernetes secret: %s", err.Error())
-						return err
-					}
-
-					log.Infof("Successfully saved x509 certificate to kubernetes secret")
-				} else {
-					log.Debugf("Skipping to save x509 certificate temporary backup to Kubernetes secret[%s]", idConfig.CertSecret)
-				}
+				log.Errorf("Failed to retrieve x509 certificate from identity provider: %s", err.Error())
 			}
 		}
 
@@ -136,14 +200,16 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 			if idConfig.CertSecret != "" && strings.Contains(idConfig.Backup, "read") {
 				log.Infof("Attempting to load x509 certificate temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
 
-				identity, keyPem, err = handler.GetX509CertFromSecret()
+				backupIdentity, backupKeyPem, err = handler.GetX509CertFromSecret()
 				if err != nil {
 					log.Warnf("Error while loading x509 certificate temporary backup from kubernetes secret: %s", err.Error())
 				}
 
-				if identity == nil || len(keyPem) == 0 {
+				if backupIdentity == nil || len(backupKeyPem) == 0 {
 					log.Warnf("Failed to load x509 certificate temporary backup from kubernetes secret: secret was empty")
 				} else {
+					identity = backupIdentity
+					keyPem = backupKeyPem
 					log.Infof("Successfully loaded x509 certificate from kubernetes secret")
 				}
 			} else {
@@ -152,51 +218,32 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 			}
 		}
 
-		var roleIdentity *InstanceIdentity
-		var roleKeyPem, roleCertPem []byte
-		var roleCerts [](*RoleCertificate)
-		if idConfig.TargetDomainRoles != "" && idConfig.RoleCertDir != "" {
-			if identity == nil || len(keyPem) == 0 {
-				log.Debugf("Attempting to load x509 certificate from local file to get x509 role certs: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
-
-				roleCertPem, err = ioutil.ReadFile(idConfig.CertFile)
-				if err != nil {
-					log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
-				}
-				roleKeyPem, err = ioutil.ReadFile(idConfig.KeyFile)
-				if err != nil {
-					log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
-				}
-
-				roleIdentity, err = InstanceIdentityFromPEMBytes(roleCertPem)
-				if err != nil {
-					log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
-				}
-
-				if roleIdentity == nil || len(roleKeyPem) == 0 {
-					log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(roleKeyPem), len(roleCertPem))
-				} else {
-					log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(roleKeyPem), len(roleCertPem))
-				}
+		if backupIdentity != nil && len(backupKeyPem) != 0 && idConfig.ProviderService != "" {
+			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idConfig.ProviderService)
+			err, forceInitIdentity, forceInitKeyPem = identityProvisioningRequest(true)
+			if err != nil {
+				log.Errorf("Failed to retrieve renewed x509 certificate from identity provider: %s", err.Error())
 			} else {
-				roleIdentity = identity
-				roleKeyPem = keyPem
-			}
-
-			if roleIdentity != nil && len(roleKeyPem) != 0 {
-				log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idConfig.TargetDomainRoles)
-
-				roleCerts, err = handler.GetX509RoleCert(roleIdentity, roleKeyPem)
-				if err != nil {
-					log.Warnf("Error while requesting x509 role certificate to identity provider: %s", err.Error())
-					return err
-				} else {
-					log.Infoln("Successfully received x509 role certs from identity provider")
-				}
+				identity = forceInitIdentity
+				keyPem = forceInitKeyPem
 			}
 		}
 
-		return writeFiles(identity, keyPem, roleCerts)
+		err, roleCerts := roleCertProvisioningRequest()
+		if err != nil {
+			return err
+		}
+
+		err = writeFiles(identity, keyPem, roleCerts)
+		if err != nil {
+			if forceInitIdentity != nil || forceInitKeyPem != nil {
+				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
+			} else {
+				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
+			}
+		}
+
+		return err
 	}
 
 	deleteRequest := func() error {
@@ -270,8 +317,12 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 				}
 				close(metricsChan)
 				close(tokenChan)
-				<-tokenSdChan
-				<-metricsSdChan
+				if tokenSdChan != nil {
+					<-tokenSdChan
+				}
+				if metricsSdChan != nil {
+					<-metricsSdChan
+				}
 				return
 			}
 		}
