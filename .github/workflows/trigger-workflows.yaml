@@ -22,9 +22,8 @@ env:
   # DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64"
   DOCKER_TAEGET_PLATFORMS: "linux/amd64,linux/arm64"
 
-jobs:
+jobs: # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 
-  # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   go-test:
     name: "Run unit test"
     uses: ./.github/workflows/go-test.yaml
@@ -46,7 +45,6 @@ jobs:
           json_array="[${json_array%?}]" # Remove the trailing comma, add square backet
           echo "DOCKER_TAEGET_PLATFORMS_JSON=${json_array}" >> "$GITHUB_OUTPUT"
 
-  # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   docker-build-publish:
     name: "Build and Publish Docker Images"
     needs:
@@ -57,7 +55,6 @@ jobs:
     with:
       DOCKER_TAEGET_PLATFORMS: ${{ needs.set-platforms.outputs.DOCKER_TAEGET_PLATFORMS_JSON }}
 
-  # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
   github-releases:
     name: "Create Github Releases with Packages"
     needs:

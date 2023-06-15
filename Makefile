@@ -68,6 +68,11 @@ clean:
 	chmod -R a+w pkg/ || true
 	rm -rf $(shell pwd)/pkg || true
 
+check-license-header:
+	# go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
+	license-eye -c .licenserc.yaml header check
+	# license-eye -c .licenserc.yaml header fix
+
 submodule-update:
 	git submodule update --recursive --init
 
