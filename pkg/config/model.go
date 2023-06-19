@@ -17,7 +17,7 @@ package config
 import (
 	"time"
 
-	"github.com/AthenZ/k8s-athenz-sia/third_party/util"
+	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 )
 
 // IdentityConfig from cmd line args
@@ -52,6 +52,7 @@ type IdentityConfig struct {
 	TokenRefresh              time.Duration
 	TokenExpiry               time.Duration
 	TokenServerAddr           string
+	TokenServerAPIEnable      bool
 	TokenDir                  string
 	MetricsServerAddr         string
 	DeleteInstanceID          bool
@@ -60,10 +61,11 @@ type IdentityConfig struct {
 	LogLevel string
 
 	// raw strings before parsing
-	rawMode               string
-	rawRefresh            string
-	rawDelayJitterSeconds string
-	rawTokenRefresh       string
-	rawTokenExpiry        string
-	rawDeleteInstanceID   string
+	rawMode                 string
+	rawRefresh              string
+	rawDelayJitterSeconds   string
+	rawTokenRefresh         string
+	rawTokenExpiry          string
+	rawTokenServerAPIEnable string
+	rawDeleteInstanceID     string
 }

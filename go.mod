@@ -1,4 +1,4 @@
-module github.com/AthenZ/k8s-athenz-sia
+module github.com/AthenZ/k8s-athenz-sia/v3
 
 go 1.20
 

@@ -88,6 +88,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		TokenRefresh:              DEFAULT_TOKEN_REFRESH,
 		TokenExpiry:               DEFAULT_TOKEN_EXPIRY,
 		TokenServerAddr:           "",
+		TokenServerAPIEnable:      false,
 		TokenDir:                  "",
 		MetricsServerAddr:         "",
 		DeleteInstanceID:          true,
@@ -95,12 +96,13 @@ func DefaultIdentityConfig() *IdentityConfig {
 		LogDir:   "",
 		LogLevel: "INFO",
 
-		rawMode:               "init",
-		rawRefresh:            "24h",
-		rawDelayJitterSeconds: "0",
-		rawTokenRefresh:       DEFAULT_TOKEN_REFRESH.String(),
-		rawTokenExpiry:        DEFAULT_TOKEN_EXPIRY.String(),
-		rawDeleteInstanceID:   "true",
+		rawMode:                 "init",
+		rawRefresh:              "24h",
+		rawDelayJitterSeconds:   "0",
+		rawTokenRefresh:         DEFAULT_TOKEN_REFRESH.String(),
+		rawTokenExpiry:          DEFAULT_TOKEN_EXPIRY.String(),
+		rawTokenServerAPIEnable: "false",
+		rawDeleteInstanceID:     "true",
 
 		Reloader: nil,
 	}

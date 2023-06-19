@@ -19,12 +19,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AthenZ/k8s-athenz-sia/pkg/config"
-	"github.com/AthenZ/k8s-athenz-sia/third_party/log"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 
 	// using git submodule to import internal package (special package in golang)
 	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
-	internal "github.com/AthenZ/k8s-athenz-sia/pkg/metrics"
+	internal "github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
 )
 
 func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {

@@ -21,9 +21,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/AthenZ/k8s-athenz-sia/pkg/config"
-	"github.com/AthenZ/k8s-athenz-sia/pkg/identity"
-	"github.com/AthenZ/k8s-athenz-sia/third_party/log"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/identity"
+	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
 const serviceName = "athenz-sia"
@@ -57,7 +57,7 @@ func printVersion() {
 func main() {
 
 	// one-time logger for loading user config
-	log.InitLogger(filepath.Join("", fmt.Sprintf("%s.%s.log", serviceName, "INFO")), "INFO", true)
+	log.InitLogger("", "INFO", true)
 	idConfig, err := config.LoadConfig(filepath.Base(os.Args[0]), os.Args[1:])
 	if err != nil {
 		switch err {

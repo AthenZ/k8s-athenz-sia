@@ -33,14 +33,13 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/AthenZ/k8s-athenz-sia/pkg/config"
-	"github.com/AthenZ/k8s-athenz-sia/pkg/k8s"
-	"github.com/AthenZ/k8s-athenz-sia/third_party/log"
-	"github.com/AthenZ/k8s-athenz-sia/third_party/util"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/k8s"
+	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
-	"github.com/AthenZ/athenz/libs/go/athenzutils"
-	extutil "github.com/AthenZ/k8s-athenz-sia/pkg/util"
+	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
 // RoleCertificate stores role certificate
@@ -54,61 +53,6 @@ type RoleCertificate struct {
 	SerialNumber    *big.Int
 	DNSNames        []string
 	X509Certificate string
-}
-
-type Token interface {
-	Domain() string
-	Role() string
-	Raw() string
-	Expiry() int64
-}
-
-// RoleToken stores role token
-type RoleToken struct {
-	domain string
-	role   string
-	raw    string
-	expiry int64
-}
-
-func (t *RoleToken) Domain() string {
-	return t.domain
-}
-
-func (t *RoleToken) Role() string {
-	return t.role
-}
-
-func (t *RoleToken) Raw() string {
-	return t.raw
-}
-
-func (t *RoleToken) Expiry() int64 {
-	return t.expiry
-}
-
-// AccessToken stores access token
-type AccessToken struct {
-	domain string
-	role   string
-	raw    string
-	expiry int64
-}
-
-func (t *AccessToken) Domain() string {
-	return t.domain
-}
-
-func (t *AccessToken) Role() string {
-	return t.role
-}
-
-func (t *AccessToken) Raw() string {
-	return t.raw
-}
-
-func (t *AccessToken) Expiry() int64 {
-	return t.expiry
 }
 
 // InstanceIdentity stores instance identity certificate
@@ -373,76 +317,6 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 	}
 
 	return rolecerts, err
-}
-
-// GetToken makes ZTS API calls to generate an X.509 role certificate
-func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleToken), accesstokens [](*AccessToken), err error) {
-
-	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
-	}
-	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		cert, err := tls.X509KeyPair(certPEM, keyPEM)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to load tls client key pair for PostAccessTokenRequest, err: %v", err)
-		}
-		return &cert, nil
-	}
-	t := &http.Transport{
-		TLSClientConfig: tlsConfig,
-	}
-	if h.config.ServerCACert != "" {
-		certPool := x509.NewCertPool()
-		caCert, err := ioutil.ReadFile(h.config.ServerCACert)
-		if err != nil {
-			return nil, nil, fmt.Errorf("Failed to load tls client ca certificate for PostAccessTokenRequest, err: %v", err)
-		}
-		certPool.AppendCertsFromPEM(caCert)
-		tlsConfig.RootCAs = certPool
-		t.TLSClientConfig = tlsConfig
-	}
-
-	// In init mode, the existing ZTS Client does not have client certificate set.
-	// When config.Reloader.GetLatestCertificate() is called to load client certificate, the first certificate has not written to the file yet.
-	// Therefore, ZTS Client must be renewed to make sure the ZTS Client loads the latest client certificate.
-	//
-	// The intermediate certificates may be different between each ZTS.
-	// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
-	roleClient := zts.NewClient(h.config.Endpoint, t)
-	expireTimeMs := int32(config.DEFAULT_TOKEN_EXPIRY_TIME_INT * 60)
-
-	for _, domainrole := range strings.Split(h.config.TargetDomainRoles, ",") {
-		dr := strings.Split(domainrole, ":role.")
-
-		if strings.Contains(h.config.TokenType, "accesstoken") {
-			request := athenzutils.GenerateAccessTokenRequestString(dr[0], h.service, dr[1], "", "", int(expireTimeMs))
-			accessTokenResponse, err := roleClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
-			if err != nil || accessTokenResponse.Access_token == "" {
-				return nil, nil, fmt.Errorf("PostAccessTokenRequest failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
-			}
-			accesstokens = append(accesstokens, &AccessToken{
-				domain: dr[0],
-				role:   dr[1],
-				raw:    accessTokenResponse.Access_token,
-				expiry: int64(*accessTokenResponse.Expires_in),
-			})
-		}
-
-		if strings.Contains(h.config.TokenType, "roletoken") {
-			roletokenResponse, err := roleClient.GetRoleToken(zts.DomainName(dr[0]), zts.EntityList(dr[1]), &expireTimeMs, &expireTimeMs, "")
-			if err != nil || roletokenResponse.Token == "" {
-				return nil, nil, fmt.Errorf("GetRoleToken failed for domain[%s], role[%s], err: %v", dr[0], dr[1], err)
-			}
-			roletokens = append(roletokens, &RoleToken{
-				domain: dr[0],
-				role:   dr[1],
-				raw:    roletokenResponse.Token,
-				expiry: roletokenResponse.ExpiryTime,
-			})
-		}
-	}
-
-	return roletokens, accesstokens, err
 }
 
 // DeleteX509CertRecord makes ZTS API calls to delete the X.509 certificate record
