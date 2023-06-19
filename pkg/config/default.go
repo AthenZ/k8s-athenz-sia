@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+const (
+	serviceName = "athenz-sia"
+
+	DEFAULT_SIDECAR_CONFIG_PATH = "/etc/athenz/client/config.yaml"
+)
+
 var (
 	// default values for X.509 certificate signing request
 	DEFAULT_COUNTRY             = "US"
@@ -29,8 +35,8 @@ var (
 	DEFAULT_INTERMEDIATE_CERT_BUNDLE     string
 )
 
-// InitDefaultValues initializes default values from build args
-func InitDefaultValues() {
+func init() {
+	// initializes default values from build args
 	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT, _ = strconv.Atoi(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES)
 	DEFAULT_TOKEN_EXPIRY_TIME_INT, _ = strconv.Atoi(DEFAULT_TOKEN_EXPIRY_TIME)
 }

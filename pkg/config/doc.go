@@ -1,2 +1,2 @@
-// Package config defines all the configuration parameters. It reads configuration from environment variables, comamnd-line arguments, and YAML files.
+// Package config defines all the configuration parameters. It reads configuration from YAML files, environment variables and comamnd-line arguments.
 package config
