@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AthenZ/k8s-athenz-sia/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/third_party/log"
 
 	// using git submodule to import internal package (special package in golang)
@@ -26,7 +27,7 @@ import (
 	internal "github.com/AthenZ/k8s-athenz-sia/pkg/metrics"
 )
 
-func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
+func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
 	if stopChan == nil {
 		panic(fmt.Errorf("Metricsd: stopChan cannot be empty"))
 	}

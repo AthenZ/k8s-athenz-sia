@@ -22,13 +22,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AthenZ/k8s-athenz-sia/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/third_party/util"
 	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
 )
 
-func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
+func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
 
 	if stopChan == nil {
 		panic(fmt.Errorf("Certificated: stopChan cannot be empty"))

@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AthenZ/k8s-athenz-sia/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/third_party/util"
 	"github.com/cenkalti/backoff"
@@ -75,7 +76,7 @@ func (c *LockedTokenCache) Range(f func(Token) error) error {
 }
 
 // Tokend starts the token server and refreshes tokens periodically.
-func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
+func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
 
 	if stopChan == nil {
 		panic(fmt.Errorf("Tokend: stopChan cannot be empty"))

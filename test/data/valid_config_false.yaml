@@ -1,0 +1,8 @@
+---
+version: v2.0.0
+nToken:
+  enable: false
+roleToken:
+  enable: false
+proxy:
+  enable: false

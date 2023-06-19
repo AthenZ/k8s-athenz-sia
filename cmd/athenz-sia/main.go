@@ -24,11 +24,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AthenZ/k8s-athenz-sia/third_party/log"
-	"github.com/AthenZ/k8s-athenz-sia/third_party/util"
 	"github.com/pkg/errors"
 
+	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
+
+	"github.com/AthenZ/k8s-athenz-sia/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/pkg/identity"
+	"github.com/AthenZ/k8s-athenz-sia/third_party/log"
+	"github.com/AthenZ/k8s-athenz-sia/third_party/util"
 )
 
 const serviceName = "athenz-sia"
@@ -48,63 +51,54 @@ func printVersion() {
 		fmt.Printf("Version: %s\n", VERSION)
 		fmt.Printf("Build Date: %s\n", BUILD_DATE)
 		fmt.Println("===== Default Values =====")
-		fmt.Printf("Athenz Endpoint: %s\n", identity.DEFAULT_ENDPOINT)
-		fmt.Printf("Certificate SANs DNS Suffix: %s\n", identity.DEFAULT_DNS_SUFFIX)
-		fmt.Printf("Country: %s\n", identity.DEFAULT_COUNTRY)
-		fmt.Printf("Province: %s\n", identity.DEFAULT_PROVINCE)
-		fmt.Printf("Organization: %s\n", identity.DEFAULT_ORGANIZATION)
-		fmt.Printf("OrganizationalUnit: %s\n", identity.DEFAULT_ORGANIZATIONAL_UNIT)
-		fmt.Printf("Role Cert Expiry Time Buffer Minutes: %d\n", identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT)
-		fmt.Printf("Role Cert Filename Delimiter: %s\n", identity.DEFAULT_ROLE_CERT_FILENAME_DELIMITER)
-		fmt.Printf("Role Token Header: %s\n", identity.DEFAULT_ROLE_AUTH_HEADER)
+		fmt.Printf("Athenz Endpoint: %s\n", config.DEFAULT_ENDPOINT)
+		fmt.Printf("Certificate SANs DNS Suffix: %s\n", config.DEFAULT_DNS_SUFFIX)
+		fmt.Printf("Country: %s\n", config.DEFAULT_COUNTRY)
+		fmt.Printf("Province: %s\n", config.DEFAULT_PROVINCE)
+		fmt.Printf("Organization: %s\n", config.DEFAULT_ORGANIZATION)
+		fmt.Printf("OrganizationalUnit: %s\n", config.DEFAULT_ORGANIZATIONAL_UNIT)
+		fmt.Printf("Role Cert Expiry Time Buffer Minutes: %d\n", config.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT)
+		fmt.Printf("Role Cert Filename Delimiter: %s\n", config.DEFAULT_ROLE_CERT_FILENAME_DELIMITER)
+		fmt.Printf("Role Token Header: %s\n", config.DEFAULT_ROLE_AUTH_HEADER)
 	}
-}
-
-// envOrDefault returns the value of the supplied variable or a default string.
-func envOrDefault(name string, defaultValue string) string {
-	v := os.Getenv(name)
-	if v == "" {
-		return defaultValue
-	}
-	return v
 }
 
 // parseFlags parses ENV and cmd line args and returns an IdentityConfig object
-func parseFlags(program string, args []string) (*identity.IdentityConfig, error) {
+func parseFlags(program string, args []string) (*config.IdentityConfig, error) {
 	var (
-		mode                      = envOrDefault("MODE", "init")
-		endpoint                  = envOrDefault("ENDPOINT", identity.DEFAULT_ENDPOINT)
-		providerService           = envOrDefault("PROVIDER_SERVICE", "")
-		dnsSuffix                 = envOrDefault("DNS_SUFFIX", identity.DEFAULT_DNS_SUFFIX)
-		refreshInterval           = envOrDefault("REFRESH_INTERVAL", "24h")
-		delayJitterSeconds, _     = strconv.ParseInt(envOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
-		keyFile                   = envOrDefault("KEY_FILE", "")
-		certFile                  = envOrDefault("CERT_FILE", "")
-		caCertFile                = envOrDefault("CA_CERT_FILE", "")
-		intermediateCertBundle    = envOrDefault("INTERMEDIATE_CERT_BUNDLE", identity.DEFAULT_INTERMEDIATE_CERT_BUNDLE)
-		logDir                    = envOrDefault("LOG_DIR", "")
-		logLevel                  = envOrDefault("LOG_LEVEL", "INFO")
-		backup                    = envOrDefault("BACKUP", "read+write")
-		certSecret                = envOrDefault("CERT_SECRET", "")
-		namespace                 = envOrDefault("NAMESPACE", "")
-		athenzDomain              = envOrDefault("ATHENZ_DOMAIN", "")
-		athenzPrefix              = envOrDefault("ATHENZ_PREFIX", "")
-		athenzSuffix              = envOrDefault("ATHENZ_SUFFIX", "")
-		serviceAccount            = envOrDefault("SERVICEACCOUNT", "")
-		saTokenFile               = envOrDefault("SA_TOKEN_FILE", "")
-		podIP                     = envOrDefault("POD_IP", "127.0.0.1")
-		podUID                    = envOrDefault("POD_UID", "")
-		serverCACert              = envOrDefault("SERVER_CA_CERT", "")
-		targetDomainRoles         = envOrDefault("TARGET_DOMAIN_ROLES", "")
-		roleCertDir               = envOrDefault("ROLECERT_DIR", "")
-		roleCertFilenameDelimiter = envOrDefault("ROLE_CERT_FILENAME_DELIMITER", identity.DEFAULT_ROLE_CERT_FILENAME_DELIMITER)
-		tokenDir                  = envOrDefault("TOKEN_DIR", "")
-		roleAuthHeader            = envOrDefault("ROLE_AUTH_HEADER", identity.DEFAULT_ROLE_AUTH_HEADER)
-		tokenType                 = envOrDefault("TOKEN_TYPE", "accesstoken")
-		tokenRefreshInterval      = envOrDefault("TOKEN_REFRESH_INTERVAL", "30m")
-		tokenServerAddr           = envOrDefault("TOKEN_SERVER_ADDR", "")
-		metricsServerAddr         = envOrDefault("METRICS_SERVER_ADDR", "")
-		deleteInstanceID, _       = strconv.ParseBool(envOrDefault("DELETE_INSTANCE_ID", "true"))
+		mode                      = athenz.EnvOrDefault("MODE", "init")
+		endpoint                  = athenz.EnvOrDefault("ENDPOINT", config.DEFAULT_ENDPOINT)
+		providerService           = athenz.EnvOrDefault("PROVIDER_SERVICE", "")
+		dnsSuffix                 = athenz.EnvOrDefault("DNS_SUFFIX", config.DEFAULT_DNS_SUFFIX)
+		refreshInterval           = athenz.EnvOrDefault("REFRESH_INTERVAL", "24h")
+		delayJitterSeconds, _     = strconv.ParseInt(athenz.EnvOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
+		keyFile                   = athenz.EnvOrDefault("KEY_FILE", "")
+		certFile                  = athenz.EnvOrDefault("CERT_FILE", "")
+		caCertFile                = athenz.EnvOrDefault("CA_CERT_FILE", "")
+		intermediateCertBundle    = athenz.EnvOrDefault("INTERMEDIATE_CERT_BUNDLE", config.DEFAULT_INTERMEDIATE_CERT_BUNDLE)
+		logDir                    = athenz.EnvOrDefault("LOG_DIR", "")
+		logLevel                  = athenz.EnvOrDefault("LOG_LEVEL", "INFO")
+		backup                    = athenz.EnvOrDefault("BACKUP", "read+write")
+		certSecret                = athenz.EnvOrDefault("CERT_SECRET", "")
+		namespace                 = athenz.EnvOrDefault("NAMESPACE", "")
+		athenzDomain              = athenz.EnvOrDefault("ATHENZ_DOMAIN", "")
+		athenzPrefix              = athenz.EnvOrDefault("ATHENZ_PREFIX", "")
+		athenzSuffix              = athenz.EnvOrDefault("ATHENZ_SUFFIX", "")
+		serviceAccount            = athenz.EnvOrDefault("SERVICEACCOUNT", "")
+		saTokenFile               = athenz.EnvOrDefault("SA_TOKEN_FILE", "")
+		podIP                     = athenz.EnvOrDefault("POD_IP", "127.0.0.1")
+		podUID                    = athenz.EnvOrDefault("POD_UID", "")
+		serverCACert              = athenz.EnvOrDefault("SERVER_CA_CERT", "")
+		targetDomainRoles         = athenz.EnvOrDefault("TARGET_DOMAIN_ROLES", "")
+		roleCertDir               = athenz.EnvOrDefault("ROLECERT_DIR", "")
+		roleCertFilenameDelimiter = athenz.EnvOrDefault("ROLE_CERT_FILENAME_DELIMITER", config.DEFAULT_ROLE_CERT_FILENAME_DELIMITER)
+		tokenDir                  = athenz.EnvOrDefault("TOKEN_DIR", "")
+		roleAuthHeader            = athenz.EnvOrDefault("ROLE_AUTH_HEADER", config.DEFAULT_ROLE_AUTH_HEADER)
+		tokenType                 = athenz.EnvOrDefault("TOKEN_TYPE", "accesstoken")
+		tokenRefreshInterval      = athenz.EnvOrDefault("TOKEN_REFRESH_INTERVAL", "30m")
+		tokenServerAddr           = athenz.EnvOrDefault("TOKEN_SERVER_ADDR", "")
+		metricsServerAddr         = athenz.EnvOrDefault("METRICS_SERVER_ADDR", "")
+		deleteInstanceID, _       = strconv.ParseBool(athenz.EnvOrDefault("DELETE_INSTANCE_ID", "true"))
 	)
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
 	f.StringVar(&mode, "mode", mode, "mode, must be one of init or refresh")
@@ -161,8 +155,8 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		pollInterval = util.DefaultPollInterval
 	}
 	pollTokenInterval := tri
-	if pollTokenInterval > identity.DEFAULT_POLL_TOKEN_INTERVAL {
-		pollTokenInterval = identity.DEFAULT_POLL_TOKEN_INTERVAL
+	if pollTokenInterval > config.DEFAULT_POLL_TOKEN_INTERVAL {
+		pollTokenInterval = config.DEFAULT_POLL_TOKEN_INTERVAL
 	}
 	reloader, err := util.NewCertReloader(util.ReloadConfig{
 		KeyFile:      keyFile,
@@ -199,7 +193,7 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		return nil, errors.Wrap(err, "unable to read key and cert")
 	}
 
-	return &identity.IdentityConfig{
+	return &config.IdentityConfig{
 		Init:                      init,
 		Endpoint:                  endpoint,
 		ProviderService:           providerService,
@@ -234,9 +228,8 @@ func parseFlags(program string, args []string) (*identity.IdentityConfig, error)
 		DeleteInstanceID:          deleteInstanceID,
 	}, nil
 }
-
 func main() {
-	identity.InitDefaultValues()       // initialize default values
+	config.InitDefaultValues()         // initialize default values
 	flag.CommandLine.Parse([]string{}) // initialize glog with defaults
 	if len(os.Args) == 2 && os.Args[1] == "version" {
 		printVersion()
