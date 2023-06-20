@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -54,11 +55,11 @@ func (idConfig *IdentityConfig) loadFromYAML(configFilePath string) error {
 		if !os.IsNotExist(err) || configFilePath != DEFAULT_SIDECAR_CONFIG_PATH {
 			return err
 		}
-		// skip if config file IsNotExist AND file path == default
+		// skip, if config file IsNotExist AND file path == default
 		return nil
 	}
 
-	// TODO
+	// TODO: load and use config file values
 	// yamlCfg.RoleToken.Enable
 	idConfig.Endpoint = yamlCfg.RoleToken.AthenzURL
 	// yamlCfg.RoleToken.AthenzCAPath
@@ -110,25 +111,37 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("LOG_DIR", &idConfig.LogDir)
 	loadEnv("LOG_LEVEL", &idConfig.LogLevel)
 
-	// file path from ENV is not supported
+	// skip, file path from ENV is not supported
 	// loadEnv("SIDECAR_CONFIG_PATH", &idConfig.rawSidecarConfigPath)
 
-	// TODO: parse values
-	// &idConfig.DelayJitterSeconds, _ = strconv.ParseInt(athenz.EnvOrDefault("DELAY_JITTER_SECONDS", "0"), 10, 64)
-	// &idConfig.DeleteInstanceID, _ = strconv.ParseBool(athenz.EnvOrDefault("DELETE_INSTANCE_ID", "true"))
-	ri, err := time.ParseDuration(refreshInterval)
+	// parse values
+	var err error
+	idConfig.Init, err = parseMode(idConfig.rawMode)
 	if err != nil {
-		return fmt.Errorf("Invalid refresh interval [%q], %v", refreshInterval, err)
+		return fmt.Errorf("Invalid MODE [%q], %v", idConfig.rawMode, err)
 	}
-	tri, err := time.ParseDuration(tokenRefreshInterval)
+	idConfig.Refresh, err = time.ParseDuration(idConfig.rawRefresh)
 	if err != nil {
-		return fmt.Errorf("Invalid token refresh interval [%q], %v", tokenRefreshInterval, err)
+		return fmt.Errorf("Invalid REFRESH_INTERVAL [%q], %v", idConfig.rawRefresh, err)
+	}
+	idConfig.DelayJitterSeconds, err = strconv.ParseInt(idConfig.rawDelayJitterSeconds, 10, 64)
+	if err != nil {
+		return fmt.Errorf("Invalid DELAY_JITTER_SECONDS [%q], %v", idConfig.rawDelayJitterSeconds, err)
+	}
+	idConfig.TokenRefresh, err = time.ParseDuration(idConfig.rawTokenRefresh)
+	if err != nil {
+		return fmt.Errorf("Invalid TOKEN_REFRESH_INTERVAL [%q], %v", idConfig.rawTokenRefresh, err)
+	}
+	idConfig.DeleteInstanceID, err = strconv.ParseBool(idConfig.rawDeleteInstanceID)
+	if err != nil {
+		return fmt.Errorf("Invalid DELETE_INSTANCE_ID [%q], %v", idConfig.rawDeleteInstanceID, err)
 	}
 	return nil
 }
 
 func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
+
 	f.StringVar(&idConfig.rawMode, "mode", idConfig.rawMode, "mode, must be one of init or refresh")
 	f.StringVar(&idConfig.Endpoint, "endpoint", idConfig.Endpoint, "Athenz ZTS endpoint (required for identity/role certificate and token provisioning)")
 	f.StringVar(&idConfig.ProviderService, "provider-service", idConfig.ProviderService, "Identity Provider service (required for identity certificate provisioning)")
@@ -138,22 +151,35 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	f.StringVar(&idConfig.KeyFile, "key", idConfig.KeyFile, "key file for the certificate (required)")
 	f.StringVar(&idConfig.CertFile, "cert", idConfig.CertFile, "certificate file to identity a service (required)")
 	f.StringVar(&idConfig.CaCertFile, "out-ca-cert", idConfig.CaCertFile, "CA certificate file to write")
+	// IntermediateCertBundle
 	f.StringVar(&idConfig.Backup, "backup", idConfig.Backup, "backup certificate to Kubernetes secret (\"read\", \"write\" or \"read+write\", must be run uniquely for each secret to prevent conflict)")
 	f.StringVar(&idConfig.CertSecret, "cert-secret", idConfig.CertSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
+	// Namespace
+	// AthenzDomain
+	// AthenzPrefix
+	// AthenzSuffix
+	// ServiceAccount
 	f.StringVar(&idConfig.SaTokenFile, "sa-token-file", idConfig.SaTokenFile, "bound sa jwt token file location (required for identity certificate provisioning)")
+	// PodIP
+	// PodUID
 	f.StringVar(&idConfig.ServerCACert, "server-ca-cert", idConfig.ServerCACert, "path to CA certificate file to verify ZTS server certs")
-	f.StringVar(&idConfig.TargetDomainRoles, "target-domain-roles", idConfig.TargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+DEFAULT_ROLE_CERT_FILENAME_DELIMITER+"admin,sys.auth"+DEFAULT_ROLE_CERT_FILENAME_DELIMITER+"providers) (required for role certificate and token provisioning)")
+	f.StringVar(&idConfig.TargetDomainRoles, "target-domain-roles", idConfig.TargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idConfig.RoleCertFilenameDelimiter+"admin,sys.auth"+idConfig.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
 	f.StringVar(&idConfig.RoleCertDir, "rolecert-dir", idConfig.RoleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
-	f.StringVar(&idConfig.TokenDir, "token-dir", idConfig.TokenDir, "directory to write token files")
+	// RoleCertFilenameDelimiter
+	// RoleAuthHeader
 	f.StringVar(&idConfig.TokenType, "token-type", idConfig.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
 	f.DurationVar(&idConfig.TokenRefresh, "token-refresh-interval", idConfig.TokenRefresh, "token refresh interval")
 	f.StringVar(&idConfig.TokenServerAddr, "token-server-addr", idConfig.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
+	f.StringVar(&idConfig.TokenDir, "token-dir", idConfig.TokenDir, "directory to write token files")
 	f.StringVar(&idConfig.MetricsServerAddr, "metrics-server-addr", idConfig.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idConfig.DeleteInstanceID, "delete-instance-id", idConfig.DeleteInstanceID, "delete x509 certificate record from identity provider when stop signal is sent")
+	// log
 	f.StringVar(&idConfig.LogDir, "log-dir", idConfig.LogDir, "directory to store the log files")
 	f.StringVar(&idConfig.LogLevel, "log-level", idConfig.LogLevel, "logging level")
+	// config file path
 	f.StringVar(&idConfig.rawSidecarConfigPath, "f", idConfig.rawSidecarConfigPath, "config YAML file path")
 
+	// show version
 	var showVersion bool
 	f.BoolVar(&showVersion, "version", false, "show version")
 	if err := f.Parse(args); err != nil {
@@ -162,23 +188,27 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	if showVersion {
 		return ErrVersion
 	}
+
+	// parse values
+	var err error
+	idConfig.Init, err = parseMode(idConfig.rawMode)
+	if err != nil {
+		return fmt.Errorf("Invalid mode [%q], %v", idConfig.rawMode, err)
+	}
 	return nil
 }
 
 func (idConfig *IdentityConfig) validateAndInit() error {
 
-	if !(idConfig.rawMode == "init" || idConfig.rawMode == "refresh") {
-		return fmt.Errorf("Invalid mode [%q] must be one of \"init\" or \"refresh\"", idConfig.rawMode)
-	}
-	idConfig.Init = idConfig.rawMode == "init"
+	// TODO: clarify unused logic
+	// pollTokenInterval := idConfig.TokenRefresh
+	// if pollTokenInterval > DEFAULT_POLL_TOKEN_INTERVAL {
+	// 	pollTokenInterval = DEFAULT_POLL_TOKEN_INTERVAL
+	// }
 
 	pollInterval := idConfig.Refresh
 	if pollInterval > util.DefaultPollInterval {
 		pollInterval = util.DefaultPollInterval
-	}
-	pollTokenInterval := idConfig.TokenRefresh
-	if pollTokenInterval > DEFAULT_POLL_TOKEN_INTERVAL {
-		pollTokenInterval = DEFAULT_POLL_TOKEN_INTERVAL
 	}
 	reloader, err := util.NewCertReloader(util.ReloadConfig{
 		KeyFile:      idConfig.KeyFile,
@@ -216,4 +246,11 @@ func (idConfig *IdentityConfig) validateAndInit() error {
 	}
 
 	return nil
+}
+
+func parseMode(raw string) (bool, error) {
+	if !(raw == "init" || raw == "refresh") {
+		return false, fmt.Errorf(`must be one of "init" or "refresh"`)
+	}
+	return raw == "init", nil
 }

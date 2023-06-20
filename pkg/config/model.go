@@ -74,7 +74,6 @@ func DefaultIdentityConfig() *IdentityConfig {
 		SaTokenFile:               "",
 		PodIP:                     "127.0.0.1",
 		PodUID:                    "",
-		Reloader:                  nil,
 		ServerCACert:              "",
 		TargetDomainRoles:         "",
 		RoleCertDir:               "",
@@ -90,11 +89,14 @@ func DefaultIdentityConfig() *IdentityConfig {
 		LogDir:   "",
 		LogLevel: "INFO",
 
+		// raw strings before parsing
 		rawMode:               "init",
 		rawRefresh:            "24h",
 		rawDelayJitterSeconds: "0",
 		rawTokenRefresh:       "30m",
 		rawDeleteInstanceID:   "true",
 		rawSidecarConfigPath:  DEFAULT_SIDECAR_CONFIG_PATH,
+
+		Reloader: nil,
 	}
 }

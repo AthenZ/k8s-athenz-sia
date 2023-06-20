@@ -54,8 +54,9 @@ func printVersion() {
 }
 
 func main() {
-	log.InitLogger(filepath.Join("", fmt.Sprintf("%s.%s.log", serviceName, "INFO")), "INFO", true)
 
+	// one-time logger for loading user config
+	log.InitLogger(filepath.Join("", fmt.Sprintf("%s.%s.log", serviceName, "INFO")), "INFO", true)
 	idConfig, err := config.LoadConfig(filepath.Base(os.Args[0]), os.Args[1:])
 	if err != nil {
 		switch err {
@@ -67,6 +68,8 @@ func main() {
 		}
 		log.Fatalln(err)
 	}
+
+	// re-init logger from user config
 	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
 	log.Infoln("Booting up with args", os.Args)
 
