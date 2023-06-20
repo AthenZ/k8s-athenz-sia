@@ -104,7 +104,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan s
 
 		accessTokenCache.Range(func(t Token) error {
 			domain := t.Domain()
-			role := t.Raw()
+			role := t.Role()
 			at := t.Raw()
 			log.Infof("[New Access Token] Domain: %s, Role: %s", domain, role)
 			outPath := filepath.Join(idConfig.TokenDir, domain+":role."+role+".accesstoken")
@@ -116,7 +116,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan s
 		})
 		roleTokenCache.Range(func(t Token) error {
 			domain := t.Domain()
-			role := t.Raw()
+			role := t.Role()
 			rt := t.Raw()
 			log.Infof("[New Role Token] Domain: %s, Role: %s", domain, role)
 			outPath := filepath.Join(idConfig.TokenDir, domain+":role."+role+".roletoken")
