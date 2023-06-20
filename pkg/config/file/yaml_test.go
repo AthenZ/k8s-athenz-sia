@@ -1,4 +1,4 @@
-package config
+package file
 
 import (
 	"fmt"
@@ -42,7 +42,7 @@ func TestNew(t *testing.T) {
 		{
 			name: "Read valid config file",
 			args: args{
-				path: "../../test/data/valid_config.yaml",
+				path: "../../../test/data/valid_config.yaml",
 			},
 			want: &Config{
 				Version: "v2.0.0",
@@ -126,7 +126,7 @@ func TestNew(t *testing.T) {
 		{
 			name: "Read valid config file with enable = false",
 			args: args{
-				path: "../../test/data/valid_config_false.yaml",
+				path: "../../../test/data/valid_config_false.yaml",
 			},
 			want: &Config{
 				Version: "v2.0.0",
@@ -144,7 +144,7 @@ func TestNew(t *testing.T) {
 		{
 			name: "Read empty config file",
 			args: args{
-				path: "../../test/data/empty.yaml",
+				path: "../../../test/data/empty.yaml",
 			},
 			want: &Config{
 				NToken: NToken{
@@ -162,16 +162,16 @@ func TestNew(t *testing.T) {
 		{
 			name: "Read invalid config file",
 			args: args{
-				path: "../../test/data/invalid_config.yaml",
+				path: "../../../test/data/invalid_config.yaml",
 			},
 			wantErr: fmt.Errorf("yaml: line "),
 		},
 		{
 			name: "Read non-existing config file",
 			args: args{
-				path: "../../test/data/non_exist.yaml",
+				path: "../../../test/data/non_exist.yaml",
 			},
-			wantErr: fmt.Errorf("open ../../test/data/non_exist.yaml: no such file or directory"),
+			wantErr: fmt.Errorf("open ../../../test/data/non_exist.yaml: no such file or directory"),
 		},
 	}
 

@@ -15,7 +15,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -26,6 +25,8 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/pkg/identity"
 	"github.com/AthenZ/k8s-athenz-sia/third_party/log"
 )
+
+const serviceName = "athenz-sia"
 
 var (
 	VERSION    string
@@ -53,19 +54,20 @@ func printVersion() {
 }
 
 func main() {
-	flag.CommandLine.Parse([]string{}) // initialize glog with defaults
-	if len(os.Args) == 2 && os.Args[1] == "version" {
-		printVersion()
-		return
-	}
+	log.InitLogger(filepath.Join("", fmt.Sprintf("%s.%s.log", serviceName, "INFO")), "INFO", true)
 
-	idConfig, err := config.ReadConfig(filepath.Base(os.Args[0]), os.Args[1:])
+	idConfig, err := config.LoadConfig(filepath.Base(os.Args[0]), os.Args[1:])
 	if err != nil {
-		if err == flag.ErrHelp {
+		switch err {
+		case config.ErrHelp:
+			return
+		case config.ErrVersion:
+			printVersion()
 			return
 		}
 		log.Fatalln(err)
 	}
+	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
 	log.Infoln("Booting up with args", os.Args)
 
 	certificateChan := make(chan struct{}, 1)

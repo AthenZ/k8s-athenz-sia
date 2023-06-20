@@ -6,8 +6,6 @@ import (
 )
 
 const (
-	serviceName = "athenz-sia"
-
 	DEFAULT_SIDECAR_CONFIG_PATH = "/etc/athenz/client/config.yaml"
 )
 
