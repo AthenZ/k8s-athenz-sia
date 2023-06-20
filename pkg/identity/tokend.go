@@ -48,6 +48,7 @@ func (c *LockedTokenCache) Update(t Token) {
 	roleMap := c.cache[t.Domain()]
 	if roleMap == nil {
 		roleMap = make(map[string]Token)
+		c.cache[t.Domain()] = roleMap
 	}
 	roleMap[t.Role()] = t
 }
@@ -86,8 +87,8 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan s
 	}
 
 	var roleTokenCache, accessTokenCache TokenCache
-	roleTokenCache = &LockedTokenCache{}
-	accessTokenCache = &LockedTokenCache{}
+	roleTokenCache = &LockedTokenCache{cache: make(map[string]map[string]Token)}
+	accessTokenCache = &LockedTokenCache{cache: make(map[string]map[string]Token)}
 
 	var keyPem, certPem []byte
 
@@ -207,18 +208,18 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan s
 
 		switch idConfig.TokenType {
 		case "roletoken":
-			rToken := roleTokenCache.Load(domain, role)
+			rToken = roleTokenCache.Load(domain, role)
 			if rToken == nil {
 				errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 			}
 		case "accesstoken":
-			aToken := accessTokenCache.Load(domain, role)
+			aToken = accessTokenCache.Load(domain, role)
 			if aToken == nil {
 				errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 			}
 		case "roletoken+accesstoken":
-			rToken := roleTokenCache.Load(domain, role)
-			aToken := accessTokenCache.Load(domain, role)
+			rToken = roleTokenCache.Load(domain, role)
+			aToken = accessTokenCache.Load(domain, role)
 			if rToken == nil || aToken == nil {
 				errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 			}
