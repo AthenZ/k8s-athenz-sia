@@ -52,3 +52,52 @@ func init() {
 	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT, _ = strconv.Atoi(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES)
 	DEFAULT_TOKEN_EXPIRY_TIME_INT, _ = strconv.Atoi(DEFAULT_TOKEN_EXPIRY_TIME)
 }
+
+func DefaultIdentityConfig() *IdentityConfig {
+	return &IdentityConfig{
+		Init:                      true,
+		Endpoint:                  DEFAULT_ENDPOINT,
+		ProviderService:           "",
+		DNSSuffix:                 DEFAULT_DNS_SUFFIX,
+		Refresh:                   24 * time.Hour,
+		DelayJitterSeconds:        0,
+		KeyFile:                   "",
+		CertFile:                  "",
+		CaCertFile:                "",
+		IntermediateCertBundle:    DEFAULT_INTERMEDIATE_CERT_BUNDLE,
+		Backup:                    "read+write",
+		CertSecret:                "",
+		Namespace:                 "",
+		AthenzDomain:              "",
+		AthenzPrefix:              "",
+		AthenzSuffix:              "",
+		ServiceAccount:            "",
+		SaTokenFile:               "",
+		PodIP:                     "127.0.0.1",
+		PodUID:                    "",
+		ServerCACert:              "",
+		TargetDomainRoles:         "",
+		RoleCertDir:               "",
+		RoleCertFilenameDelimiter: DEFAULT_ROLE_CERT_FILENAME_DELIMITER,
+		RoleAuthHeader:            DEFAULT_ROLE_AUTH_HEADER,
+		TokenType:                 "accesstoken",
+		TokenRefresh:              30 * time.Minute,
+		TokenServerAddr:           "",
+		TokenDir:                  "",
+		MetricsServerAddr:         "",
+		DeleteInstanceID:          true,
+
+		LogDir:   "",
+		LogLevel: "INFO",
+
+		// raw strings before parsing
+		rawMode:               "init",
+		rawRefresh:            "24h",
+		rawDelayJitterSeconds: "0",
+		rawTokenRefresh:       "30m",
+		rawDeleteInstanceID:   "true",
+		rawSidecarConfigPath:  DEFAULT_SIDECAR_CONFIG_PATH,
+
+		Reloader: nil,
+	}
+}
