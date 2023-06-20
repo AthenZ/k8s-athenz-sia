@@ -28,7 +28,7 @@ nToken:
 accessToken:
   enable: true
   principalAuthHeader: Athenz-Principal
-  athenzURL: https://www.athenz.com:4443/zts/v1
+  athenzURL: https://www.athenz.io:4443/zts/v1
   athenzCAPath: _athenz_root_ca_
   certPath: _client_cert_path_
   certKeyPath: _client_cert_key_path_
@@ -40,7 +40,7 @@ accessToken:
 roleToken:
   enable: true
   principalAuthHeader: Athenz-Principal
-  athenzURL: https://www.athenz.com:4443/zts/v1
+  athenzURL: https://www.athenz.io:4443/zts/v1
   athenzCAPath: _athenz_root_ca_
   certPath: _client_cert_path_
   certKeyPath: _client_cert_key_path_
@@ -52,7 +52,7 @@ roleToken:
 serviceCert:
   enable: true
   principalAuthHeader: Athenz-Principal
-  athenzURL: https://www.athenz.com:4443/zts/v1
+  athenzURL: https://www.athenz.io:4443/zts/v1
   athenzCAPath: /etc/ssl/cert.pem
   expiry: 720h
   refreshPeriod: 30m

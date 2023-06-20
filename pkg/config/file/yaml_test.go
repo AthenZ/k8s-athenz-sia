@@ -92,7 +92,7 @@ func TestNew(t *testing.T) {
 				AccessToken: AccessToken{
 					Enable:              true,
 					PrincipalAuthHeader: "Athenz-Principal",
-					AthenzURL:           "https://www.athenz.com:4443/zts/v1",
+					AthenzURL:           "https://www.athenz.io:4443/zts/v1",
 					AthenzCAPath:        "_athenz_root_ca_",
 					CertPath:            "_client_cert_path_",
 					CertKeyPath:         "_client_cert_key_path_",
@@ -101,7 +101,7 @@ func TestNew(t *testing.T) {
 				RoleToken: RoleToken{
 					Enable:              true,
 					PrincipalAuthHeader: "Athenz-Principal",
-					AthenzURL:           "https://www.athenz.com:4443/zts/v1",
+					AthenzURL:           "https://www.athenz.io:4443/zts/v1",
 					AthenzCAPath:        "_athenz_root_ca_",
 					CertPath:            "_client_cert_path_",
 					CertKeyPath:         "_client_cert_key_path_",
@@ -115,7 +115,7 @@ func TestNew(t *testing.T) {
 				},
 				ServiceCert: ServiceCert{
 					Enable:              true,
-					AthenzURL:           "https://www.athenz.com:4443/zts/v1",
+					AthenzURL:           "https://www.athenz.io:4443/zts/v1",
 					AthenzCAPath:        "/etc/ssl/cert.pem",
 					DNSSuffix:           "athenz.cloud",
 					RefreshPeriod:       "30m",
