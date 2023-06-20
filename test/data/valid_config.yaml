@@ -61,9 +61,9 @@ serviceCert:
   intermediateCert: true
   spiffe: false
   subject:
-    country: US
-    province: California
-    organization: "Oath Inc."
+    country: JP
+    province: Tokyo
+    organization: "Yahoo Japan Corporation"
     organizationalUnit: Athenz
 proxy:
   enable: true

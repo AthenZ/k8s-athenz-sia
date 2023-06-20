@@ -125,9 +125,9 @@ func TestNew(t *testing.T) {
 					PrincipalAuthHeader: "Athenz-Principal",
 					Spiffe:              false,
 					Subject: Subject{
-						Country:            "US",
-						Province:           "California",
-						Organization:       "Oath Inc.",
+						Country:            "JP",
+						Province:           "Tokyo",
+						Organization:       "Yahoo Japan Corporation",
 						OrganizationalUnit: "Athenz",
 					},
 				},
