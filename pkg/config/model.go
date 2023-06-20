@@ -68,7 +68,7 @@ type IdentityConfig struct {
 
 func DefaultIdentityConfig() *IdentityConfig {
 	return &IdentityConfig{
-		Init:                      false,
+		Init:                      true,
 		Endpoint:                  DEFAULT_ENDPOINT,
 		ProviderService:           "",
 		DNSSuffix:                 DEFAULT_DNS_SUFFIX,
