@@ -100,10 +100,13 @@ func newHandlerFunc(d *daemon) http.HandlerFunc {
 
 		if d.tokenAPIEnable {
 			// sidecar API (server requests' Body is always non-nil)
-			if r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
+			if d.tokenType.Has(ROLE_TOKEN) && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
 				postRoleToken(d, w, r)
 				return
 			}
+
+			// if d.tokenType.Has(ACCESS_TOKEN) && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
+			// }
 		}
 
 		// API for envoy (all methods and paths)
