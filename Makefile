@@ -19,34 +19,37 @@ else
 LDFLAGS_ARGS += -X 'main.BUILD_DATE=$(shell date '+%Y-%m-%dT%H:%M:%S%Z%z')'
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_ENDPOINT),)
-LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/identity.DEFAULT_ENDPOINT=$(ATHENZ_SIA_DEFAULT_ENDPOINT)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_ENDPOINT=$(ATHENZ_SIA_DEFAULT_ENDPOINT)'
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_DNS_SUFFIX),)
-LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/identity.DEFAULT_DNS_SUFFIX=$(ATHENZ_SIA_DEFAULT_DNS_SUFFIX)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_DNS_SUFFIX=$(ATHENZ_SIA_DEFAULT_DNS_SUFFIX)'
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_ROLE_CERT_FILENAME_DELIMITER),)
-LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/identity.DEFAULT_ROLE_CERT_FILENAME_DELIMITER=$(ATHENZ_SIA_DEFAULT_ROLE_CERT_FILENAME_DELIMITER)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_ROLE_CERT_FILENAME_DELIMITER=$(ATHENZ_SIA_DEFAULT_ROLE_CERT_FILENAME_DELIMITER)'
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_ROLE_AUTH_HEADER),)
-LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/identity.DEFAULT_ROLE_AUTH_HEADER=$(ATHENZ_SIA_DEFAULT_ROLE_AUTH_HEADER)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_ROLE_AUTH_HEADER=$(ATHENZ_SIA_DEFAULT_ROLE_AUTH_HEADER)'
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_COUNTRY),)
-LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/identity.DEFAULT_COUNTRY=$(ATHENZ_SIA_DEFAULT_COUNTRY)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_COUNTRY=$(ATHENZ_SIA_DEFAULT_COUNTRY)'
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_PROVINCE),)
-LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/identity.DEFAULT_PROVINCE=$(ATHENZ_SIA_DEFAULT_PROVINCE)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_PROVINCE=$(ATHENZ_SIA_DEFAULT_PROVINCE)'
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_ORGANIZATION),)
-LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/identity.DEFAULT_ORGANIZATION=$(ATHENZ_SIA_DEFAULT_ORGANIZATION)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_ORGANIZATION=$(ATHENZ_SIA_DEFAULT_ORGANIZATION)'
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT),)
-LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/identity.DEFAULT_ORGANIZATIONAL_UNIT=$(ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_ORGANIZATIONAL_UNIT=$(ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT)'
 endif
-ifneq ($(ATHENZ_SIA_DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES),)
-LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES=$(ATHENZ_SIA_DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES)'
+ifneq ($(ATHENZ_SIA_DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_RAW),)
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_RAW=$(ATHENZ_SIA_DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_RAW)'
+endif
+ifneq ($(ATHENZ_SIA_DEFAULT_TOKEN_EXPIRY_RAW),)
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_TOKEN_EXPIRY_RAW=$(ATHENZ_SIA_DEFAULT_TOKEN_EXPIRY_RAW)'
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_INTERMEDIATE_CERT_BUNDLE),)
-LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/identity.DEFAULT_INTERMEDIATE_CERT_BUNDLE=$(ATHENZ_SIA_DEFAULT_INTERMEDIATE_CERT_BUNDLE)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/pkg/config.DEFAULT_INTERMEDIATE_CERT_BUNDLE=$(ATHENZ_SIA_DEFAULT_INTERMEDIATE_CERT_BUNDLE)'
 endif
 
 ifneq ($(LDFLAGS_ARGS),)
@@ -62,6 +65,10 @@ test:
 	@echo "Testing..."
 	go test -v -failfast -timeout 1m -race -covermode=atomic -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
+
+upgrade:
+	go list -u -m all
+	go get -t -u ./...
 
 clean:
 	rm -rf $(shell pwd)/bin || true

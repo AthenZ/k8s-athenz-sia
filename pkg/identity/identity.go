@@ -28,86 +28,20 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 
-	"github.com/AthenZ/athenz/clients/go/zts"
-	"github.com/AthenZ/athenz/libs/go/athenzutils"
+	"github.com/AthenZ/k8s-athenz-sia/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/pkg/k8s"
 	"github.com/AthenZ/k8s-athenz-sia/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/third_party/util"
 
-	"github.com/AthenZ/k8s-athenz-sia/pkg/k8s"
+	"github.com/AthenZ/athenz/clients/go/zts"
+	"github.com/AthenZ/athenz/libs/go/athenzutils"
 	extutil "github.com/AthenZ/k8s-athenz-sia/pkg/util"
 )
-
-var (
-	// default values for X.509 certificate signing request
-	DEFAULT_COUNTRY             = "US"
-	DEFAULT_PROVINCE            string
-	DEFAULT_ORGANIZATION        string
-	DEFAULT_ORGANIZATIONAL_UNIT = "Athenz"
-
-	DEFAULT_POLL_TOKEN_INTERVAL = 4 * time.Hour
-
-	// default values for role tokens and access tokens
-	DEFAULT_TOKEN_EXPIRY_TIME     = "120"
-	DEFAULT_TOKEN_EXPIRY_TIME_INT int
-
-	// DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES may be overwritten with go build option (e.g. "-X identity.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES=5")
-	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES     = "5"
-	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT int
-
-	DEFAULT_ENDPOINT                     string
-	DEFAULT_ROLE_AUTH_HEADER             = "Athenz-Role-Auth"
-	DEFAULT_DNS_SUFFIX                   = "athenz.cloud"
-	DEFAULT_ROLE_CERT_FILENAME_DELIMITER = ":role."
-	DEFAULT_INTERMEDIATE_CERT_BUNDLE     string
-)
-
-// InitDefaultValues initializes default values from build args
-func InitDefaultValues() {
-	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT, _ = strconv.Atoi(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES)
-	DEFAULT_TOKEN_EXPIRY_TIME_INT, _ = strconv.Atoi(DEFAULT_TOKEN_EXPIRY_TIME)
-}
-
-// IdentityConfig from cmd line args
-type IdentityConfig struct {
-	Init                      bool
-	Endpoint                  string
-	ProviderService           string
-	DNSSuffix                 string
-	Refresh                   time.Duration
-	DelayJitterSeconds        int64
-	KeyFile                   string
-	CertFile                  string
-	CaCertFile                string
-	IntermediateCertBundle    string
-	Backup                    string
-	CertSecret                string
-	Namespace                 string
-	AthenzDomain              string
-	AthenzPrefix              string
-	AthenzSuffix              string
-	ServiceAccount            string
-	SaTokenFile               string
-	PodIP                     string
-	PodUID                    string
-	Reloader                  *util.CertReloader
-	ServerCACert              string
-	TargetDomainRoles         string
-	RoleCertDir               string
-	RoleCertFilenameDelimiter string
-	RoleAuthHeader            string
-	TokenType                 string
-	TokenRefresh              time.Duration
-	TokenServerAddr           string
-	TokenDir                  string
-	MetricsServerAddr         string
-	DeleteInstanceID          bool
-}
 
 // RoleCertificate stores role certificate
 type RoleCertificate struct {
@@ -184,7 +118,7 @@ type InstanceIdentity struct {
 }
 
 type identityHandler struct {
-	config       *IdentityConfig
+	config       *config.IdentityConfig
 	client       zts.ZTSClient
 	domain       string
 	service      string
@@ -194,7 +128,7 @@ type identityHandler struct {
 }
 
 // InitIdentityHandler initializes the ZTS client and parses the config to create CSR options
-func InitIdentityHandler(config *IdentityConfig) (*identityHandler, error) {
+func InitIdentityHandler(config *config.IdentityConfig) (*identityHandler, error) {
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
@@ -404,7 +338,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 		}
 		roleRequest := &zts.RoleCertificateRequest{
 			Csr:        string(roleCsrPEM),
-			ExpiryTime: int64(x509LeafCert.NotAfter.Sub(time.Now()).Minutes()) + int64(DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_INT), // Extract NotAfter from the instance certificate
+			ExpiryTime: int64(x509LeafCert.NotAfter.Sub(time.Now()).Minutes()) + int64(config.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES), // Extract NotAfter from the instance certificate
 		}
 
 		// PostRoleCertificateRequest must be called instead of PostRoleCertificateRequestExt,
@@ -475,7 +409,7 @@ func (h *identityHandler) GetToken(certPEM, keyPEM []byte) (roletokens [](*RoleT
 	// The intermediate certificates may be different between each ZTS.
 	// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
 	roleClient := zts.NewClient(h.config.Endpoint, t)
-	expireTimeMs := int32(DEFAULT_TOKEN_EXPIRY_TIME_INT * 60)
+	expireTimeMs := int32(config.DEFAULT_TOKEN_EXPIRY_TIME_INT * 60)
 
 	for _, domainrole := range strings.Split(h.config.TargetDomainRoles, ",") {
 		dr := strings.Split(domainrole, ":role.")
@@ -544,16 +478,16 @@ func (h *identityHandler) InstanceID() string {
 }
 
 // PrepareIdentityCsrOptions prepares csrOptions for an X.509 certificate
-func PrepareIdentityCsrOptions(config *IdentityConfig, domain, service string) (*util.CSROptions, error) {
+func PrepareIdentityCsrOptions(cfg *config.IdentityConfig, domain, service string) (*util.CSROptions, error) {
 
-	if config.ProviderService == "" {
-		log.Debugf("Skipping to prepare csr with provider service[%s]", config.ProviderService)
+	if cfg.ProviderService == "" {
+		log.Debugf("Skipping to prepare csr with provider service[%s]", cfg.ProviderService)
 		return nil, nil
 	}
 
 	domainDNSPart := extutil.DomainToDNSPart(domain)
 
-	ip := net.ParseIP(config.PodIP)
+	ip := net.ParseIP(cfg.PodIP)
 	if ip == nil {
 		return nil, errors.New("pod IP for identity csr is nil")
 	}
@@ -563,16 +497,16 @@ func PrepareIdentityCsrOptions(config *IdentityConfig, domain, service string) (
 	}
 
 	sans := []string{
-		fmt.Sprintf("%s.%s.%s", service, domainDNSPart, config.DNSSuffix),
-		fmt.Sprintf("*.%s.%s.%s", service, domainDNSPart, config.DNSSuffix),
-		fmt.Sprintf("%s.instanceid.athenz.%s", config.PodUID, config.DNSSuffix),
+		fmt.Sprintf("%s.%s.%s", service, domainDNSPart, cfg.DNSSuffix),
+		fmt.Sprintf("*.%s.%s.%s", service, domainDNSPart, cfg.DNSSuffix),
+		fmt.Sprintf("%s.instanceid.athenz.%s", cfg.PodUID, cfg.DNSSuffix),
 	}
 
 	subject := pkix.Name{
-		Country:            []string{DEFAULT_COUNTRY},
-		Province:           []string{DEFAULT_PROVINCE},
-		Organization:       []string{DEFAULT_ORGANIZATION},
-		OrganizationalUnit: []string{config.ProviderService},
+		Country:            []string{config.DEFAULT_COUNTRY},
+		Province:           []string{config.DEFAULT_PROVINCE},
+		Organization:       []string{config.DEFAULT_ORGANIZATION},
+		OrganizationalUnit: []string{cfg.ProviderService},
 		CommonName:         fmt.Sprintf("%s.%s", domain, service),
 	}
 
@@ -587,16 +521,16 @@ func PrepareIdentityCsrOptions(config *IdentityConfig, domain, service string) (
 }
 
 // PrepareRoleCsrOptions prepares csrOptions for an X.509 certificate
-func PrepareRoleCsrOptions(config *IdentityConfig, domain, service string) (*[]util.CSROptions, error) {
+func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (*[]util.CSROptions, error) {
 
 	var roleCsrOptions []util.CSROptions
 
-	if config.TargetDomainRoles == "" || config.RoleCertDir == "" {
-		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", config.TargetDomainRoles, config.RoleCertDir)
+	if cfg.TargetDomainRoles == "" || cfg.RoleCertDir == "" {
+		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", cfg.TargetDomainRoles, cfg.RoleCertDir)
 		return nil, nil
 	}
 
-	for _, domainrole := range strings.Split(config.TargetDomainRoles, ",") {
+	for _, domainrole := range strings.Split(cfg.TargetDomainRoles, ",") {
 		// referred to SplitRoleName()
 		// https://github.com/AthenZ/athenz/blob/73b25572656f289cce501b4c2fe78f86656082e7/libs/go/sia/util/util.go#L69-L78
 		dr := strings.Split(domainrole, ":role.")
@@ -608,7 +542,7 @@ func PrepareRoleCsrOptions(config *IdentityConfig, domain, service string) (*[]u
 
 		domainDNSPart := extutil.DomainToDNSPart(domain)
 
-		ip := net.ParseIP(config.PodIP)
+		ip := net.ParseIP(cfg.PodIP)
 		if ip == nil {
 			return nil, errors.New("pod IP for role csr is nil")
 		}
@@ -618,14 +552,14 @@ func PrepareRoleCsrOptions(config *IdentityConfig, domain, service string) (*[]u
 		}
 
 		sans := []string{
-			fmt.Sprintf("%s.%s.%s", service, domainDNSPart, config.DNSSuffix),
+			fmt.Sprintf("%s.%s.%s", service, domainDNSPart, cfg.DNSSuffix),
 		}
 
 		subject := pkix.Name{
-			Country:            []string{DEFAULT_COUNTRY},
-			Province:           []string{DEFAULT_PROVINCE},
-			Organization:       []string{DEFAULT_ORGANIZATION},
-			OrganizationalUnit: []string{DEFAULT_ORGANIZATIONAL_UNIT},
+			Country:            []string{config.DEFAULT_COUNTRY},
+			Province:           []string{config.DEFAULT_PROVINCE},
+			Organization:       []string{config.DEFAULT_ORGANIZATION},
+			OrganizationalUnit: []string{config.DEFAULT_ORGANIZATIONAL_UNIT},
 			CommonName:         fmt.Sprintf("%s:role.%s", targetDomain, targetRole),
 		}
 
@@ -638,7 +572,7 @@ func PrepareRoleCsrOptions(config *IdentityConfig, domain, service string) (*[]u
 					*spiffeURI,
 				},
 				EmailAddresses: []string{
-					fmt.Sprintf("%s.%s@%s", domain, service, config.DNSSuffix),
+					fmt.Sprintf("%s.%s@%s", domain, service, cfg.DNSSuffix),
 				},
 			},
 		}

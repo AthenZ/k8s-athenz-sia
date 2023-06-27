@@ -17,7 +17,6 @@ package util
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 )
 
@@ -50,12 +49,4 @@ func RoleSpiffeURI(domain, role string) (*url.URL, error) {
 // DomainToDNSPart converts the Athenz domain into a DNS label
 func DomainToDNSPart(domain string) (part string) {
 	return strings.Replace(domain, ".", "-", -1)
-}
-
-func envOrDefault(name string, defaultValue string) string {
-	v := os.Getenv(name)
-	if v == "" {
-		return defaultValue
-	}
-	return v
 }
