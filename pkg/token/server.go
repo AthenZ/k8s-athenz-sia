@@ -66,7 +66,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	if rtRequest.MaxExpiry != nil {
 		k.MaxExpiry = *rtRequest.MaxExpiry
 	}
-	if k.MinExpiry != 0 {
+	if k.MinExpiry == 0 {
 		k.MinExpiry = d.tokenExpiryInSecond
 	}
 
@@ -137,7 +137,7 @@ func newHandlerFunc(d *daemon) http.HandlerFunc {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			errMsg = fmt.Sprintf("error writing json response with: %s[%s] %s[%s] error[%s].", DOMAIN_HEADER, domain, ROLE_HEADER, role, errMsg)
+			errMsg = fmt.Sprintf("Error while handling request with: %s[%s] %s[%s], error[%s]", DOMAIN_HEADER, domain, ROLE_HEADER, role, errMsg)
 			log.Warnf(errMsg)
 			w.WriteHeader(http.StatusBadRequest)
 			io.WriteString(w, string(response))
