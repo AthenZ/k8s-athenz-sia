@@ -182,7 +182,7 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	return nil
 }
 
-func (idConfig *IdentityConfig) validateAndInit() error {
+func (idConfig *IdentityConfig) validateAndInit() (err error) {
 
 	if idConfig.TokenExpiry != 0 && idConfig.TokenRefresh >= idConfig.TokenExpiry {
 		return fmt.Errorf("Invalid TokenRefresh[%s] >= TokenExpiry[%s]", idConfig.TokenRefresh.String(), idConfig.TokenExpiry.String())
@@ -198,7 +198,7 @@ func (idConfig *IdentityConfig) validateAndInit() error {
 	if pollInterval > util.DefaultPollInterval {
 		pollInterval = util.DefaultPollInterval
 	}
-	reloader, err := util.NewCertReloader(util.ReloadConfig{
+	idConfig.Reloader, err = util.NewCertReloader(util.ReloadConfig{
 		KeyFile:      idConfig.KeyFile,
 		CertFile:     idConfig.CertFile,
 		Logger:       log.Infof,
@@ -216,7 +216,7 @@ func (idConfig *IdentityConfig) validateAndInit() error {
 	// the subsequent retry for the init container to attempt to get a new certificate from the identity provider.
 	if idConfig.Init && err == nil && idConfig.ProviderService != "" {
 		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", idConfig.CertFile)
-		cert, err := reloader.GetLatestCertificate()
+		cert, err := idConfig.Reloader.GetLatestCertificate()
 		if err != nil {
 			log.Infof("[X.509 Certificate] Subject: %v, DNS SANs: %v, IPs: %v", cert.Leaf.Subject, cert.Leaf.DNSNames, cert.Leaf.IPAddresses)
 		}
