@@ -59,22 +59,16 @@ func newDaemon(idConfig *config.IdentityConfig, tt Type) (*daemon, error) {
 	accessTokenCache := NewLockedTokenCache()
 	roleTokenCache := NewLockedTokenCache()
 	targets := strings.Split(idConfig.TargetDomainRoles, ",")
-	if len(targets) != 1 || idConfig.TargetDomainRoles != "" {
-		if tt.Has(ACCESS_TOKEN) {
-			for _, dr := range targets {
-				domain, role, err := athenz.SplitRoleName(dr)
-				if err != nil {
-					return nil, fmt.Errorf("Invalid TargetDomainRoles[%s]: %s", idConfig.TargetDomainRoles, err.Error())
-				}
+	if idConfig.TargetDomainRoles != "" || len(targets) != 1 {
+		for _, dr := range targets {
+			domain, role, err := athenz.SplitRoleName(dr)
+			if err != nil {
+				return nil, fmt.Errorf("Invalid TargetDomainRoles[%s]: %s", idConfig.TargetDomainRoles, err.Error())
+			}
+			if tt.Has(ACCESS_TOKEN) {
 				accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &AccessToken{})
 			}
-		}
-		if tt.Has(ROLE_TOKEN) {
-			for _, dr := range targets {
-				domain, role, err := athenz.SplitRoleName(dr)
-				if err != nil {
-					return nil, fmt.Errorf("Invalid TargetDomainRoles[%s]: %s", idConfig.TargetDomainRoles, err.Error())
-				}
+			if tt.Has(ROLE_TOKEN) {
 				roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &RoleToken{})
 			}
 		}
