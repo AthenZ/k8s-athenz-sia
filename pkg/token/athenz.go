@@ -77,7 +77,7 @@ func newZTSClient(keyPath, certPath, serverCAPath, endpoint string) (*zts.ZTSCli
 }
 
 func fetchAccessToken(ztsClient *zts.ZTSClient, t CacheKey, saService string) (*AccessToken, error) {
-	request := athenzutils.GenerateAccessTokenRequestString(t.Domain, saService, t.Role, "", "", int(t.MinExpiry))
+	request := athenzutils.GenerateAccessTokenRequestString(t.Domain, saService, t.Role, "", "", t.MinExpiry)
 	accessTokenResponse, err := ztsClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
 	if err != nil || accessTokenResponse.Access_token == "" {
 		return nil, fmt.Errorf("PostAccessTokenRequest failed for target [%s], err: %v", t.String(), err)

@@ -49,8 +49,11 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 
 	// validate body
 	domain := rtRequest.Domain
-	role := rtRequest.Role
-	if domain == "" || role == "" {
+	role := ""
+	if rtRequest.Role != nil {
+		role = *rtRequest.Role
+	}
+	if domain == "" {
 		err = fmt.Errorf("Invalid value: domain[%s], role[%s]", domain, role)
 		return
 	}
