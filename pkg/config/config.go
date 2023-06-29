@@ -201,7 +201,7 @@ func (idConfig *IdentityConfig) validateAndInit() (err error) {
 	idConfig.Reloader, err = util.NewCertReloader(util.ReloadConfig{
 		KeyFile:      idConfig.KeyFile,
 		CertFile:     idConfig.CertFile,
-		Logger:       log.Infof,
+		Logger:       log.Debugf,
 		PollInterval: pollInterval,
 	})
 
