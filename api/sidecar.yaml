@@ -1,0 +1,179 @@
+openapi: 3.1.0
+info:
+  version: 0.0.1
+  title: Athenz client sidecar API
+  contact:
+    email: "cncf-athenz-maintainers@lists.cncf.io"
+    name: Athenz
+    url: https://www.athenz.io/contact.html
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+servers:
+  - description: localhost
+    url: http://localhost:8080
+paths:
+  /accesstoken:
+    post:
+      summary: Fetch cached access token
+      operationId: FetchAccessToken
+      requestBody:
+        $ref: '#/components/requestBodies/atRequestBody'
+      responses:
+        "200":
+          $ref: '#/components/responses/atResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+  /roletoken:
+    post:
+      summary: Fetch cached role token
+      operationId: FetchRoleToken
+      requestBody:
+        $ref: '#/components/requestBodies/rtRequestBody'
+      responses:
+        "200":
+          $ref: '#/components/responses/rtResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+components:
+  requestBodies:
+    atRequestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AccessTokenRequestBody'
+          examples:
+            sample:
+              value:
+                domain: domain.shopping
+                role: users
+                proxy_for_principal: ""
+                expiry: 1800
+    rtRequestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RoleTokenRequestBody'
+          examples:
+            sample:
+              value:
+                domain: domain.shopping
+                role: users
+                proxy_for_principal: ""
+                min_expiry: 7200
+                max_expiry: 10000
+  responses:
+    # MethodNotAllowed:
+    #   description: Method Not Allowed
+    #   content:
+    #     "*/*":
+    #       examples:
+    #         sample:
+    #           value: Method Not Allowed
+    InternalServerError:
+      description: Internal Server Error (includes token not found, errors in requesting Athenz ZTS server, and other internal errors)
+      content:
+        "*/*":
+          examples:
+            sample:
+              value: Internal Server Error
+    atResponse:
+      description: access token response
+      content: 
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AccessTokenResponse'
+          examples:
+            sample:
+              value:
+                access_token: eyJraWQiOiIwIiwidHlwIjoiYXQrand0IiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkb21haW4udHJhdmVsLnRyYXZlbC1zaXRlIiwiaWF0IjoxNTgzNzE0NzA0LCJleHAiOjE1ODM3MTY1MDQsImlzcyI6Imh0dHBzOi8venRzLmF0aGVuei5pbyIsImF1ZCI6ImRvbWFpbi5zaG9wcGluZyIsImF1dGhfdGltZSI6MTU4MzcxNDcwNCwidmVyIjoxLCJzY3AiOlsidXNlcnMiXSwidWlkIjoiZG9tYWluLnRyYXZlbC50cmF2ZWwtc2l0ZSIsImNsaWVudF9pZCI6ImRvbWFpbi50cmF2ZWwudHJhdmVsLXNpdGUifQ.<signature>
+                token_type: Bearer
+                expires_in: 1800
+                scope: domain.shopping:role.users
+    rtResponse:
+      description: role token response
+      content: 
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RoleTokenResponse'
+          examples:
+            sample:
+              value:
+                expiryTime: 1528860825
+                token: v=Z1;d=domain.shopping;r=users;p=domain.travel.travel-site;h=athenz.co.jp;a=9109ee08b79e6b63;t=1528853625;e=1528860825;k=0;i=192.168.1.1;s=<signature>
+  schemas:
+    AccessTokenRequestBody:
+      type: object
+      required:
+        - domain
+      properties:
+        domain:
+          description: Access token domain name
+          minLength: 1
+          type: string
+        role:
+          description: Access token role name (comma separated list)
+          minLength: 1
+          type: string
+        proxy_for_principal:
+          description: Access token proxyForPrincipal name
+          type: string
+        expiry:
+          description: Access token expiry time (in second)
+          type: integer
+    AccessTokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          description: Access token string
+          type: string
+        token_type:
+          description: Access token token type
+          type: string
+        expires_in:
+          description: Access token expiry time (in second)
+          type: integer
+        scope:
+          description: Access token scope (Only added if role is not specified, space separated)
+          type: string
+    RoleTokenRequestBody:
+      type: object
+      required:
+        - domain
+      properties:
+        domain:
+          description: Role token domain name
+          minLength: 1
+          type: string
+        role:
+          description: Role token role name (comma separated list)
+          minLength: 1
+          type: string
+        proxy_for_principal:
+          description: Role token proxyForPrincipal name
+          type: string
+        min_expiry:
+          description: Role token minimum expiry time (in second)
+          type: integer
+        max_expiry:
+          description: Role token maximum expiry time (in second)
+          type: integer
+    RoleTokenResponse:
+      type: object
+      required:
+        - expiryTime
+        - token
+      properties:
+        token:
+          description: Role token string
+          type: string
+        expiryTime:
+          description: Role token expiry time (Unix timestamp in second)
+          type: integer
+          x-go-type: int64
