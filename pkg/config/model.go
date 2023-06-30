@@ -52,7 +52,7 @@ type IdentityConfig struct {
 	TokenRefresh              time.Duration
 	TokenExpiry               time.Duration
 	TokenServerAddr           string
-	TokenServerAPIEnable      bool
+	TokenServerRESTAPI        bool
 	TokenDir                  string
 	MetricsServerAddr         string
 	DeleteInstanceID          bool
@@ -61,11 +61,11 @@ type IdentityConfig struct {
 	LogLevel string
 
 	// raw strings before parsing
-	rawMode                 string
-	rawRefresh              string
-	rawDelayJitterSeconds   string
-	rawTokenRefresh         string
-	rawTokenExpiry          string
-	rawTokenServerAPIEnable string
-	rawDeleteInstanceID     string
+	rawMode               string
+	rawRefresh            string
+	rawDelayJitterSeconds string
+	rawTokenRefresh       string
+	rawTokenExpiry        string
+	rawTokenServerRESTAPI string
+	rawDeleteInstanceID   string
 }

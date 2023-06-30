@@ -93,5 +93,5 @@ func main() {
 	if sdChan != nil {
 		<-sdChan
 	}
-	log.Println("Shut down complete!")
+	log.Println("Shutdown completed!")
 }

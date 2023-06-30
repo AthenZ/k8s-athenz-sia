@@ -88,7 +88,7 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("TOKEN_REFRESH_INTERVAL", &idConfig.rawTokenRefresh)
 	loadEnv("TOKEN_EXPIRY", &idConfig.rawTokenExpiry)
 	loadEnv("TOKEN_SERVER_ADDR", &idConfig.TokenServerAddr)
-	loadEnv("TOKEN_SERVER_API_ENABLE", &idConfig.rawTokenServerAPIEnable)
+	loadEnv("TOKEN_SERVER_REST_API", &idConfig.rawTokenServerRESTAPI)
 	loadEnv("TOKEN_DIR", &idConfig.TokenDir)
 	loadEnv("METRICS_SERVER_ADDR", &idConfig.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idConfig.rawDeleteInstanceID)
@@ -118,9 +118,9 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_EXPIRY [%q], %v", idConfig.rawTokenExpiry, err)
 	}
-	idConfig.TokenServerAPIEnable, err = strconv.ParseBool(idConfig.rawTokenServerAPIEnable)
+	idConfig.TokenServerRESTAPI, err = strconv.ParseBool(idConfig.rawTokenServerRESTAPI)
 	if err != nil {
-		return fmt.Errorf("Invalid TOKEN_SERVER_API_ENABLE [%q], %v", idConfig.rawTokenServerAPIEnable, err)
+		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %v", idConfig.rawTokenServerRESTAPI, err)
 	}
 	idConfig.DeleteInstanceID, err = strconv.ParseBool(idConfig.rawDeleteInstanceID)
 	if err != nil {
@@ -159,12 +159,12 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	// RoleAuthHeader
 	f.StringVar(&idConfig.TokenType, "token-type", idConfig.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
 	f.DurationVar(&idConfig.TokenRefresh, "token-refresh-interval", idConfig.TokenRefresh, "token refresh interval")
-	f.DurationVar(&idConfig.TokenExpiry, "token-expiry", idConfig.TokenExpiry, "token expiry duration")
+	f.DurationVar(&idConfig.TokenExpiry, "token-expiry", idConfig.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
 	f.StringVar(&idConfig.TokenServerAddr, "token-server-addr", idConfig.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
-	f.BoolVar(&idConfig.TokenServerAPIEnable, "token-server-api-enable", idConfig.TokenServerAPIEnable, "Enable token server RESTful API")
+	f.BoolVar(&idConfig.TokenServerRESTAPI, "token-server-rest-api", idConfig.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
 	f.StringVar(&idConfig.TokenDir, "token-dir", idConfig.TokenDir, "directory to write token files")
 	f.StringVar(&idConfig.MetricsServerAddr, "metrics-server-addr", idConfig.MetricsServerAddr, "HTTP server address to provide metrics")
-	f.BoolVar(&idConfig.DeleteInstanceID, "delete-instance-id", idConfig.DeleteInstanceID, "delete x509 certificate record from identity provider when stop signal is sent")
+	f.BoolVar(&idConfig.DeleteInstanceID, "delete-instance-id", idConfig.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// log
 	f.StringVar(&idConfig.LogDir, "log-dir", idConfig.LogDir, "directory to store the log files")
 	f.StringVar(&idConfig.LogLevel, "log-level", idConfig.LogLevel, "logging level")

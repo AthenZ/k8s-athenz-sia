@@ -101,7 +101,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 func newHandlerFunc(d *daemon) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		if d.tokenAPIEnable {
+		if d.tokenRESTAPI {
 			// sidecar API (server requests' Body is always non-nil)
 			if d.tokenType.Has(ROLE_TOKEN) && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
 				postRoleToken(d, w, r)
