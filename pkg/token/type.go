@@ -16,34 +16,35 @@ package token
 
 import "strings"
 
-type Type int
+// TODO: refactor this type together with other enum flags in config.go (MODE, TOKEN_TYPE, BACKUP)
+type mode int
 
 const (
-	ACCESS_TOKEN Type = 1 << iota // 01
-	ROLE_TOKEN                    // 10
+	mACCESS_TOKEN mode = 1 << iota // 01
+	mROLE_TOKEN                    // 10
 )
 
-func (mode Type) Has(t Type) bool {
-	return mode&t == t
-}
+// func (m mode) has(t mode) bool {
+// 	return m&t == t
+// }
 
-func (mode Type) Disable(t Type) Type {
-	return mode &^ t
-}
+// func (m mode) disable(t mode) mode {
+// 	return m &^ t
+// }
 
-func (mode Type) Enable(t Type) Type {
-	return mode | t
-}
+// func (m mode) enable(t mode) mode {
+// 	return m | t
+// }
 
-func newType(raw string) (t Type) {
+func newType(raw string) (t mode) {
 	if raw == "" {
 		return t
 	}
 	if strings.Contains(raw, "accesstoken") {
-		t |= ACCESS_TOKEN
+		t |= mACCESS_TOKEN
 	}
 	if strings.Contains(raw, "roletoken") {
-		t |= ROLE_TOKEN
+		t |= mROLE_TOKEN
 	}
 	return t
 }

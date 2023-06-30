@@ -45,14 +45,14 @@ type daemon struct {
 	saService string
 
 	tokenRESTAPI        bool
-	tokenType           Type
+	tokenType           mode
 	tokenDir            string
 	tokenRefresh        time.Duration
 	tokenExpiryInSecond int
 	roleAuthHeader      string
 }
 
-func newDaemon(idConfig *config.IdentityConfig, tt Type) (*daemon, error) {
+func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 
 	// initialize token cache with placeholder
 	tokenExpiryInSecond := int(idConfig.TokenExpiry.Seconds())
@@ -65,10 +65,10 @@ func newDaemon(idConfig *config.IdentityConfig, tt Type) (*daemon, error) {
 			if err != nil {
 				return nil, fmt.Errorf("Invalid TargetDomainRoles[%s]: %s", idConfig.TargetDomainRoles, err.Error())
 			}
-			if tt.Has(ACCESS_TOKEN) {
+			if tt&mACCESS_TOKEN != 0 {
 				accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &AccessToken{})
 			}
-			if tt.Has(ROLE_TOKEN) {
+			if tt&mROLE_TOKEN != 0 {
 				roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &RoleToken{})
 			}
 		}

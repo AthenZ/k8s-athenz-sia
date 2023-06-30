@@ -103,7 +103,7 @@ func newHandlerFunc(d *daemon) http.HandlerFunc {
 
 		if d.tokenRESTAPI {
 			// sidecar API (server requests' Body is always non-nil)
-			if d.tokenType.Has(ROLE_TOKEN) && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
+			if d.tokenType&mROLE_TOKEN != 0 && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
 				postRoleToken(d, w, r)
 				return
 			}
@@ -122,13 +122,13 @@ func newHandlerFunc(d *daemon) http.HandlerFunc {
 			errMsg = fmt.Sprintf("http headers not set: %s[%s] %s[%s].", DOMAIN_HEADER, domain, ROLE_HEADER, role)
 		} else {
 			k := CacheKey{Domain: domain, Role: role, MinExpiry: d.tokenExpiryInSecond}
-			if d.tokenType.Has(ACCESS_TOKEN) {
+			if d.tokenType&mACCESS_TOKEN != 0 {
 				aToken = d.accessTokenCache.Load(k)
 				if aToken == nil {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 				}
 			}
-			if d.tokenType.Has(ROLE_TOKEN) {
+			if d.tokenType&mROLE_TOKEN != 0 {
 				rToken = d.roleTokenCache.Load(k)
 				if rToken == nil {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
