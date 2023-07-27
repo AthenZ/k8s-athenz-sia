@@ -25,6 +25,7 @@ import (
 	// using git submodule to import internal package (special package in golang)
 	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
 	internal "github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
+	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
 func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
@@ -72,8 +73,14 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 
 	if idConfig.TargetDomainRoles != "" && idConfig.RoleCertDir != "" {
 		for _, domainrole := range strings.Split(idConfig.TargetDomainRoles, ",") {
-			// TODO: Must split with delimiter.
-			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+domainrole+".cert.pem")
+			targetDomain, targetRole, err := extutil.DomainRoleSplitter(domainrole, ":role.")
+			if err != nil {
+				continue
+			}
+			// if RoleCertFilenameDelimiter = "_" then,
+			// fileName = your-domain_your-role.cert.pem"
+			fileName := targetDomain + idConfig.RoleCertFilenameDelimiter + targetRole + ".cert.pem"
+			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+fileName)
 		}
 	}
 
