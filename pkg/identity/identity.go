@@ -407,12 +407,10 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 	for _, domainrole := range strings.Split(cfg.TargetDomainRoles, ",") {
 		// referred to SplitRoleName()
 		// https://github.com/AthenZ/athenz/blob/73b25572656f289cce501b4c2fe78f86656082e7/libs/go/sia/util/util.go#L69-L78
-		dr := strings.Split(domainrole, ":role.")
-		if len(dr) != 2 || len(dr[0]) == 0 || len(dr[1]) == 0 {
-			return nil, fmt.Errorf("Invalid role name: '%s', expected format {domain}:role.{role}", domainrole)
+		targetDomain, targetRole, err := extutil.DomainRoleSplitter(domainrole, ":role.")
+		if err != nil {
+			continue
 		}
-		targetDomain := dr[0]
-		targetRole := dr[1]
 
 		domainDNSPart := extutil.DomainToDNSPart(domain)
 
