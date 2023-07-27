@@ -72,6 +72,7 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 
 	if idConfig.TargetDomainRoles != "" && idConfig.RoleCertDir != "" {
 		for _, domainrole := range strings.Split(idConfig.TargetDomainRoles, ",") {
+			// TODO: Must split with delimiter.
 			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+domainrole+".cert.pem")
 		}
 	}
