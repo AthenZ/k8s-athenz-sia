@@ -75,6 +75,7 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		for _, domainrole := range strings.Split(idConfig.TargetDomainRoles, ",") {
 			targetDomain, targetRole, err := athenz.SplitRoleName(domainrole)
 			if err != nil {
+				log.Warnf("Failed to read element '%s' of given TARGET_DOMAIN_ROLES: %s, err: %s", domainrole, idConfig.TargetDomainRoles, err.Error())
 				continue
 			}
 			// if RoleCertFilenameDelimiter = "_" then,
