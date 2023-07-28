@@ -171,6 +171,9 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	// log
 	f.StringVar(&idConfig.LogDir, "log-dir", idConfig.LogDir, "directory to store the log files")
 	f.StringVar(&idConfig.LogLevel, "log-level", idConfig.LogLevel, "logging level")
+	// healthCheck
+	f.StringVar(&idConfig.HealthCheckAddr, "health-check-addr", idConfig.HealthCheckAddr, "HTTP server address to provide health check")
+	f.StringVar(&idConfig.HealthCheckEndpoint, "health-check-endpoint", idConfig.HealthCheckEndpoint, "HTTP server endpoint to provide health check")
 
 	if err := f.Parse(args); err != nil {
 		return err

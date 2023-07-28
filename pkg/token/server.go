@@ -185,7 +185,7 @@ func createHealthCheckServiceMux(pattern string) *http.ServeMux {
 func handleHealthCheckRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", fmt.Sprintf("%s;%s", "text/plain", "charset=UTF-8"))
+		w.Header().Set("Content-type", "text/plain; charset=utf-8")
 		_, err := fmt.Fprint(w, http.StatusText(http.StatusOK))
 		if err != nil {
 			log.Fatal(err)
