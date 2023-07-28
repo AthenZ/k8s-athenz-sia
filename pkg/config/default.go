@@ -96,6 +96,10 @@ func DefaultIdentityConfig() *IdentityConfig {
 		LogDir:   "",
 		LogLevel: "INFO",
 
+		HealthCheckAddress:  "",
+		HealthCheckPort:     "",
+		HealthCheckEndpoint: "",
+
 		rawMode:               "init",
 		rawRefresh:            "24h",
 		rawDelayJitterSeconds: "0",

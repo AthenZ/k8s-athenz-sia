@@ -70,6 +70,6 @@ type IdentityConfig struct {
 	rawDeleteInstanceID   string
 
 	HealthCheckAddress  string
-	HealthCheckPort     int
+	HealthCheckPort     string
 	HealthCheckEndpoint string
 }

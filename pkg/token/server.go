@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
-	"github.com/kpango/glg"
 )
 
 const (
@@ -189,7 +188,7 @@ func handleHealthCheckRequest(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", fmt.Sprintf("%s;%s", "text/plain", "charset=UTF-8"))
 		_, err := fmt.Fprint(w, http.StatusText(http.StatusOK))
 		if err != nil {
-			glg.Fatal(err)
+			log.Fatal(err)
 		}
 	}
 }
