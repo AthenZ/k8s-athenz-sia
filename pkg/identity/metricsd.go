@@ -19,13 +19,13 @@ import (
 	"strings"
 	"time"
 
+	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 
 	// using git submodule to import internal package (special package in golang)
 	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
 	internal "github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
-	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
 func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
@@ -73,7 +73,7 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 
 	if idConfig.TargetDomainRoles != "" && idConfig.RoleCertDir != "" {
 		for _, domainrole := range strings.Split(idConfig.TargetDomainRoles, ",") {
-			targetDomain, targetRole, err := extutil.DomainRoleSplitter(domainrole, ":role.")
+			targetDomain, targetRole, err := athenz.SplitRoleName(domainrole)
 			if err != nil {
 				continue
 			}

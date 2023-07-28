@@ -39,6 +39,7 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
+	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
@@ -405,9 +406,7 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 	}
 
 	for _, domainrole := range strings.Split(cfg.TargetDomainRoles, ",") {
-		// referred to SplitRoleName()
-		// https://github.com/AthenZ/athenz/blob/73b25572656f289cce501b4c2fe78f86656082e7/libs/go/sia/util/util.go#L69-L78
-		targetDomain, targetRole, err := extutil.DomainRoleSplitter(domainrole, ":role.")
+		targetDomain, targetRole, err := athenz.SplitRoleName(domainrole)
 		if err != nil {
 			return nil, err
 		}
