@@ -409,7 +409,7 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 		// https://github.com/AthenZ/athenz/blob/73b25572656f289cce501b4c2fe78f86656082e7/libs/go/sia/util/util.go#L69-L78
 		targetDomain, targetRole, err := extutil.DomainRoleSplitter(domainrole, ":role.")
 		if err != nil {
-			continue
+			return nil, err
 		}
 
 		domainDNSPart := extutil.DomainToDNSPart(domain)
