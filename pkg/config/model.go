@@ -68,4 +68,8 @@ type IdentityConfig struct {
 	rawTokenExpiry        string
 	rawTokenServerRESTAPI string
 	rawDeleteInstanceID   string
+
+	HealthCheckAddress  string
+	HealthCheckPort     int
+	HealthCheckEndpoint string
 }

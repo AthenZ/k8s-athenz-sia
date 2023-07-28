@@ -231,6 +231,16 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 		Addr:    idConfig.TokenServerAddr,
 		Handler: newHandlerFunc(d),
 	}
+
+	var healthCheckServer *http.Server
+	if idConfig.HealthCheckPort > 0 {
+		healthCheckServer = &http.Server{
+			Addr:    fmt.Sprintf("%s:%d", idConfig.HealthCheckAddress, idConfig.HealthCheckPort),
+			Handler: createHealthCheckServiceMux(idConfig.HealthCheckEndpoint),
+		}
+		healthCheckServer.SetKeepAlivesEnabled(true)
+	}
+
 	go func() {
 		log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
 		if err := httpServer.ListenAndServe(); err != nil {
