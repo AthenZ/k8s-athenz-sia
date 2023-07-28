@@ -96,9 +96,8 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("LOG_DIR", &idConfig.LogDir)
 	loadEnv("LOG_LEVEL", &idConfig.LogLevel)
 
-	loadEnv("HEALTHCHECK_ADDRESS", &idConfig.HealthCheckAddress)
-	loadEnv("HEALTHCHECK_PORT", &idConfig.HealthCheckPort)
-	loadEnv("HEALTHCHECK_ENDPOINT", &idConfig.HealthCheckEndpoint)
+	loadEnv("HEALTH_CHECK_ADDR", &idConfig.HealthCheckAddr)
+	loadEnv("HEALTH_CHECK_ENDPOINT", &idConfig.HealthCheckEndpoint)
 
 	// parse values
 	var err error

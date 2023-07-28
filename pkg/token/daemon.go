@@ -233,9 +233,9 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 	}
 
 	var healthCheckServer *http.Server
-	if idConfig.HealthCheckPort != "" {
+	if idConfig.HealthCheckAddr != "" {
 		healthCheckServer = &http.Server{
-			Addr:    fmt.Sprintf("%s:%s", idConfig.HealthCheckAddress, idConfig.HealthCheckPort),
+			Addr:    idConfig.HealthCheckAddr,
 			Handler: createHealthCheckServiceMux(idConfig.HealthCheckEndpoint),
 		}
 		healthCheckServer.SetKeepAlivesEnabled(true)
