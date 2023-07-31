@@ -231,7 +231,6 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 		Addr:    idConfig.TokenServerAddr,
 		Handler: newHandlerFunc(d),
 	}
-
 	go func() {
 		log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
 		if err := httpServer.ListenAndServe(); err != nil {
