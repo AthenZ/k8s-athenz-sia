@@ -172,23 +172,3 @@ func newHandlerFunc(d *daemon) http.HandlerFunc {
 		io.WriteString(w, string(response))
 	}
 }
-
-// createHealthCheckServiceMux return a *http.ServeMux object
-// The function will register the health check server handler for given pattern, and return
-func createHealthCheckServiceMux(pattern string) *http.ServeMux {
-	mux := http.NewServeMux()
-	mux.HandleFunc(pattern, handleHealthCheckRequest)
-	return mux
-}
-
-// handleHealthCheckRequest is a handler function for and health check request, which always a HTTP Status OK (200) result
-func handleHealthCheckRequest(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-type", "text/plain; charset=utf-8")
-		_, err := fmt.Fprint(w, http.StatusText(http.StatusOK))
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-}

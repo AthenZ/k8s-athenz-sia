@@ -238,21 +238,6 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 		}
 	}()
 
-	var healthCheckServer *http.Server
-	if idConfig.HealthCheckAddr != "" {
-		healthCheckServer = &http.Server{
-			Addr:    idConfig.HealthCheckAddr,
-			Handler: createHealthCheckServiceMux(idConfig.HealthCheckEndpoint),
-		}
-		healthCheckServer.SetKeepAlivesEnabled(true)
-		go func() {
-			log.Infof("Starting health check server[%s]", idConfig.HealthCheckAddr)
-			if err := healthCheckServer.ListenAndServe(); err != nil {
-				log.Errorf("Failed to start health check server: %s", err.Error())
-			}
-		}()
-	}
-
 	// start token refresh daemon
 	shutdownChan := make(chan struct{}, 1)
 	t := time.NewTicker(d.tokenRefresh)
@@ -274,11 +259,6 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 				httpServer.SetKeepAlivesEnabled(false)
 				if err := httpServer.Shutdown(ctx); err != nil {
 					log.Errorf("Failed to shutdown token provider: %s", err.Error())
-				}
-				if healthCheckServer != nil {
-					if err := healthCheckServer.Shutdown(ctx); err != nil {
-						log.Errorf("Failed to shutdown health check server: %s", err.Error())
-					}
 				}
 				return
 			}
