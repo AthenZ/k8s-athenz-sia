@@ -58,8 +58,7 @@ func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		defer close(shutdownChan)
 
 		<-stopChan
-		time.Sleep(idConfig.ShutdownDelay)
-		ctx, cancel := context.WithTimeout(context.Background(), idConfig.ShutdownTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		healthCheckServer.SetKeepAlivesEnabled(false)
 		if err := healthCheckServer.Shutdown(ctx); err != nil {
