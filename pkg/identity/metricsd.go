@@ -15,6 +15,7 @@
 package identity
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -95,7 +96,10 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		defer close(shutdownChan)
 
 		<-stopChan
-		err := exporter.Shutdown()
+		time.Sleep(idConfig.ShutdownDelay)
+		ctx, cancel := context.WithTimeout(context.Background(), idConfig.ShutdownTimeout)
+		defer cancel()
+		err := exporter.Shutdown(ctx)
 		if err != nil {
 			log.Errorf("Failed to shutdown metrics exporter: %s", err.Error())
 		}

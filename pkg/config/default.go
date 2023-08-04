@@ -106,6 +106,8 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawTokenExpiry:        DEFAULT_TOKEN_EXPIRY.String(),
 		rawTokenServerRESTAPI: "false",
 		rawDeleteInstanceID:   "true",
+		rawShutdownTimeout:    "5s",
+		rawShutdownDelay:      "0s",
 
 		Reloader: nil,
 	}
