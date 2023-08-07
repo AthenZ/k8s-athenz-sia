@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 
@@ -72,7 +73,13 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 
 	if idConfig.TargetDomainRoles != "" && idConfig.RoleCertDir != "" {
 		for _, domainrole := range strings.Split(idConfig.TargetDomainRoles, ",") {
-			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+domainrole+".cert.pem")
+			targetDomain, targetRole, err := athenz.SplitRoleName(domainrole)
+			if err != nil {
+				log.Warnf("Failed to read element '%s' of given TARGET_DOMAIN_ROLES: %s, err: %s", domainrole, idConfig.TargetDomainRoles, err.Error())
+				continue
+			}
+			fileName := targetDomain + idConfig.RoleCertFilenameDelimiter + targetRole + ".cert.pem"
+			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+fileName)
 		}
 	}
 

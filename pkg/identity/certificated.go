@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -86,6 +87,11 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		}
 
 		if roleCerts != nil {
+			// Create the directory before saving role certificates
+			if err := os.MkdirAll(idConfig.RoleCertDir, 0755); err != nil {
+				return errors.Wrap(err, "unable to create directory for x509 role cert")
+			}
+
 			for _, rolecert := range roleCerts {
 				roleCertPEM := []byte(rolecert.X509Certificate)
 				if len(roleCertPEM) != 0 {
@@ -310,6 +316,14 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		return err, nil
 	}
 
+	healthcheckChan := make(chan struct{}, 1)
+	err, healthcheckSdChan := Healthcheckd(idConfig, healthcheckChan)
+	if err != nil {
+		log.Errorf("Error starting health check server[%s]", err)
+		close(healthcheckChan)
+		return err, nil
+	}
+
 	shutdownChan := make(chan struct{}, 1)
 	t := time.NewTicker(idConfig.Refresh)
 	go func() {
@@ -331,6 +345,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 				if err != nil {
 					log.Errorf("Failed to delete x509 certificate Instance ID record: %s", err.Error())
 				}
+				close(healthcheckChan)
 				close(metricsChan)
 				close(tokenChan)
 				if tokenSdChan != nil {
@@ -338,6 +353,9 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 				}
 				if metricsSdChan != nil {
 					<-metricsSdChan
+				}
+				if healthcheckSdChan != nil {
+					<-healthcheckSdChan
 				}
 				return
 			}
