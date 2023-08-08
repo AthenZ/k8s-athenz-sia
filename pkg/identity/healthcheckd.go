@@ -45,11 +45,13 @@ func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		Handler: createHealthCheckServiceMux(idConfig.HealthCheckEndpoint),
 	}
 
+	serverDone := make(chan struct{}, 1)
 	go func() {
 		log.Infof("Starting health check server[%s]", idConfig.HealthCheckAddr)
-		if err := healthCheckServer.ListenAndServe(); err != nil {
+		if err := healthCheckServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Errorf("Failed to start health check server: %s", err.Error())
 		}
+		close(serverDone)
 	}()
 
 	shutdownChan := make(chan struct{}, 1)
@@ -64,6 +66,7 @@ func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		if err := healthCheckServer.Shutdown(ctx); err != nil {
 			log.Errorf("Failed to shutdown health check server: %s", err.Error())
 		}
+		<-serverDone
 	}()
 
 	return nil, shutdownChan
