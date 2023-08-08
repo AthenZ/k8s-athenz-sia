@@ -169,25 +169,30 @@ func (d *daemon) fetchTokensAndUpdateCaches() error {
 	// fetch tokens
 	atUpdateOps := make([]func(), 0, len(atTargets))
 	for _, t := range atTargets {
-		at, err := fetchAccessToken(d.ztsClient, t, d.saService)
+		key := t // prevent closure over loop variable
+		at, err := fetchAccessToken(d.ztsClient, key, d.saService)
 		if err != nil {
 			return err
 		}
 		atUpdateOps = append(atUpdateOps, func() {
-			d.accessTokenCache.Store(t, at)
+			d.accessTokenCache.Store(key, at)
+			log.Debugf("Successfully received token from Athenz ZTS server: accessTokens(%s, len=%d)", key, len(at.Raw()))
 		})
 	}
 	rtUpdateOps := make([]func(), 0, len(rtTargets))
 	for _, t := range rtTargets {
-		rt, err := fetchRoleToken(d.ztsClient, t)
+		key := t // prevent closure over loop variable
+		rt, err := fetchRoleToken(d.ztsClient, key)
 		if err != nil {
 			return err
 		}
 		rtUpdateOps = append(rtUpdateOps, func() {
-			d.roleTokenCache.Store(t, rt)
+			d.roleTokenCache.Store(key, rt)
+			log.Debugf("Successfully received token from Athenz ZTS server: roleTokens(%s, len=%d)", key, len(rt.Raw()))
 		})
 	}
-	log.Debugf("Successfully received tokens from Athenz ZTS server: accessTokens(%d), roleTokens(%d)", len(atUpdateOps), len(rtUpdateOps))
+
+	// batch update caches
 	for _, ops := range atUpdateOps {
 		ops()
 	}

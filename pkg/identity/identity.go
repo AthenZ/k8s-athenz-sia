@@ -84,9 +84,8 @@ func InitIdentityHandler(config *config.IdentityConfig) (*identityHandler, error
 		}
 	}
 
-	t := &http.Transport{
-		TLSClientConfig: tlsConfig,
-	}
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.TLSClientConfig = tlsConfig
 
 	if config.ServerCACert != "" {
 		certPool := x509.NewCertPool()
@@ -233,11 +232,10 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 		return nil, err
 	}
 
-	t := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			MinVersion:   tls.VersionTLS12,
-			Certificates: []tls.Certificate{cert},
-		},
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.TLSClientConfig = &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{cert},
 	}
 	if h.config.ServerCACert != "" {
 		certPool := x509.NewCertPool()
