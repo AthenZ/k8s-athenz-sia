@@ -95,6 +95,7 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		defer close(shutdownChan)
 
 		<-stopChan
+		log.Info("Metrics exporter will shutdown")
 		err := exporter.Shutdown()
 		if err != nil {
 			log.Errorf("Failed to shutdown metrics exporter: %s", err.Error())
