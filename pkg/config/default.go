@@ -83,6 +83,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		SaTokenFile:               "",
 		PodIP:                     "127.0.0.1",
 		PodUID:                    "",
+		Reloader:                  nil,
 		ServerCACert:              "",
 		TargetDomainRoles:         "",
 		RoleCertDir:               "",
@@ -95,13 +96,14 @@ func DefaultIdentityConfig() *IdentityConfig {
 		TokenServerRESTAPI:        false,
 		TokenDir:                  "",
 		MetricsServerAddr:         "",
+		HealthCheckAddr:           "",
+		HealthCheckEndpoint:       "",
 		DeleteInstanceID:          true,
+		ShutdownTimeout:           DEFAULT_SHUTDOWN_TIMEOUT,
+		ShutdownDelay:             DEFAULT_SHUTDOWN_DELAY,
 
 		LogDir:   "",
 		LogLevel: "INFO",
-
-		HealthCheckAddr:     "",
-		HealthCheckEndpoint: "",
 
 		rawMode:               "init",
 		rawRefresh:            "24h",
@@ -112,9 +114,5 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawDeleteInstanceID:   "true",
 		rawShutdownTimeout:    DEFAULT_SHUTDOWN_TIMEOUT.String(),
 		rawShutdownDelay:      DEFAULT_SHUTDOWN_DELAY.String(),
-		ShutdownTimeout:       DEFAULT_SHUTDOWN_TIMEOUT,
-		ShutdownDelay:         DEFAULT_SHUTDOWN_DELAY,
-
-		Reloader: nil,
 	}
 }

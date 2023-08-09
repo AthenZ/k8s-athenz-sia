@@ -55,6 +55,8 @@ type IdentityConfig struct {
 	TokenServerRESTAPI        bool
 	TokenDir                  string
 	MetricsServerAddr         string
+	HealthCheckAddr           string
+	HealthCheckEndpoint       string
 	DeleteInstanceID          bool
 	ShutdownTimeout           time.Duration
 	ShutdownDelay             time.Duration
@@ -72,7 +74,4 @@ type IdentityConfig struct {
 	rawDeleteInstanceID   string
 	rawShutdownTimeout    string
 	rawShutdownDelay      string
-
-	HealthCheckAddr     string
-	HealthCheckEndpoint string
 }
