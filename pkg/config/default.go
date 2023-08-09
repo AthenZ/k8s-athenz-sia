@@ -41,6 +41,10 @@ var (
 	DEFAULT_DNS_SUFFIX                   = "athenz.cloud"
 	DEFAULT_ROLE_CERT_FILENAME_DELIMITER = ":role."
 	DEFAULT_INTERMEDIATE_CERT_BUNDLE     string
+
+	// default values for graceful shutdown
+	DEFAULT_SHUTDOWN_TIMEOUT = 5 * time.Second
+	DEFAULT_SHUTDOWN_DELAY   = time.Duration(0)
 )
 
 func init() {
@@ -106,8 +110,10 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawTokenExpiry:        DEFAULT_TOKEN_EXPIRY.String(),
 		rawTokenServerRESTAPI: "false",
 		rawDeleteInstanceID:   "true",
-		rawShutdownTimeout:    "5s",
-		rawShutdownDelay:      "0s",
+		rawShutdownTimeout:    DEFAULT_SHUTDOWN_TIMEOUT.String(),
+		rawShutdownDelay:      DEFAULT_SHUTDOWN_DELAY.String(),
+		ShutdownTimeout:       DEFAULT_SHUTDOWN_TIMEOUT,
+		ShutdownDelay:         DEFAULT_SHUTDOWN_DELAY,
 
 		Reloader: nil,
 	}
