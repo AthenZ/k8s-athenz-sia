@@ -41,6 +41,10 @@ var (
 	DEFAULT_DNS_SUFFIX                   = "athenz.cloud"
 	DEFAULT_ROLE_CERT_FILENAME_DELIMITER = ":role."
 	DEFAULT_INTERMEDIATE_CERT_BUNDLE     string
+
+	// default values for graceful shutdown
+	DEFAULT_SHUTDOWN_TIMEOUT = 5 * time.Second
+	DEFAULT_SHUTDOWN_DELAY   = time.Duration(0)
 )
 
 func init() {
@@ -79,6 +83,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		SaTokenFile:               "",
 		PodIP:                     "127.0.0.1",
 		PodUID:                    "",
+		Reloader:                  nil,
 		ServerCACert:              "",
 		TargetDomainRoles:         "",
 		RoleCertDir:               "",
@@ -91,13 +96,14 @@ func DefaultIdentityConfig() *IdentityConfig {
 		TokenServerRESTAPI:        false,
 		TokenDir:                  "",
 		MetricsServerAddr:         "",
+		HealthCheckAddr:           "",
+		HealthCheckEndpoint:       "",
 		DeleteInstanceID:          true,
+		ShutdownTimeout:           DEFAULT_SHUTDOWN_TIMEOUT,
+		ShutdownDelay:             DEFAULT_SHUTDOWN_DELAY,
 
 		LogDir:   "",
 		LogLevel: "INFO",
-
-		HealthCheckAddr:     "",
-		HealthCheckEndpoint: "",
 
 		rawMode:               "init",
 		rawRefresh:            "24h",
@@ -106,7 +112,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawTokenExpiry:        DEFAULT_TOKEN_EXPIRY.String(),
 		rawTokenServerRESTAPI: "false",
 		rawDeleteInstanceID:   "true",
-
-		Reloader: nil,
+		rawShutdownTimeout:    DEFAULT_SHUTDOWN_TIMEOUT.String(),
+		rawShutdownDelay:      DEFAULT_SHUTDOWN_DELAY.String(),
 	}
 }

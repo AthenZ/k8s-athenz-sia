@@ -16,6 +16,7 @@ package identity
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -83,11 +84,13 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		}
 	}
 
+	serverDone := make(chan struct{}, 1)
 	go func() {
 		err := exporter.ListenAndServe()
-		if err != nil {
+		if err != nil && err != http.ErrServerClosed {
 			log.Errorf("Failed to start metrics exporter: %s", err.Error())
 		}
+		close(serverDone)
 	}()
 
 	shutdownChan := make(chan struct{}, 1)
@@ -95,10 +98,13 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		defer close(shutdownChan)
 
 		<-stopChan
+		log.Info("Metrics exporter will shutdown")
+		// context.Background() is used, no timeout
 		err := exporter.Shutdown()
 		if err != nil {
 			log.Errorf("Failed to shutdown metrics exporter: %s", err.Error())
 		}
+		<-serverDone
 	}()
 
 	return nil, shutdownChan

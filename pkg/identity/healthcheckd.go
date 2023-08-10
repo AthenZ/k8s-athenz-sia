@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -46,11 +45,13 @@ func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		Handler: createHealthCheckServiceMux(idConfig.HealthCheckEndpoint),
 	}
 
+	serverDone := make(chan struct{}, 1)
 	go func() {
 		log.Infof("Starting health check server[%s]", idConfig.HealthCheckAddr)
-		if err := healthCheckServer.ListenAndServe(); err != nil {
+		if err := healthCheckServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Errorf("Failed to start health check server: %s", err.Error())
 		}
+		close(serverDone)
 	}()
 
 	shutdownChan := make(chan struct{}, 1)
@@ -58,12 +59,14 @@ func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		defer close(shutdownChan)
 
 		<-stopChan
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		log.Info("Health check server will shutdown")
+		ctx, cancel := context.WithTimeout(context.Background(), idConfig.ShutdownTimeout)
 		defer cancel()
 		healthCheckServer.SetKeepAlivesEnabled(false)
 		if err := healthCheckServer.Shutdown(ctx); err != nil {
 			log.Errorf("Failed to shutdown health check server: %s", err.Error())
 		}
+		<-serverDone
 	}()
 
 	return nil, shutdownChan

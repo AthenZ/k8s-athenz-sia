@@ -99,6 +99,9 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("HEALTH_CHECK_ADDR", &idConfig.HealthCheckAddr)
 	loadEnv("HEALTH_CHECK_ENDPOINT", &idConfig.HealthCheckEndpoint)
 
+	loadEnv("SHUTDOWN_TIMEOUT", &idConfig.rawShutdownTimeout)
+	loadEnv("SHUTDOWN_DELAY", &idConfig.rawShutdownDelay)
+
 	// parse values
 	var err error
 	idConfig.Init, err = parseMode(idConfig.rawMode)
@@ -128,6 +131,14 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	idConfig.DeleteInstanceID, err = strconv.ParseBool(idConfig.rawDeleteInstanceID)
 	if err != nil {
 		return fmt.Errorf("Invalid DELETE_INSTANCE_ID [%q], %v", idConfig.rawDeleteInstanceID, err)
+	}
+	idConfig.ShutdownTimeout, err = time.ParseDuration(idConfig.rawShutdownTimeout)
+	if err != nil {
+		return fmt.Errorf("Invalid SHUTDOWN_TIMEOUT [%q], %v", idConfig.rawShutdownTimeout, err)
+	}
+	idConfig.ShutdownDelay, err = time.ParseDuration(idConfig.rawShutdownDelay)
+	if err != nil {
+		return fmt.Errorf("Invalid SHUTDOWN_DELAY [%q], %v", idConfig.rawShutdownDelay, err)
 	}
 	return nil
 }
@@ -174,7 +185,9 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	// healthCheck
 	f.StringVar(&idConfig.HealthCheckAddr, "health-check-addr", idConfig.HealthCheckAddr, "HTTP server address to provide health check")
 	f.StringVar(&idConfig.HealthCheckEndpoint, "health-check-endpoint", idConfig.HealthCheckEndpoint, "HTTP server endpoint to provide health check")
-
+	// graceful shutdown option
+	f.DurationVar(&idConfig.ShutdownTimeout, "shutdown-timeout", idConfig.ShutdownTimeout, "graceful shutdown timeout")
+	f.DurationVar(&idConfig.ShutdownDelay, "shutdown-delay", idConfig.ShutdownDelay, "graceful shutdown delay")
 	if err := f.Parse(args); err != nil {
 		return err
 	}

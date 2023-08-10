@@ -236,11 +236,13 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 		Addr:    idConfig.TokenServerAddr,
 		Handler: newHandlerFunc(d),
 	}
+	serverDone := make(chan struct{}, 1)
 	go func() {
 		log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
-		if err := httpServer.ListenAndServe(); err != nil {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Errorf("Failed to start token provider: %s", err.Error())
 		}
+		close(serverDone)
 	}()
 
 	// start token refresh daemon
@@ -259,12 +261,15 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 					log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 				}
 			case <-stopChan:
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				log.Info("Token provider will shutdown")
+				time.Sleep(idConfig.ShutdownDelay)
+				ctx, cancel := context.WithTimeout(context.Background(), idConfig.ShutdownTimeout)
 				defer cancel()
 				httpServer.SetKeepAlivesEnabled(false)
 				if err := httpServer.Shutdown(ctx); err != nil {
 					log.Errorf("Failed to shutdown token provider: %s", err.Error())
 				}
+				<-serverDone
 				return
 			}
 		}
