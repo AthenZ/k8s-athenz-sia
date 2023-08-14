@@ -89,6 +89,10 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("TOKEN_EXPIRY", &idConfig.rawTokenExpiry)
 	loadEnv("TOKEN_SERVER_ADDR", &idConfig.TokenServerAddr)
 	loadEnv("TOKEN_SERVER_REST_API", &idConfig.rawTokenServerRESTAPI)
+	loadEnv("TOKEN_SERVER_TIMEOUT", &idConfig.rawTokenServerTimeout)
+	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idConfig.TokenServerTLSCAPath)
+	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idConfig.TokenServerTLSCertPath)
+	loadEnv("TOKEN_SERVER_TLS_KEY_PATH", &idConfig.TokenServerTLSKeyPath)
 	loadEnv("TOKEN_DIR", &idConfig.TokenDir)
 	loadEnv("METRICS_SERVER_ADDR", &idConfig.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idConfig.rawDeleteInstanceID)
@@ -127,6 +131,10 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	idConfig.TokenServerRESTAPI, err = strconv.ParseBool(idConfig.rawTokenServerRESTAPI)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %v", idConfig.rawTokenServerRESTAPI, err)
+	}
+	idConfig.TokenServerTimeout, err = time.ParseDuration(idConfig.rawTokenServerTimeout)
+	if err != nil {
+		return fmt.Errorf("Invalid TOKEN_SERVER_TIMEOUT [%q], %v", idConfig.rawTokenServerTimeout, err)
 	}
 	idConfig.DeleteInstanceID, err = strconv.ParseBool(idConfig.rawDeleteInstanceID)
 	if err != nil {
@@ -176,6 +184,10 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	f.DurationVar(&idConfig.TokenExpiry, "token-expiry", idConfig.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
 	f.StringVar(&idConfig.TokenServerAddr, "token-server-addr", idConfig.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
 	f.BoolVar(&idConfig.TokenServerRESTAPI, "token-server-rest-api", idConfig.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
+	f.DurationVar(&idConfig.TokenServerTimeout, "token-server-timeout", idConfig.TokenServerTimeout, "token server timeout (default 3s)")
+	f.StringVar(&idConfig.TokenServerTLSCAPath, "token-server-tls-ca-path", idConfig.TokenServerTLSCAPath, "token server TLS CA path")
+	f.StringVar(&idConfig.TokenServerTLSCertPath, "token-server-tls-cert-path", idConfig.TokenServerTLSCertPath, "token server TLS certificate path")
+	f.StringVar(&idConfig.TokenServerTLSKeyPath, "token-server-tls-key-path", idConfig.TokenServerTLSKeyPath, "token server TLS certificate key path")
 	f.StringVar(&idConfig.TokenDir, "token-dir", idConfig.TokenDir, "directory to write token files")
 	f.StringVar(&idConfig.MetricsServerAddr, "metrics-server-addr", idConfig.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idConfig.DeleteInstanceID, "delete-instance-id", idConfig.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")

@@ -32,6 +32,10 @@ const (
 func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
+		if r.Context().Err() != nil {
+			log.Infof("Request context cancelled: %s, %s", r.URL.String(), r.Context().Err().Error())
+			return
+		}
 		if err != nil {
 			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
@@ -87,6 +91,11 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		log.Infof("Role token cache miss, successfully updated role token cache:: target[%s]", k.String())
 	}
 
+	// check context cancelled
+	if r.Context().Err() != nil {
+		return
+	}
+
 	// response
 	rtResponse := RoleTokenResponse{
 		Token:      rToken.Raw(),
@@ -98,8 +107,9 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func newHandlerFunc(d *daemon) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
+	// main handler is responsible to monitor whether the request context is cancelled
+	mainHandler := func(w http.ResponseWriter, r *http.Request) {
 
 		if d.tokenRESTAPI {
 			// sidecar API (server requests' Body is always non-nil)
@@ -134,6 +144,12 @@ func newHandlerFunc(d *daemon) http.HandlerFunc {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 				}
 			}
+		}
+
+		// check context cancelled
+		if r.Context().Err() != nil {
+			log.Infof("Request context cancelled: %s, %s", r.URL.String(), r.Context().Err().Error())
+			return
 		}
 
 		if len(errMsg) > 0 {
@@ -171,4 +187,7 @@ func newHandlerFunc(d *daemon) http.HandlerFunc {
 		log.Debugf("Returning %d for domain[%s], role[%s]", d.tokenType, domain, role)
 		io.WriteString(w, string(response))
 	}
+
+	// timeout handler
+	return http.TimeoutHandler(http.HandlerFunc(mainHandler), timeout, "Handler timeout by token-server-timeout")
 }

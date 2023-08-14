@@ -234,7 +234,13 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 	// start token server
 	httpServer := &http.Server{
 		Addr:    idConfig.TokenServerAddr,
-		Handler: newHandlerFunc(d),
+		Handler: newHandlerFunc(d, idConfig.TokenServerTimeout),
+	}
+	if idConfig.TokenServerTLSCertPath != "" && idConfig.TokenServerTLSKeyPath != "" {
+		httpServer.TLSConfig, err = NewTLSConfig(idConfig.TokenServerTLSCAPath, idConfig.TokenServerTLSCertPath, idConfig.TokenServerTLSKeyPath)
+		if err != nil {
+			return err, nil
+		}
 	}
 	serverDone := make(chan struct{}, 1)
 	go func() {
