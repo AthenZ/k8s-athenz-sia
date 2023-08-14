@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 const (
@@ -98,6 +99,102 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		if err != nil {
+			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
+			http.Error(w, errMsg, http.StatusInternalServerError)
+			log.Warnf(errMsg)
+		}
+	}()
+
+	// parse body
+	atRequest := AccessTokenRequestBody{}
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err = decoder.Decode(&atRequest); err != nil {
+		return
+	}
+
+	// validate body
+	domain := atRequest.Domain
+	role := ""
+	if atRequest.Role != nil {
+		role = *atRequest.Role
+	}
+	if domain == "" {
+		err = fmt.Errorf("Invalid value: domain[%s], role[%s]", domain, role)
+		return
+	}
+
+	// create cache key
+	k := CacheKey{Domain: domain, Role: role}
+	if atRequest.ProxyForPrincipal != nil {
+		k.ProxyForPrincipal = *atRequest.ProxyForPrincipal
+	}
+	if atRequest.Expiry != nil {
+		k.MinExpiry = *atRequest.Expiry
+	}
+	if k.MinExpiry == 0 {
+		k.MinExpiry = d.tokenExpiryInSecond
+	}
+
+	// cache lookup (token TTL must >= 1 minute)
+	aToken := d.accessTokenCache.Load(k)
+	if aToken != nil {
+		tok, err := jwt.ParseSigned(aToken.Raw())
+		if err != nil {
+			log.Warnf("Failed to parse access token: %s", err.Error())
+			return
+		}
+
+		var claims jwt.Claims
+		if err := tok.UnsafeClaimsWithoutVerification(&claims); err != nil {
+			log.Warnf("Failed to parse access token: %s", err.Error())
+			return
+		}
+
+		expiryTime := claims.Expiry.Time().Unix()
+		if time.Unix(expiryTime, 0).Sub(time.Now()) <= time.Minute {
+			aToken, err = updateAccessToken(d, k)
+			if err != nil {
+				return
+			}
+		}
+	} else {
+		aToken, err = updateAccessToken(d, k)
+		if err != nil {
+			return
+		}
+	}
+	scope := aToken.(*AccessToken).Scope()
+	// token_type is hardcoded in SIA. Because zts server hardcode token_type
+	atResponse := AccessTokenResponse{
+		AccessToken: aToken.Raw(),
+		ExpiresIn:   int(aToken.Expiry()),
+		Scope:       &scope,
+		TokenType:   "Bearer",
+	}
+	w.Header().Set("Content-type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(atResponse)
+	return
+}
+
+func updateAccessToken(d *daemon, k CacheKey) (aToken Token, err error) {
+	log.Debugf("Access token cache miss, attempting to fetch token from Athenz ZTS server: target[%s]", k.String())
+	// on cache miss, fetch token from Athenz ZTS server
+	aToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
+	if err != nil {
+		return nil, err
+	}
+	// update cache
+	d.accessTokenCache.Store(k, aToken)
+	log.Infof("Access token cache miss, successfully updated access token cache:: target[%s]", k.String())
+	return aToken, nil
+}
+
 func newHandlerFunc(d *daemon) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -108,8 +205,10 @@ func newHandlerFunc(d *daemon) http.HandlerFunc {
 				return
 			}
 
-			// if d.tokenType.Has(ACCESS_TOKEN) && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
-			// }
+			if d.tokenType&mACCESS_TOKEN != 0 && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
+				postAccessToken(d, w, r)
+				return
+			}
 		}
 
 		// API for envoy (all methods and paths)

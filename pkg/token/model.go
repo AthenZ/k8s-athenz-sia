@@ -50,6 +50,7 @@ type AccessToken struct {
 	domain string
 	role   string
 	raw    string
+	scope  string
 	expiry int64
 }
 
@@ -67,4 +68,8 @@ func (t *AccessToken) Raw() string {
 
 func (t *AccessToken) Expiry() int64 {
 	return t.expiry
+}
+
+func (t *AccessToken) Scope() string {
+	return t.scope
 }
