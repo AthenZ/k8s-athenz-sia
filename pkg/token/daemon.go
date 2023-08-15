@@ -233,8 +233,9 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 
 	// start token server
 	httpServer := &http.Server{
-		Addr:    idConfig.TokenServerAddr,
-		Handler: newHandlerFunc(d, idConfig.TokenServerTimeout),
+		Addr:      idConfig.TokenServerAddr,
+		Handler:   newHandlerFunc(d, idConfig.TokenServerTimeout),
+		TLSConfig: nil,
 	}
 	if idConfig.TokenServerTLSCertPath != "" && idConfig.TokenServerTLSKeyPath != "" {
 		httpServer.TLSConfig, err = NewTLSConfig(idConfig.TokenServerTLSCAPath, idConfig.TokenServerTLSCertPath, idConfig.TokenServerTLSKeyPath)
@@ -245,7 +246,13 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 	serverDone := make(chan struct{}, 1)
 	go func() {
 		log.Infof("Starting token provider[%s]", idConfig.TokenServerAddr)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		listenAndServe := func() error {
+			if httpServer.TLSConfig != nil {
+				return httpServer.ListenAndServeTLS("", "")
+			}
+			return httpServer.ListenAndServe()
+		}
+		if err := listenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Errorf("Failed to start token provider: %s", err.Error())
 		}
 		close(serverDone)
