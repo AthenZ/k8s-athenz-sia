@@ -25,7 +25,13 @@ import (
 // NewTLSConfig returns a *tls.Config with provided certificate and key. If ca != "", client authentication is enabled.
 func NewTLSConfig(ca, cert, key string) (*tls.Config, error) {
 	t := &tls.Config{
-		MinVersion:             tls.VersionTLS12,
+		MinVersion: tls.VersionTLS12,
+		CurvePreferences: []tls.CurveID{
+			tls.CurveP521,
+			tls.CurveP384,
+			tls.CurveP256,
+			tls.X25519,
+		}, // TODO: copy from sidecar, need further review
 		SessionTicketsDisabled: true, // TODO: copy from sidecar, need further review
 		ClientAuth:             tls.NoClientCert,
 	}
