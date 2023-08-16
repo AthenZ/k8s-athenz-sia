@@ -32,11 +32,10 @@ type CacheKey struct {
 	MinExpiry         int
 	ProxyForPrincipal string
 	Role              string
-	Scope             string
 }
 
 func (k CacheKey) String() string {
-	return fmt.Sprintf("{%s:role.%s,%s,%d,%d,%s}", k.Domain, k.Role, k.ProxyForPrincipal, k.MinExpiry, k.MaxExpiry, k.Scope)
+	return fmt.Sprintf("{%s:role.%s,%s,%d,%d}", k.Domain, k.Role, k.ProxyForPrincipal, k.MinExpiry, k.MaxExpiry)
 }
 
 type LockedTokenCache struct {

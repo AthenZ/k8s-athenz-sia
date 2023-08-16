@@ -26,6 +26,7 @@ import (
 
 	"github.com/AthenZ/athenz/clients/go/zts"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 func newZTSClient(keyPath, certPath, serverCAPath, endpoint string) (*zts.ZTSClient, error) {
@@ -79,16 +80,27 @@ func newZTSClient(keyPath, certPath, serverCAPath, endpoint string) (*zts.ZTSCli
 }
 
 func fetchAccessToken(ztsClient *zts.ZTSClient, t CacheKey, saService string) (*AccessToken, error) {
-	request := GenerateAccessTokenRequestString(t.Domain, saService, t.Role, "", "", t.ProxyForPrincipal, t.MinExpiry)
+	request := GenerateAccessTokenRequestString(t.Domain, saService, t.Role, "", "", t.ProxyForPrincipal, t.MaxExpiry)
 	accessTokenResponse, err := ztsClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
 	if err != nil || accessTokenResponse.Access_token == "" {
 		return nil, fmt.Errorf("PostAccessTokenRequest failed for target [%s], err: %v", t.String(), err)
 	}
+	tok, err := jwt.ParseSigned(accessTokenResponse.Access_token)
+	if err != nil {
+		return nil, err
+	}
+
+	var claims jwt.Claims
+	if err := tok.UnsafeClaimsWithoutVerification(&claims); err != nil {
+		return nil, err
+	}
+
+	expiryTime := claims.Expiry.Time().Unix()
 	return &AccessToken{
 		domain: t.Domain,
 		role:   t.Role,
 		raw:    accessTokenResponse.Access_token,
-		expiry: int64(*accessTokenResponse.Expires_in),
+		expiry: expiryTime,
 		scope:  accessTokenResponse.Scope,
 	}, nil
 }
@@ -116,6 +128,7 @@ func fetchRoleToken(ztsClient *zts.ZTSClient, t CacheKey) (*RoleToken, error) {
 }
 
 // GenerateAccessTokenRequestString generates and urlencodes an access token string.
+// TODO: fix the original method: https://github.com/AthenZ/athenz/blob/a85f48666763759ee28fda114acc4c8d2cafc28e/libs/go/athenzutils/ztsclient.go#L68
 func GenerateAccessTokenRequestString(domain, service, roles, authzDetails, proxyPrincipalSpiffeUris, proxyForPrincipal string, expiryTime int) string {
 
 	params := url.Values{}
