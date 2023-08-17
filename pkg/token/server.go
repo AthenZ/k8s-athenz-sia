@@ -155,7 +155,8 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 
 	// cache lookup (token TTL must >= 1 minute)
 	aToken := d.accessTokenCache.Load(k)
-	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
+	lifetime := time.Unix(aToken.Expiry(), 0).Sub(time.Now())
+	if aToken == nil || lifetime <= time.Minute {
 		log.Debugf("Access token cache miss, attempting to fetch token from Athenz ZTS server: target[%s]", k.String())
 		// on cache miss, fetch token from Athenz ZTS server
 		aToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
@@ -174,14 +175,14 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// response
-	scope := aToken.(*AccessToken).Scope()
-	expires_in := int(time.Unix(aToken.Expiry(), 0).Sub(time.Now()).Seconds())
-	// token_type is hardcoded in SIA. Because zts server hardcode token_type
 	atResponse := AccessTokenResponse{
 		AccessToken: aToken.Raw(),
-		ExpiresIn:   expires_in,
-		Scope:       &scope,
-		TokenType:   "Bearer",
+		ExpiresIn:   int(lifetime.Seconds()),
+		Scope:       nil,
+		TokenType:   "Bearer", // hardcoded in the same way as ZTS, https://github.com/AthenZ/athenz/blob/a85f48666763759ee28fda114acc4c8d2cafc28e/servers/zts/src/main/java/com/yahoo/athenz/zts/ZTSImpl.java#L2656C10-L2656C10
+	}
+	if scope := aToken.(*AccessToken).Scope(); scope != "" {
+		atResponse.Scope = &scope // set scope ONLY when non-nil & non-empty, https://github.com/AthenZ/athenz/blob/a85f48666763759ee28fda114acc4c8d2cafc28e/core/zts/src/main/java/com/yahoo/athenz/zts/AccessTokenResponse.java#L21C14-L21C14
 	}
 	w.Header().Set("Content-type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
