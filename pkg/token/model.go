@@ -18,6 +18,8 @@ type Token interface {
 	Domain() string
 	Role() string
 	Raw() string
+
+	// Expiry returns the expiry time of the token in seconds since Unix epoch.
 	Expiry() int64
 }
 
