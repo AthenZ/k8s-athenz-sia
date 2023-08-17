@@ -32,6 +32,10 @@ const (
 func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
+		if r.Context().Err() != nil {
+			// skip when request context is done
+			return
+		}
 		if err != nil {
 			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
@@ -85,6 +89,12 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		// update cache
 		d.roleTokenCache.Store(k, rToken)
 		log.Infof("Role token cache miss, successfully updated role token cache:: target[%s]", k.String())
+	}
+
+	// check context cancelled
+	if r.Context().Err() != nil {
+		log.Infof("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+		return
 	}
 
 	// response
@@ -208,6 +218,12 @@ func newHandlerFunc(d *daemon) http.HandlerFunc {
 			}
 		}
 
+		// check context cancelled
+		if r.Context().Err() != nil {
+			log.Infof("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+			return
+		}
+
 		if len(errMsg) > 0 {
 			response, err := json.Marshal(map[string]string{"error": errMsg})
 			if err != nil {
@@ -243,4 +259,7 @@ func newHandlerFunc(d *daemon) http.HandlerFunc {
 		log.Debugf("Returning %d for domain[%s], role[%s]", d.tokenType, domain, role)
 		io.WriteString(w, string(response))
 	}
+
+	// timeout handler
+	return http.TimeoutHandler(http.HandlerFunc(mainHandler), timeout, "Handler timeout by token-server-timeout")
 }

@@ -53,6 +53,10 @@ type IdentityConfig struct {
 	TokenExpiry               time.Duration
 	TokenServerAddr           string
 	TokenServerRESTAPI        bool
+	TokenServerTimeout        time.Duration
+	TokenServerTLSCAPath      string
+	TokenServerTLSCertPath    string
+	TokenServerTLSKeyPath     string
 	TokenDir                  string
 	MetricsServerAddr         string
 	HealthCheckAddr           string
@@ -71,6 +75,7 @@ type IdentityConfig struct {
 	rawTokenRefresh       string
 	rawTokenExpiry        string
 	rawTokenServerRESTAPI string
+	rawTokenServerTimeout string
 	rawDeleteInstanceID   string
 	rawShutdownTimeout    string
 	rawShutdownDelay      string
