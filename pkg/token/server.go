@@ -178,8 +178,9 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func newHandlerFunc(d *daemon) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
+	// main handler is responsible to monitor whether the request context is cancelled
+	mainHandler := func(w http.ResponseWriter, r *http.Request) {
 
 		if d.tokenRESTAPI {
 			// sidecar API (server requests' Body is always non-nil)
