@@ -66,7 +66,7 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 				return nil, fmt.Errorf("Invalid TargetDomainRoles[%s]: %s", idConfig.TargetDomainRoles, err.Error())
 			}
 			if tt&mACCESS_TOKEN != 0 {
-				accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &AccessToken{})
+				accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond}, &AccessToken{})
 			}
 			if tt&mROLE_TOKEN != 0 {
 				roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &RoleToken{})

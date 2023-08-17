@@ -88,7 +88,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		}
 		// update cache
 		d.roleTokenCache.Store(k, rToken)
-		log.Infof("Role token cache miss, successfully updated role token cache:: target[%s]", k.String())
+		log.Infof("Role token cache miss, successfully updated role token cache: target[%s]", k.String())
 	}
 
 	// check context cancelled
@@ -108,6 +108,87 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		if r.Context().Err() != nil {
+			// skip when request context is done
+			return
+		}
+		if err != nil {
+			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
+			http.Error(w, errMsg, http.StatusInternalServerError)
+			log.Warnf(errMsg)
+		}
+	}()
+
+	// parse body
+	atRequest := AccessTokenRequestBody{}
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err = decoder.Decode(&atRequest); err != nil {
+		return
+	}
+
+	// validate body
+	domain := atRequest.Domain
+	role := ""
+	if atRequest.Role != nil {
+		role = *atRequest.Role
+	}
+	if domain == "" {
+		err = fmt.Errorf("Invalid value: domain[%s], role[%s]", domain, role)
+		return
+	}
+
+	// create cache key
+	k := CacheKey{Domain: domain, Role: role}
+	if atRequest.ProxyForPrincipal != nil {
+		k.ProxyForPrincipal = *atRequest.ProxyForPrincipal
+	}
+	if atRequest.Expiry != nil {
+		k.MaxExpiry = *atRequest.Expiry
+	}
+	if k.MaxExpiry == 0 {
+		k.MaxExpiry = d.tokenExpiryInSecond
+	}
+
+	// cache lookup (token TTL must >= 1 minute)
+	aToken := d.accessTokenCache.Load(k)
+	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
+		log.Debugf("Access token cache miss, attempting to fetch token from Athenz ZTS server: target[%s]", k.String())
+		// on cache miss, fetch token from Athenz ZTS server
+		aToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
+		if err != nil {
+			return
+		}
+		// update cache
+		d.accessTokenCache.Store(k, aToken)
+		log.Infof("Access token cache miss, successfully updated access token cache: target[%s]", k.String())
+	}
+
+	// check context cancelled
+	if r.Context().Err() != nil {
+		log.Infof("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+		return
+	}
+
+	// response
+	scope := aToken.(*AccessToken).Scope()
+	expires_in := int(time.Unix(aToken.Expiry(), 0).Sub(time.Now()).Seconds())
+	// token_type is hardcoded in SIA. Because zts server hardcode token_type
+	atResponse := AccessTokenResponse{
+		AccessToken: aToken.Raw(),
+		ExpiresIn:   expires_in,
+		Scope:       &scope,
+		TokenType:   "Bearer",
+	}
+	w.Header().Set("Content-type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(atResponse)
+	return
+}
+
 func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 	// main handler is responsible to monitor whether the request context is cancelled
 	mainHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -119,8 +200,10 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 				return
 			}
 
-			// if d.tokenType.Has(ACCESS_TOKEN) && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
-			// }
+			if d.tokenType&mACCESS_TOKEN != 0 && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
+				postAccessToken(d, w, r)
+				return
+			}
 		}
 
 		// API for envoy (all methods and paths)
