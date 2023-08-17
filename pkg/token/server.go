@@ -88,7 +88,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		}
 		// update cache
 		d.roleTokenCache.Store(k, rToken)
-		log.Infof("Role token cache miss, successfully updated role token cache:: target[%s]", k.String())
+		log.Infof("Role token cache miss, successfully updated role token cache: target[%s]", k.String())
 	}
 
 	// check context cancelled
@@ -111,6 +111,10 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
+		if r.Context().Err() != nil {
+			// skip when request context is done
+			return
+		}
 		if err != nil {
 			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
@@ -160,9 +164,16 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		}
 		// update cache
 		d.accessTokenCache.Store(k, aToken)
-		log.Infof("Access token cache miss, successfully updated access token cache:: target[%s]", k.String())
+		log.Infof("Access token cache miss, successfully updated access token cache: target[%s]", k.String())
 	}
 
+	// check context cancelled
+	if r.Context().Err() != nil {
+		log.Infof("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+		return
+	}
+
+	// response
 	scope := aToken.(*AccessToken).Scope()
 	expires_in := int(time.Unix(aToken.Expiry(), 0).Sub(time.Now()).Seconds())
 	// token_type is hardcoded in SIA. Because zts server hardcode token_type

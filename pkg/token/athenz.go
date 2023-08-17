@@ -26,7 +26,7 @@ import (
 
 	"github.com/AthenZ/athenz/clients/go/zts"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
-	"gopkg.in/square/go-jose.v2/jwt"
+	jwt "github.com/golang-jwt/jwt/v5"
 )
 
 func newZTSClient(keyPath, certPath, serverCAPath, endpoint string) (*zts.ZTSClient, error) {
@@ -85,22 +85,22 @@ func fetchAccessToken(ztsClient *zts.ZTSClient, t CacheKey, saService string) (*
 	if err != nil || accessTokenResponse.Access_token == "" {
 		return nil, fmt.Errorf("PostAccessTokenRequest failed for target [%s], err: %v", t.String(), err)
 	}
-	tok, err := jwt.ParseSigned(accessTokenResponse.Access_token)
+	tok, _, err := new(jwt.Parser).ParseUnverified(accessTokenResponse.Access_token, jwt.MapClaims{})
 	if err != nil {
 		return nil, err
 	}
 
-	var claims jwt.Claims
-	if err := tok.UnsafeClaimsWithoutVerification(&claims); err != nil {
-		return nil, err
+	claims, ok := tok.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("Invalid claims format")
 	}
 
-	expiryTime := claims.Expiry.Time().Unix()
+	expiryTime := claims["exp"].(float64)
 	return &AccessToken{
 		domain: t.Domain,
 		role:   t.Role,
 		raw:    accessTokenResponse.Access_token,
-		expiry: expiryTime,
+		expiry: int64(expiryTime),
 		scope:  accessTokenResponse.Scope,
 	}, nil
 }
