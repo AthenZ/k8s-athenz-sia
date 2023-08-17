@@ -85,9 +85,9 @@ func fetchAccessToken(ztsClient *zts.ZTSClient, t CacheKey, saService string) (*
 	if err != nil || accessTokenResponse.Access_token == "" {
 		return nil, fmt.Errorf("PostAccessTokenRequest failed for target [%s], err: %v", t.String(), err)
 	}
-	tok, _, err := jwt.NewParser().ParseUnverified(accessTokenResponse.Access_token, jwt.RegisteredClaims{})
+	tok, _, err := jwt.NewParser().ParseUnverified(accessTokenResponse.Access_token, &jwt.RegisteredClaims{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("jwt.ParseUnverified() err: %v", err)
 	}
 
 	expTime, err := tok.Claims.GetExpirationTime()
