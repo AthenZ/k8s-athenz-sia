@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime"
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -174,14 +175,14 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// response
-	scope := aToken.(*AccessToken).Scope()
-	expires_in := int(time.Unix(aToken.Expiry(), 0).Sub(time.Now()).Seconds())
-	// token_type is hardcoded in SIA. Because zts server hardcode token_type
 	atResponse := AccessTokenResponse{
 		AccessToken: aToken.Raw(),
-		ExpiresIn:   expires_in,
-		Scope:       &scope,
-		TokenType:   "Bearer",
+		ExpiresIn:   int(time.Unix(aToken.Expiry(), 0).Sub(time.Now()).Seconds()),
+		Scope:       nil,
+		TokenType:   "Bearer", // hardcoded in the same way as ZTS, https://github.com/AthenZ/athenz/blob/a85f48666763759ee28fda114acc4c8d2cafc28e/servers/zts/src/main/java/com/yahoo/athenz/zts/ZTSImpl.java#L2656C10-L2656C10
+	}
+	if scope := aToken.(*AccessToken).Scope(); scope != "" {
+		atResponse.Scope = &scope // set scope ONLY when non-nil & non-empty, https://github.com/AthenZ/athenz/blob/a85f48666763759ee28fda114acc4c8d2cafc28e/core/zts/src/main/java/com/yahoo/athenz/zts/AccessTokenResponse.java#L21C14-L21C14
 	}
 	w.Header().Set("Content-type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
@@ -192,6 +193,17 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 	// main handler is responsible to monitor whether the request context is cancelled
 	mainHandler := func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			// handle panic, reference: https://github.com/golang/go/blob/go1.20.7/src/net/http/server.go#L1851-L1856
+			if err := recover(); err != nil && err != http.ErrAbortHandler {
+				const size = 64 << 10
+				buf := make([]byte, size)
+				buf = buf[:runtime.Stack(buf, false)]
+				log.Errorf("http: panic serving %v: %v\n%s", r.RemoteAddr, err, buf)
+
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+		}()
 
 		if d.tokenRESTAPI {
 			// sidecar API (server requests' Body is always non-nil)
