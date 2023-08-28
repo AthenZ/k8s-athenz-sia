@@ -288,7 +288,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 		if err != nil {
 			return nil, fmt.Errorf("PostRoleCertificateRequest failed for principal[%s.%s] to get Role Subject CommonName[%s], err: %v", domain, service, csrOption.Subject.CommonName, err)
 		}
-		x509RoleCert, err := util.CertificateFromPEMBytes([]byte(roleCert.Token))
+		x509RoleCert, err := util.CertificateFromPEMBytes([]byte(roleCert.X509Certificate))
 		if err != nil {
 			return nil, fmt.Errorf("Failed to parse x509 certificate for PostRoleCertificateRequest response, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
 		}
@@ -301,7 +301,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 			NotAfter:        x509RoleCert.NotAfter,
 			SerialNumber:    x509RoleCert.SerialNumber,
 			DNSNames:        x509RoleCert.DNSNames,
-			X509Certificate: roleCert.Token + intermediateCerts, // Concatenate intermediate certificate with the role certificate
+			X509Certificate: roleCert.X509Certificate + intermediateCerts, // Concatenate intermediate certificate with the role certificate
 		})
 
 	}
