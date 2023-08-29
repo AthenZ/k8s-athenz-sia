@@ -284,20 +284,11 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 			ExpiryTime: int64(x509LeafCert.NotAfter.Sub(time.Now()).Minutes()) + int64(config.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES), // Extract NotAfter from the instance certificate
 		}
 
-		// PostRoleCertificateRequest must be called instead of PostRoleCertificateRequestExt,
-		//     since the current version 1.9.21-SNAPSHOT set Principal Name in the Subject CommonName with PostRoleCertificateRequestExt API.
-		// Setting Principal Name in the Subject CommonName is not compatible with mTLS role-based authorization.
-		//
-		// See:
-		//     https://github.com/AthenZ/athenz/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/pom.xml#L23
-		//     https://github.com/AthenZ/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/servers/zts/src/main/java/com/yahoo/athenz/zts/ZTSImpl.java#L2229
-		//     https://github.com/AthenZ/athenz/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/servers/zts/src/main/java/com/yahoo/athenz/zts/ZTSImpl.java#L2283
-		//     https://github.com/AthenZ/athenz/blob/c60c90a3fa14d82eb4bd3a789a3243b7f97d0efe/servers/zts/src/main/java/com/yahoo/athenz/zts/cert/X509RoleCertRequest.java#L209
-		roleCert, err := roleCertClient.PostRoleCertificateRequest(zts.DomainName(dr[0]), zts.EntityName(dr[1]), roleRequest)
+		roleCert, err := roleCertClient.PostRoleCertificateRequestExt(roleRequest)
 		if err != nil {
 			return nil, fmt.Errorf("PostRoleCertificateRequest failed for principal[%s.%s] to get Role Subject CommonName[%s], err: %v", domain, service, csrOption.Subject.CommonName, err)
 		}
-		x509RoleCert, err := util.CertificateFromPEMBytes([]byte(roleCert.Token))
+		x509RoleCert, err := util.CertificateFromPEMBytes([]byte(roleCert.X509Certificate))
 		if err != nil {
 			return nil, fmt.Errorf("Failed to parse x509 certificate for PostRoleCertificateRequest response, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
 		}
@@ -310,7 +301,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 			NotAfter:        x509RoleCert.NotAfter,
 			SerialNumber:    x509RoleCert.SerialNumber,
 			DNSNames:        x509RoleCert.DNSNames,
-			X509Certificate: roleCert.Token + intermediateCerts, // Concatenate intermediate certificate with the role certificate
+			X509Certificate: roleCert.X509Certificate + intermediateCerts, // Concatenate intermediate certificate with the role certificate
 		})
 
 	}
