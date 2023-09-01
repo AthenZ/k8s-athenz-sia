@@ -8,6 +8,7 @@ replace golang.org/x/text => golang.org/x/text v0.12.0
 
 require (
 	github.com/AthenZ/athenz v1.11.38
+	github.com/bmatcuk/doublestar/v4 v4.6.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
