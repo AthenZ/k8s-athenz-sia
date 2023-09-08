@@ -53,7 +53,7 @@ LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/v3/pkg/config.DEFAULT_INTER
 endif
 
 ifneq ($(LDFLAGS_ARGS),)
-LDFLAGS += -ldflags "$(LDFLAGS_ARGS)"
+LDFLAGS += -ldflags "$(LDFLAGS_ARGS) -linkmode=external"
 endif
 
 build: submodule-update
