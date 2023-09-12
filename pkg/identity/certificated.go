@@ -236,10 +236,11 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 
 		err = writeFiles(identity, keyPem, roleCerts)
 		if err != nil {
+			log.Error(err)
 			if forceInitIdentity != nil || forceInitKeyPem != nil {
-				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
+				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles, err)
 			} else {
-				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
+				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles, err)
 			}
 		}
 
