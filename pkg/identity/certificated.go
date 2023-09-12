@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -70,6 +71,11 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		}
 
 		if roleCerts != nil {
+			// Create the directory before saving role certificates
+			if err := os.MkdirAll(idConfig.RoleCertDir, 0755); err != nil {
+				return errors.Wrap(err, "unable to create directory for x509 role cert")
+			}
+
 			for _, rolecert := range roleCerts {
 				roleCertPEM := []byte(rolecert.X509Certificate)
 				if len(roleCertPEM) != 0 {
@@ -236,11 +242,10 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 
 		err = writeFiles(identity, keyPem, roleCerts)
 		if err != nil {
-			log.Error(err)
 			if forceInitIdentity != nil || forceInitKeyPem != nil {
-				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles, err)
+				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
 			} else {
-				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles, err)
+				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
 			}
 		}
 

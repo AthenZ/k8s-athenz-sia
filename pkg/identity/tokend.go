@@ -111,12 +111,7 @@ func Tokend(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan s
 			}
 			return nil
 		})
-		err := w.Save()
-		if err != nil {
-			log.Info("⭐️ Failed to write token files: %s", err.Error())
-			log.Info(err)
-		}
-		return err
+		return w.Save()
 	}
 
 	// getExponentialBackoff will return a backoff config with first retry delay of 5s, and backoff retry
