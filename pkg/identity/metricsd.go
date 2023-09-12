@@ -9,6 +9,7 @@ import (
 
 	// using git submodule to import internal package (special package in golang)
 	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
+	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	internal "github.com/AthenZ/k8s-athenz-sia/pkg/metrics"
 )
 
@@ -57,7 +58,14 @@ func Metricsd(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-chan
 
 	if idConfig.TargetDomainRoles != "" && idConfig.RoleCertDir != "" {
 		for _, domainrole := range strings.Split(idConfig.TargetDomainRoles, ",") {
-			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+domainrole+".cert.pem")
+			targetDomain, targetRole, err := athenz.SplitRoleName(domainrole)
+			if err != nil {
+				log.Warnf("Failed to read element '%s' of given TARGET_DOMAIN_ROLES: %s, err: %s", domainrole, idConfig.TargetDomainRoles, err.Error())
+				continue
+			}
+
+			fileName := targetDomain + idConfig.RoleCertFilenameDelimiter + targetRole + ".cert.pem"
+			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+fileName)
 		}
 	}
 
