@@ -102,7 +102,7 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		// context.Background() is used, no timeout
 		err := exporter.Shutdown()
 		if err != nil {
-			log.Errorf("Failed to shutdown metrics exporter: %s", err.Error())
+			log.Fatalf("Failed to shutdown metrics exporter: %s", err.Error())
 		}
 		<-serverDone
 	}()
