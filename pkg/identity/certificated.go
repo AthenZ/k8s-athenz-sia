@@ -305,6 +305,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	err, tokenSdChan := token.Tokend(idConfig, tokenChan)
 	if err != nil {
 		log.Errorf("Error starting token provider[%s]", err)
+		close(tokenChan)
 		return err, nil
 	}
 
@@ -312,6 +313,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	err, metricsSdChan := Metricsd(idConfig, metricsChan)
 	if err != nil {
 		log.Errorf("Error starting metrics exporter[%s]", err)
+		close(metricsChan)
 		close(tokenChan)
 		return err, nil
 	}
@@ -321,6 +323,8 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	if err != nil {
 		log.Errorf("Error starting health check server[%s]", err)
 		close(healthcheckChan)
+		close(metricsChan)
+		close(tokenChan)
 		return err, nil
 	}
 
