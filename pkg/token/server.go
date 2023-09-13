@@ -40,7 +40,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
-			log.Warnf(errMsg)
+			log.Errorf(errMsg)
 		}
 	}()
 
@@ -94,7 +94,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 
 	// check context cancelled
 	if r.Context().Err() != nil {
-		log.Infof("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
 		return
 	}
 
@@ -119,7 +119,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
-			log.Warnf(errMsg)
+			log.Errorf(errMsg)
 		}
 	}()
 
@@ -170,7 +170,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 
 	// check context cancelled
 	if r.Context().Err() != nil {
-		log.Infof("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
 		return
 	}
 
@@ -244,7 +244,7 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 
 		// check context cancelled
 		if r.Context().Err() != nil {
-			log.Infof("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+			log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
 			return
 		}
 
