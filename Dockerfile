@@ -1,6 +1,6 @@
 FROM docker.io/golang:1-alpine as base
 
-RUN apk add --no-cache make git
+RUN apk add --no-cache make g++ git
 
 WORKDIR /go/src/k8s-athenz-sia
 
