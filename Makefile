@@ -53,12 +53,12 @@ LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/v3/pkg/config.DEFAULT_INTER
 endif
 
 ifneq ($(LDFLAGS_ARGS),)
-LDFLAGS += -ldflags "$(LDFLAGS_ARGS)"
+LDFLAGS += -ldflags "$(LDFLAGS_ARGS) -linkmode=external"
 endif
 
 build: submodule-update
 	@echo "Building..."
-	CGO_ENABLED=0 go build $(LDFLAGS) -o $(GOPATH)/bin/athenz-sia cmd/athenz-sia/*.go
+	CGO_ENABLED=1 go build $(LDFLAGS) -o $(GOPATH)/bin/athenz-sia cmd/athenz-sia/*.go
 
 test:
 	@echo "Testing..."
