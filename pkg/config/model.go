@@ -47,6 +47,7 @@ type IdentityConfig struct {
 	TargetDomainRoles         string
 	RoleCertDir               string
 	RoleCertFilenameDelimiter string
+	RoleCertKeyFileOutput     bool
 	RoleAuthHeader            string
 	TokenType                 string
 	TokenRefresh              time.Duration
@@ -69,14 +70,15 @@ type IdentityConfig struct {
 	LogLevel string
 
 	// raw strings before parsing
-	rawMode               string
-	rawRefresh            string
-	rawDelayJitterSeconds string
-	rawTokenRefresh       string
-	rawTokenExpiry        string
-	rawTokenServerRESTAPI string
-	rawTokenServerTimeout string
-	rawDeleteInstanceID   string
-	rawShutdownTimeout    string
-	rawShutdownDelay      string
+	rawMode                  string
+	rawRefresh               string
+	rawDelayJitterSeconds    string
+	rawRoleCertKeyFileOutput string
+	rawTokenRefresh          string
+	rawTokenExpiry           string
+	rawTokenServerRESTAPI    string
+	rawTokenServerTimeout    string
+	rawDeleteInstanceID      string
+	rawShutdownTimeout       string
+	rawShutdownDelay         string
 }
