@@ -17,8 +17,8 @@
 vendor/*
 
 # Go build binary
-k8s-athenz-sia
-athenz-sia
+/k8s-athenz-sia
+/athenz-sia
 
 # packages
 *.rpm
