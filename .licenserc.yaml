@@ -1,7 +1,7 @@
 header:
   license:
     spdx-id: Apache-2.0
-    copyright-owner: Yahoo Japan Corporation
+    copyright-owner: LY Corporation
     software-name: k8s-athenz-sia
   paths:
     - '**/*.go'
