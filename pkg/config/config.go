@@ -83,6 +83,7 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("TARGET_DOMAIN_ROLES", &idConfig.TargetDomainRoles)
 	loadEnv("ROLECERT_DIR", &idConfig.RoleCertDir)
 	loadEnv("ROLE_CERT_FILENAME_DELIMITER", &idConfig.RoleCertFilenameDelimiter)
+	loadEnv("ROLE_CERT_KEY_FILE_OUTPUT", &idConfig.rawRoleCertKeyFileOutput)
 	loadEnv("ROLE_AUTH_HEADER", &idConfig.RoleAuthHeader)
 	loadEnv("TOKEN_TYPE", &idConfig.TokenType)
 	loadEnv("TOKEN_REFRESH_INTERVAL", &idConfig.rawTokenRefresh)
@@ -119,6 +120,10 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	idConfig.DelayJitterSeconds, err = strconv.ParseInt(idConfig.rawDelayJitterSeconds, 10, 64)
 	if err != nil {
 		return fmt.Errorf("Invalid DELAY_JITTER_SECONDS [%q], %v", idConfig.rawDelayJitterSeconds, err)
+	}
+	idConfig.RoleCertKeyFileOutput, err = strconv.ParseBool(idConfig.rawRoleCertKeyFileOutput)
+	if err != nil {
+		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %v", idConfig.rawRoleCertKeyFileOutput, err)
 	}
 	idConfig.TokenRefresh, err = time.ParseDuration(idConfig.rawTokenRefresh)
 	if err != nil {
@@ -178,6 +183,7 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	f.StringVar(&idConfig.TargetDomainRoles, "target-domain-roles", idConfig.TargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idConfig.RoleCertFilenameDelimiter+"admin,sys.auth"+idConfig.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
 	f.StringVar(&idConfig.RoleCertDir, "rolecert-dir", idConfig.RoleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
 	// RoleCertFilenameDelimiter
+	f.BoolVar(&idConfig.RoleCertKeyFileOutput, "rolecert-key-file-output", idConfig.RoleCertKeyFileOutput, "output role certificate key file (true/false)")
 	// RoleAuthHeader
 	f.StringVar(&idConfig.TokenType, "token-type", idConfig.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
 	f.DurationVar(&idConfig.TokenRefresh, "token-refresh-interval", idConfig.TokenRefresh, "token refresh interval")

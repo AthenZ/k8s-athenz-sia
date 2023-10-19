@@ -46,22 +46,22 @@ func newZTSClient(keyPath, certPath, serverCAPath, endpoint string) (*zts.ZTSCli
 	}
 	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		log.Debugf("Attempting to load client x509 certificate from local file to fetch tokens: key[%s], cert[%s]...", keyPath, certPath)
-		certPem, err := os.ReadFile(certPath)
+		certPEM, err := os.ReadFile(certPath)
 		if err != nil {
 			log.Warnf("Error while reading client x509 certificate from local file[%s]: %s", certPath, err.Error())
 			return nil, err
 		}
-		keyPem, err := os.ReadFile(keyPath)
+		keyPEM, err := os.ReadFile(keyPath)
 		if err != nil {
 			log.Warnf("Error while reading client x509 certificate key from local file[%s]: %s", keyPath, err.Error())
 			return nil, err
 		}
-		cert, err := tls.X509KeyPair(certPem, keyPem)
+		cert, err := tls.X509KeyPair(certPEM, keyPEM)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to client x509 certificate from local file to fetch tokens, err: %v", err)
 		}
 
-		log.Debugf("Successfully loaded client x509 certificate from local file to fetch tokens: key size[%d]bytes, certificate size[%d]bytes", len(keyPem), len(certPem))
+		log.Debugf("Successfully loaded client x509 certificate from local file to fetch tokens: key size[%d]bytes, certificate size[%d]bytes", len(keyPEM), len(certPEM))
 		return &cert, nil
 	}
 
