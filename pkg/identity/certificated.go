@@ -103,8 +103,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 						return errors.Wrap(err, "unable to save x509 role cert")
 					}
 
-					// always output role cert key file to prevent unexpected key rotation when using external key
-					if id == nil || idConfig.RoleCertKeyFileOutput {
+					if idConfig.RoleCertKeyFileOutput {
 						outKeyPath := filepath.Join(idConfig.RoleCertDir, rolecert.Domain+idConfig.RoleCertFilenameDelimiter+rolecert.Role+".key.pem")
 						log.Debugf("Saving x509 role cert key[%d bytes] at [%s]", len(roleKeyPEM), outKeyPath)
 						if err := w.AddBytes(outKeyPath, 0644, roleKeyPEM); err != nil {
