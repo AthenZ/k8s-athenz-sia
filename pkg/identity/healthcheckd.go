@@ -59,7 +59,7 @@ func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		defer close(shutdownChan)
 
 		<-stopChan
-		log.Info("Health check server will shutdown")
+		log.Info("Health check server will shut down...")
 		ctx, cancel := context.WithTimeout(context.Background(), idConfig.ShutdownTimeout)
 		defer cancel()
 		healthCheckServer.SetKeepAlivesEnabled(false)

@@ -353,7 +353,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 					log.Errorf("Failed to refresh x509 certificate after multiple retries: %s", err.Error())
 				}
 			case <-stopChan:
-				log.Info("Certificate provider will shutdown")
+				log.Info("Certificate provider will shut down...")
 				err = deleteRequest()
 				if err != nil {
 					log.Errorf("Failed to delete x509 certificate Instance ID record: %s", err.Error())

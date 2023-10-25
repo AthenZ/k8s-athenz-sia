@@ -85,8 +85,8 @@ func main() {
 	}
 
 	if !idConfig.Init {
-		<-ch // wait until receiving os.Signal from channel ch
-		log.Println("Shutting down...")
+		s := <-ch // wait until receiving os.Signal from channel ch
+		log.Printf("Receive %s signal, will shut down...\n", s.String())
 	}
 
 	close(certificateChan)

@@ -274,7 +274,7 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 					log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 				}
 			case <-stopChan:
-				log.Info("Token provider will shutdown")
+				log.Info("Token provider will shut down...")
 				time.Sleep(idConfig.ShutdownDelay)
 				ctx, cancel := context.WithTimeout(context.Background(), idConfig.ShutdownTimeout)
 				defer cancel()
