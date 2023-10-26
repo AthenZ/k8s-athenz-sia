@@ -103,8 +103,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 						return errors.Wrap(err, "unable to save x509 role cert")
 					}
 
-					// always output role cert key file to prevent unexpected key rotation when using external key
-					if id == nil || idConfig.RoleCertKeyFileOutput {
+					if idConfig.RoleCertKeyFileOutput {
 						outKeyPath := filepath.Join(idConfig.RoleCertDir, rolecert.Domain+idConfig.RoleCertFilenameDelimiter+rolecert.Role+".key.pem")
 						log.Debugf("Saving x509 role cert key[%d bytes] at [%s]", len(roleKeyPEM), outKeyPath)
 						if err := w.AddBytes(outKeyPath, 0644, roleKeyPEM); err != nil {
@@ -354,7 +353,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 					log.Errorf("Failed to refresh x509 certificate after multiple retries: %s", err.Error())
 				}
 			case <-stopChan:
-				log.Info("Certificate provider will shutdown")
+				log.Info("Initiating shutdown of certificate provider daemon ...")
 				err = deleteRequest()
 				if err != nil {
 					log.Errorf("Failed to delete x509 certificate Instance ID record: %s", err.Error())
