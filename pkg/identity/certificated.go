@@ -250,7 +250,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
-			return errors.New("Failed to fetch x509 certificate")
+			return errors.New("Failed to prepare x509 certificate")
 		}
 
 		if backupIdentity != nil && len(backupKeyPEM) != 0 && idConfig.ProviderService != "" {
