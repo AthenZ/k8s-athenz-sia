@@ -249,8 +249,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
-			log.Errorf("Failed to retrieve x509 certificate from identity provider: identity was empty")
-			return errors.New("Failed to retrieve x509 certificate from identity provider: identity was empty")
+			return errors.New("Failed to prepare Instance Certificate!")
 		}
 
 		if backupIdentity != nil && len(backupKeyPEM) != 0 && idConfig.ProviderService != "" {
