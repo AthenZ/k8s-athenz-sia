@@ -245,7 +245,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			} else if idConfig.CertSecret == "" && strings.Contains(idConfig.Backup, "read") {
 				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret with empty CERT_SECRET[%d]", idConfig.CertSecret)
 			} else {
-				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret or local file with BACKUP[%s]", idConfig.Backup)
+				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret or local file with BACKUP[%d]", idConfig.Backup)
 			}
 		}
 

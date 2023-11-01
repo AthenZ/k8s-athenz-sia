@@ -251,7 +251,7 @@ func (idConfig *IdentityConfig) validateAndInit() (err error) {
 		}
 	}
 
-	// when backup is "file" and secret-name CERT_SECRET is empty, it should warn the user that the mode is currently file, not k8s secret backup
+	// when backup is "file" and secret-name CERT_SECRET is NOT empty, it should warn the user that the mode is currently file, not k8s secret backup
 	if idConfig.Backup == "file" && idConfig.CertSecret != "" {
 		log.Warnf("Backup is set to \"file\" but CERT_SECRET is not empty. Backup mode is currently using from the local file.")
 	}
