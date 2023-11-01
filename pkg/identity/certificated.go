@@ -224,6 +224,11 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 			}
 		}
 
+		if identity == nil || len(keyPem) == 0 {
+			log.Errorf("Failed to retrieve x509 certificate from identity provider: identity was empty")
+			return errors.New("Failed to retrieve x509 certificate from identity provider: identity was empty")
+		}
+
 		if backupIdentity != nil && len(backupKeyPem) != 0 && idConfig.ProviderService != "" {
 			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idConfig.ProviderService)
 			err, forceInitIdentity, forceInitKeyPem = identityProvisioningRequest(true)
@@ -233,11 +238,6 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 				identity = forceInitIdentity
 				keyPem = forceInitKeyPem
 			}
-		}
-
-		if identity == nil || len(keyPem) == 0 {
-			log.Errorf("Failed to retrieve x509 certificate from identity provider: identity was empty")
-			return errors.New("Failed to retrieve x509 certificate from identity provider: identity was empty")
 		}
 
 		err, roleCerts := roleCertProvisioningRequest()
