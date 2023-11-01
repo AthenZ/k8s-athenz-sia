@@ -45,6 +45,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idConfig.TargetDomainRoles, idConfig.RoleCertDir)
 	}
 
+	// TODO: Why is backupIdentity and backupKeyPEM, forceInitIdentity, forceInitKeyPEM defined here? Should be defined in the blocks?
 	var identity, backupIdentity, forceInitIdentity *InstanceIdentity
 	var keyPEM, backupKeyPEM, forceInitKeyPEM []byte
 
@@ -153,38 +154,13 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 
 	roleCertProvisioningRequest := func() (err error, roleCerts [](*RoleCertificate), roleKeyPEM []byte) {
 		var roleIdentity *InstanceIdentity
-		var roleCertPEM []byte
 
 		if idConfig.TargetDomainRoles == "" || idConfig.RoleCertDir == "" {
 			return nil, nil, nil
 		}
 
-		if identity == nil || len(keyPEM) == 0 {
-			log.Debugf("Attempting to load x509 certificate from local file to get x509 role certs: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
-
-			roleCertPEM, err = ioutil.ReadFile(idConfig.CertFile)
-			if err != nil {
-				log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
-			}
-			roleKeyPEM, err = ioutil.ReadFile(idConfig.KeyFile)
-			if err != nil {
-				log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
-			}
-
-			roleIdentity, err = InstanceIdentityFromPEMBytes(roleCertPEM)
-			if err != nil {
-				log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
-			}
-
-			if roleIdentity == nil || len(roleKeyPEM) == 0 {
-				log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(roleKeyPEM), len(roleCertPEM))
-			} else {
-				log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(roleKeyPEM), len(roleCertPEM))
-			}
-		} else {
-			roleIdentity = identity
-			roleKeyPEM = keyPEM
-		}
+		roleIdentity = identity
+		roleKeyPEM = keyPEM
 
 		if roleIdentity == nil || len(roleKeyPEM) == 0 {
 			return nil, nil, nil
@@ -242,14 +218,39 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 					keyPEM = backupKeyPEM
 					log.Infof("Successfully loaded x509 certificate from kubernetes secret")
 				}
-			} else {
+			} else if idConfig.Backup == "file" {
+				log.Debugf("Attempting to load x509 certificate from local file: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
 
-				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret[%s]", idConfig.CertSecret)
+				instanceCertPEM, err := ioutil.ReadFile(idConfig.CertFile)
+				if err != nil {
+					log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
+				}
+				fileBackupKey, err := ioutil.ReadFile(idConfig.KeyFile)
+				if err != nil {
+					log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
+				}
+
+				fileBackupIdentity, err := InstanceIdentityFromPEMBytes(instanceCertPEM)
+				if err != nil {
+					log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
+				}
+
+				if fileBackupIdentity == nil || len(backupKeyPEM) == 0 {
+					log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(instanceCertPEM), len(backupKeyPEM))
+				} else {
+					identity = fileBackupIdentity
+					keyPEM = fileBackupKey
+					log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(instanceCertPEM), len(backupKeyPEM))
+				}
+			} else if idConfig.CertSecret == "" && strings.Contains(idConfig.Backup, "read") {
+				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret with empty CERT_SECRET[%d]", idConfig.CertSecret)
+			} else {
+				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret or local file with BACKUP[%s]", idConfig.Backup)
 			}
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
-			return errors.New("Failed to prepare Instance Certificate!")
+			return errors.New("Failed to fetch x509 certificate")
 		}
 
 		if backupIdentity != nil && len(backupKeyPEM) != 0 && idConfig.ProviderService != "" {
