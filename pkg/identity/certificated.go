@@ -221,26 +221,26 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			} else if idConfig.Backup == "file" {
 				log.Debugf("Attempting to load x509 certificate from local file: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
 
-				instanceCertPEM, err := ioutil.ReadFile(idConfig.CertFile)
+				fileBackupCertPEM, err := ioutil.ReadFile(idConfig.CertFile)
 				if err != nil {
 					log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
 				}
-				fileBackupKey, err := ioutil.ReadFile(idConfig.KeyFile)
+				fileBackupKeyPEM, err := ioutil.ReadFile(idConfig.KeyFile)
 				if err != nil {
 					log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
 				}
 
-				fileBackupIdentity, err := InstanceIdentityFromPEMBytes(instanceCertPEM)
+				fileBackupIdentity, err := InstanceIdentityFromPEMBytes(fileBackupCertPEM)
 				if err != nil {
 					log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
 				}
 
-				if fileBackupIdentity == nil || len(backupKeyPEM) == 0 {
-					log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(instanceCertPEM), len(backupKeyPEM))
+				if fileBackupIdentity == nil || len(fileBackupKeyPEM) == 0 {
+					log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(fileBackupCertPEM), len(fileBackupKeyPEM))
 				} else {
 					identity = fileBackupIdentity
-					keyPEM = fileBackupKey
-					log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(instanceCertPEM), len(backupKeyPEM))
+					keyPEM = fileBackupKeyPEM
+					log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(fileBackupCertPEM), len(fileBackupKeyPEM))
 				}
 			} else if idConfig.CertSecret == "" && strings.Contains(idConfig.Backup, "read") {
 				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret with empty CERT_SECRET[%d]", idConfig.CertSecret)
