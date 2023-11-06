@@ -179,26 +179,26 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		} else if idConfig.KeyFile != "" && idConfig.CertFile != "" {
 			log.Debugf("Attempting to load x509 certificate from local file: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
 
-			fileBackupCertPEM, err := ioutil.ReadFile(idConfig.CertFile)
+			localFileCertPEM, err := ioutil.ReadFile(idConfig.CertFile)
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
 			}
-			fileBackupKeyPEM, err := ioutil.ReadFile(idConfig.KeyFile)
+			localFileKeyPEM, err := ioutil.ReadFile(idConfig.KeyFile)
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
 			}
 
-			fileBackupIdentity, err := InstanceIdentityFromPEMBytes(fileBackupCertPEM)
+			localFileIdentity, err := InstanceIdentityFromPEMBytes(localFileCertPEM)
 			if err != nil {
 				log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
 			}
 
-			if fileBackupIdentity == nil || len(fileBackupKeyPEM) == 0 {
-				log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(fileBackupCertPEM), len(fileBackupKeyPEM))
+			if localFileIdentity == nil || len(localFileKeyPEM) == 0 {
+				log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(localFileCertPEM), len(localFileKeyPEM))
 			} else {
-				identity = fileBackupIdentity
-				keyPEM = fileBackupKeyPEM
-				log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(fileBackupCertPEM), len(fileBackupKeyPEM))
+				identity = localFileIdentity
+				keyPEM = localFileKeyPEM
+				log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(localFileCertPEM), len(localFileKeyPEM))
 			}
 		} else {
 			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idConfig.ProviderService, idConfig.KeyFile, idConfig.CertFile)
