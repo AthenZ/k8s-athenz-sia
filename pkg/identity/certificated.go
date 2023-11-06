@@ -223,6 +223,8 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 				keyPEM = fileBackupKeyPEM
 				log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(fileBackupCertPEM), len(fileBackupKeyPEM))
 			}
+		} else {
+			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idConfig.ProviderService, idConfig.KeyFile, idConfig.CertFile)
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
