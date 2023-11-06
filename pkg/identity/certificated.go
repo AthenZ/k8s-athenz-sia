@@ -29,8 +29,8 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idConfig.TargetDomainRoles, idConfig.RoleCertDir)
 	}
 
-	var identity, backupIdentity, forceInitIdentity *InstanceIdentity
-	var keyPem, backupKeyPem, forceInitKeyPem []byte
+	var identity, k8sSecretBackupIdentity, forceInitIdentity *InstanceIdentity
+	var keyPem, k8sSecretBackupKeyPEM, forceInitKeyPem []byte
 
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
@@ -206,16 +206,16 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 			if idConfig.CertSecret != "" && strings.Contains(idConfig.Backup, "read") {
 				log.Infof("Attempting to load x509 certificate temporary backup from kubernetes secret[%s]...", idConfig.CertSecret)
 
-				backupIdentity, backupKeyPem, err = handler.GetX509CertFromSecret()
+				k8sSecretBackupIdentity, k8sSecretBackupKeyPEM, err = handler.GetX509CertFromSecret()
 				if err != nil {
 					log.Warnf("Error while loading x509 certificate temporary backup from kubernetes secret: %s", err.Error())
 				}
 
-				if backupIdentity == nil || len(backupKeyPem) == 0 {
+				if k8sSecretBackupIdentity == nil || len(k8sSecretBackupKeyPEM) == 0 {
 					log.Warnf("Failed to load x509 certificate temporary backup from kubernetes secret: secret was empty")
 				} else {
-					identity = backupIdentity
-					keyPem = backupKeyPem
+					identity = k8sSecretBackupIdentity
+					keyPem = k8sSecretBackupKeyPEM
 					log.Infof("Successfully loaded x509 certificate from kubernetes secret")
 				}
 			} else {
@@ -228,7 +228,7 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 			return errors.New("Failed to prepare Instance Certificate!")
 		}
 
-		if backupIdentity != nil && len(backupKeyPem) != 0 && idConfig.ProviderService != "" {
+		if k8sSecretBackupIdentity != nil && len(k8sSecretBackupKeyPEM) != 0 && idConfig.ProviderService != "" {
 			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idConfig.ProviderService)
 			err, forceInitIdentity, forceInitKeyPem = identityProvisioningRequest(true)
 			if err != nil {
