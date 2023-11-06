@@ -129,38 +129,14 @@ func Certificated(idConfig *IdentityConfig, stopChan <-chan struct{}) (error, <-
 
 	roleCertProvisioningRequest := func() (err error, roleCerts [](*RoleCertificate)) {
 		var roleIdentity *InstanceIdentity
-		var roleKeyPEM, roleCertPEM []byte
+		var roleKeyPEM []byte
 
 		if idConfig.TargetDomainRoles == "" || idConfig.RoleCertDir == "" {
 			return nil, nil
 		}
 
-		if identity == nil || len(keyPEM) == 0 {
-			log.Debugf("Attempting to load x509 certificate from local file to get x509 role certs: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
-
-			roleCertPEM, err = ioutil.ReadFile(idConfig.CertFile)
-			if err != nil {
-				log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
-			}
-			roleKeyPEM, err = ioutil.ReadFile(idConfig.KeyFile)
-			if err != nil {
-				log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
-			}
-
-			roleIdentity, err = InstanceIdentityFromPEMBytes(roleCertPEM)
-			if err != nil {
-				log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
-			}
-
-			if roleIdentity == nil || len(roleKeyPEM) == 0 {
-				log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(roleKeyPEM), len(roleCertPEM))
-			} else {
-				log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(roleKeyPEM), len(roleCertPEM))
-			}
-		} else {
-			roleIdentity = identity
-			roleKeyPEM = keyPEM
-		}
+		roleIdentity = identity
+		roleKeyPEM = keyPEM
 
 		if roleIdentity == nil || len(roleKeyPEM) == 0 {
 			return nil, nil
