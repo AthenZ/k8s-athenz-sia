@@ -206,22 +206,22 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
 			}
-			fileBackupKeyPEM, err := ioutil.ReadFile(idConfig.KeyFile)
+			localFileKeyPEM, err := ioutil.ReadFile(idConfig.KeyFile)
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
 			}
 
-			fileBackupIdentity, err := InstanceIdentityFromPEMBytes(fileBackupCertPEM)
+			localFileIdentity, err := InstanceIdentityFromPEMBytes(fileBackupCertPEM)
 			if err != nil {
 				log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
 			}
 
-			if fileBackupIdentity == nil || len(fileBackupKeyPEM) == 0 {
-				log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(fileBackupCertPEM), len(fileBackupKeyPEM))
+			if localFileIdentity == nil || len(localFileKeyPEM) == 0 {
+				log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(fileBackupCertPEM), len(localFileKeyPEM))
 			} else {
-				identity = fileBackupIdentity
-				keyPEM = fileBackupKeyPEM
-				log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(fileBackupCertPEM), len(fileBackupKeyPEM))
+				identity = localFileIdentity
+				keyPEM = localFileKeyPEM
+				log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(fileBackupCertPEM), len(localFileKeyPEM))
 			}
 		} else {
 			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idConfig.ProviderService, idConfig.KeyFile, idConfig.CertFile)
