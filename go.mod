@@ -14,7 +14,7 @@ require (
 	github.com/AthenZ/athenz v1.11.43
 	github.com/bmatcuk/doublestar/v4 v4.0.0-00010101000000-000000000000
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/golang-jwt/jwt/v5 v5.0.0
+	github.com/golang-jwt/jwt/v5 v5.0.0-rc.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
