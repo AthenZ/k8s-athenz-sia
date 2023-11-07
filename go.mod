@@ -2,11 +2,11 @@ module github.com/AthenZ/k8s-athenz-sia
 
 go 1.20
 
+replace golang.org/x/net => golang.org/x/net v0.17.0
+
 replace github.com/AthenZ/k8s-athenz-sia/pkg/identity => ./pkg/identity
 
 replace github.com/AthenZ/k8s-athenz-sia/pkg/k8s => ./pkg/k8s
-
-replace golang.org/x/net => golang.org/x/net v0.7.0
 
 replace github.com/bmatcuk/doublestar/v4 => github.com/enix/doublestar/v4 v4.0.0-20230517083426-fa6d1b0d071d
 
