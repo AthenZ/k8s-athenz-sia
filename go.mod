@@ -11,7 +11,7 @@ replace golang.org/x/net => golang.org/x/net v0.7.0
 replace github.com/bmatcuk/doublestar/v4 => github.com/enix/doublestar/v4 v4.0.0-20230517083426-fa6d1b0d071d
 
 require (
-	github.com/AthenZ/athenz v1.11.24
+	github.com/AthenZ/athenz v1.11.26
 	github.com/bmatcuk/doublestar/v4 v4.6.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/golang-jwt/jwt/v5 v5.0.0-rc.1

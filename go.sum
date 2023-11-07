@@ -1,7 +1,7 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-github.com/AthenZ/athenz v1.11.24 h1:RY3IRFbVwmc3BKPJPw7yUn1kRdtghcAEOpipBrMQMdM=
-github.com/AthenZ/athenz v1.11.24/go.mod h1:d2da1Gn5JLLrV48feSAKYJAJ2xCQPESvHpN5hnseB10=
+github.com/AthenZ/athenz v1.11.26 h1:j6AZhjT2DuR/ZN3OQm5XW3ri6TS4Wf97ePcFcqBy/f0=
+github.com/AthenZ/athenz v1.11.26/go.mod h1:hz8WrHkj4KOOaejllzTJIoXBCtptWV279CtEAUDuxis=
 github.com/Azure/go-autorest v11.1.2+incompatible/go.mod h1:r+4oMnoxhatjLLJ6zxSWATqVooLgysK6ZNox3g/xq24=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/ardielle/ardielle-go v1.5.2 h1:TilHTpHIQJ27R1Tl/iITBzMwiUGSlVfiVhwDNGM3Zj4=
