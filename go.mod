@@ -12,7 +12,7 @@ replace github.com/bmatcuk/doublestar/v4 => github.com/enix/doublestar/v4 v4.0.0
 
 require (
 	github.com/AthenZ/athenz v1.11.26
-	github.com/bmatcuk/doublestar/v4 v4.6.0
+	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/golang-jwt/jwt/v5 v5.0.0-rc.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/common v0.42.0
 	github.com/prometheus/exporter-toolkit v0.9.1
 	github.com/sirupsen/logrus v1.4.2
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.4
 	github.com/yahoo/k8s-athenz-identity v0.0.0-20210320000321-b0ce39fad833
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0
 	gopkg.in/yaml.v3 v3.0.1
