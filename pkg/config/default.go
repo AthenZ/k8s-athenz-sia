@@ -40,6 +40,7 @@ var (
 	DEFAULT_ENDPOINT                     string
 	DEFAULT_ROLE_AUTH_HEADER             = "Athenz-Role-Auth"
 	DEFAULT_DNS_SUFFIX                   = "athenz.cloud"
+	DEFAULT_ROLE_CERT_DIRECTORY          = ""
 	DEFAULT_ROLE_CERT_FILENAME_DELIMITER = ":role."
 	DEFAULT_INTERMEDIATE_CERT_BUNDLE     string
 
@@ -87,7 +88,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		Reloader:                  nil,
 		ServerCACert:              "",
 		TargetDomainRoles:         "",
-		RoleCertDir:               "",
+		RoleCertDir:               DEFAULT_ROLE_CERT_DIRECTORY,
 		RoleCertFilenameDelimiter: DEFAULT_ROLE_CERT_FILENAME_DELIMITER,
 		RoleCertKeyFileOutput:     false,
 		RoleAuthHeader:            DEFAULT_ROLE_AUTH_HEADER,

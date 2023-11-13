@@ -48,6 +48,7 @@ func printVersion() {
 		fmt.Printf("Organization: %s\n", config.DEFAULT_ORGANIZATION)
 		fmt.Printf("OrganizationalUnit: %s\n", config.DEFAULT_ORGANIZATIONAL_UNIT)
 		fmt.Printf("Role Cert Expiry Time Buffer Minutes: %d\n", config.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES)
+		fmt.Printf("Role Cert Directory: %s\n", config.DEFAULT_ROLE_CERT_DIRECTORY)
 		fmt.Printf("Role Cert Filename Delimiter: %s\n", config.DEFAULT_ROLE_CERT_FILENAME_DELIMITER)
 		fmt.Printf("Role Token Header: %s\n", config.DEFAULT_ROLE_AUTH_HEADER)
 		fmt.Printf("Token Expiry: %s\n", config.DEFAULT_TOKEN_EXPIRY)
