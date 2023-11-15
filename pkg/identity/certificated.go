@@ -45,21 +45,26 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idConfig.TargetDomainRoles, idConfig.RoleCertDir)
 	}
 
-	// identity & keyPEM will be STORED to the local file system:
-	var keyPEM, k8sSecretBackupKeyPEM, forceInitKeyPEM []byte
-	var identity, k8sSecretBackupIdentity, forceInitIdentity *InstanceIdentity
-
-	// identity & keyPEM that will NOT be STORED to the local file system:
-	var localFileKeyPEM []byte
-	var localFileIdentity  *InstanceIdentity
-
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
 		log.Errorf("Failed to initialize client for certificates: %s", err.Error())
 		return err, nil
 	}
 
-	writeFiles := func(roleCerts [](*RoleCertificate), roleKeyPEM []byte) error {
+	// identity & keyPEM will be STORED to the local file system:
+	var keyPEM, k8sSecretBackupKeyPEM, forceInitKeyPEM []byte
+	var identity, k8sSecretBackupIdentity, forceInitIdentity *InstanceIdentity
+
+	// RoleCert Keys and Certs will be STORED to the local file system:
+	var roleKeyPEM []byte
+	var roleCerts [](*RoleCertificate)
+
+	// identity & keyPEM that will NOT be STORED to the local file system:
+	var localFileKeyPEM []byte
+	var localFileIdentity  *InstanceIdentity
+
+	// Write files to local file system
+	writeFiles := func() error {
 		w := util.NewWriter()
 		if identity != nil && localFileKeyPEM == nil && localFileIdentity == nil {
 			leafPEM := []byte(identity.X509CertificatePEM)
@@ -267,12 +272,12 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			}
 		}
 
-		err, roleCerts, roleKeyPEM := roleCertProvisioningRequest()
+		err, roleCerts, roleKeyPEM = roleCertProvisioningRequest()
 		if err != nil {
 			return err
 		}
 
-		err = writeFiles(roleCerts, roleKeyPEM)
+		err = writeFiles()
 		if err != nil {
 			if forceInitIdentity != nil || forceInitKeyPEM != nil {
 				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
