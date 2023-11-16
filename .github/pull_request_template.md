@@ -5,7 +5,8 @@ TODO: Write why you have made such PR. If issue exists, you can simply attach th
 - [ ] TODO: Write TODOs
 
 ## Checklist (Developers)
-- [ ] Background and TODOs are defined
+- [ ] Background is defined
+- [ ] TODOs from associated issue are copied above
 - [ ] Assignee is set
 - [ ] Labels are set
 - [ ] Title is checked
