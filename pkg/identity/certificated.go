@@ -61,7 +61,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 
 	// identity & keyPEM that will NOT be STORED to the local file system:
 	var localFileKeyPEM []byte
-	var localFileIdentity  *InstanceIdentity
+	var localFileIdentity *InstanceIdentity
 
 	// Write files to local file system
 	writeFiles := func() error {
