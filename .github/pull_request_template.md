@@ -1,39 +1,18 @@
-# Description
+# Background
+TODO: Write why you have made such PR. If issue exists, you can simply attach the issue here.
 
-_description_with_details_and_reasoning_
+## TODOs
+- [ ] TODO: Write TODOs
 
-## Type of change
+## Checklist (Developers)
+- [ ] Background and TODOs are defined
+- [ ] Assignee is set
+- [ ] Labels are set
+- [ ] Title is checked
+- [ ] `TODOs` are handled and checked
+- [ ] Final Operation Check is done
+- [ ] If necessary, Title with prefix `[skip ci]`/`[ci skip]`/`[no ci]`/`[skip actions]`/`[actions skip]`
 
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Refactoring (no functional changes, no api changes)
-- [ ] Non-code changes (update documentation, pipeline, etc.)
-
-### Flags
-
-- [ ] Breaks backward compatibility
-- [ ] Requires a documentation update
-- [ ] Has untestable code
-
-## Related issue/PR
-
-**Delete this section if there are no issues or pull requests that relate to this pull request.**
-- Fixes #_issue_
-- Closes #_PR_
-
----
-
-## Checklist
-
-- [ ] Followed the guidelines in the CONTRIBUTING document
-- [ ] Added prefix `[skip ci]`/`[ci skip]`/`[no ci]`/`[skip actions]`/`[actions skip]` in the PR title if necessary
-- [ ] Tested and linted the code
-- [ ] Commented the code
-- [ ] Made corresponding changes to the documentation
-- [ ] Passed all pipeline checking
-
-## Checklist for maintainer
-
-- Use `Squash and merge`
-- Double-confirm the merge message has prefix `[skip ci]`/`[ci skip]`/`[no ci]`/`[skip actions]`/`[actions skip]`
-- Delete the branch after merge
+## Checklist (Reviewers)
+- [ ] Check if there are any other missing TODOs that are not yet listed
+- [ ] Every item on the checklist has been addressed accordingly
