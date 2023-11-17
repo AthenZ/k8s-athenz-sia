@@ -264,8 +264,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idConfig.ProviderService)
 			err, forceInitIdentity, forceInitKeyPEM = identityProvisioningRequest(true)
 			if err != nil {
-				// TODO: Maybe Warning instead?
-				log.Errorf("Failed to retrieve renewed x509 certificate from identity provider: %s", err.Error())
+				log.Warnf("Failed to retrieve renewed x509 certificate from identity provider: %s, continuing with the backup certificate from kubernetes secret", err.Error())
 			} else {
 				identity = forceInitIdentity
 				keyPEM = forceInitKeyPEM
