@@ -45,21 +45,29 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idConfig.TargetDomainRoles, idConfig.RoleCertDir)
 	}
 
-	var identity, k8sSecretBackupIdentity, forceInitIdentity *InstanceIdentity
-	var keyPEM, k8sSecretBackupKeyPEM, forceInitKeyPEM []byte
-
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
 		log.Errorf("Failed to initialize client for certificates: %s", err.Error())
 		return err, nil
 	}
 
-	writeFiles := func(id *InstanceIdentity, keyPEM []byte, roleCerts [](*RoleCertificate), roleKeyPEM []byte) error {
+	// identity & keyPEM will be STORED to the local file system:
+	var keyPEM, k8sSecretBackupKeyPEM, forceInitKeyPEM []byte
+	var identity, k8sSecretBackupIdentity, forceInitIdentity *InstanceIdentity
 
+	// RoleCert Keys and Certs will be STORED to the local file system:
+	var roleKeyPEM []byte
+	var roleCerts [](*RoleCertificate)
+
+	// identity & keyPEM that will NOT be STORED to the local file system:
+	var localFileKeyPEM []byte
+	var localFileIdentity *InstanceIdentity
+
+	// Write files to local file system
+	writeFiles := func() error {
 		w := util.NewWriter()
-
-		if id != nil {
-			leafPEM := []byte(id.X509CertificatePEM)
+		if identity != nil && localFileKeyPEM == nil && localFileIdentity == nil {
+			leafPEM := []byte(identity.X509CertificatePEM)
 			if len(leafPEM) != 0 && len(keyPEM) != 0 {
 				x509Cert, err := util.CertificateFromPEMBytes(leafPEM)
 				if err != nil {
@@ -77,7 +85,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 				}
 			}
 
-			caCertPEM := []byte(id.X509CACertificatePEM)
+			caCertPEM := []byte(identity.X509CACertificatePEM)
 			if len(caCertPEM) != 0 && idConfig.CaCertFile != "" {
 				log.Debugf("Saving x509 cacert[%d bytes] at %s", len(caCertPEM), idConfig.CaCertFile)
 				if err := w.AddBytes(idConfig.CaCertFile, 0644, caCertPEM); err != nil {
@@ -206,12 +214,12 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
 			}
-			localFileKeyPEM, err := ioutil.ReadFile(idConfig.KeyFile)
+			localFileKeyPEM, err = ioutil.ReadFile(idConfig.KeyFile)
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
 			}
 
-			localFileIdentity, err := InstanceIdentityFromPEMBytes(localFileCertPEM)
+			localFileIdentity, err = InstanceIdentityFromPEMBytes(localFileCertPEM)
 			if err != nil {
 				log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
 			}
@@ -256,19 +264,19 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idConfig.ProviderService)
 			err, forceInitIdentity, forceInitKeyPEM = identityProvisioningRequest(true)
 			if err != nil {
-				log.Errorf("Failed to retrieve renewed x509 certificate from identity provider: %s", err.Error())
+				log.Warnf("Failed to retrieve renewed x509 certificate from identity provider: %s, continuing with the backup certificate from kubernetes secret", err.Error())
 			} else {
 				identity = forceInitIdentity
 				keyPEM = forceInitKeyPEM
 			}
 		}
 
-		err, roleCerts, roleKeyPEM := roleCertProvisioningRequest()
+		err, roleCerts, roleKeyPEM = roleCertProvisioningRequest()
 		if err != nil {
 			return err
 		}
 
-		err = writeFiles(identity, keyPEM, roleCerts, roleKeyPEM)
+		err = writeFiles()
 		if err != nil {
 			if forceInitIdentity != nil || forceInitKeyPEM != nil {
 				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles)
