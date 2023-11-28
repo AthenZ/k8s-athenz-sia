@@ -8,13 +8,16 @@ name: Create Github Releases with Packages
 on:
   workflow_call:
     inputs:
-      DOCKER_TAEGET_PLATFORMS:
+      DOCKER_TARGET_PLATFORMS:
         required: true
         type: string
       DOCKER_REGISTRY_URL:
         required: true
         type: string
-      DOCKER_REGISTRY_OWNER:
+      DOCKER_REGISTRY_ORG:
+        required: true
+        type: string
+      DOCKER_REGISTRY_USER:
         required: true
         type: string
       DOCKER_REGISTRY_TOKEN_NAME:
@@ -72,7 +75,7 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: ${{ inputs.DOCKER_REGISTRY_URL }} # Server address of Docker registry. If not set then will default to Docker Hub
-          username: ${{ inputs.DOCKER_REGISTRY_OWNER }} # Username used to log against the Docker registry
+          username: ${{ inputs.DOCKER_REGISTRY_USER }} # Username used to log against the Docker registry
           password: ${{ secrets[inputs.DOCKER_REGISTRY_TOKEN_NAME] }} # Password or personal access token used to log against the Docker registry
           logout: true # Log out from the Docker registry at the end of a job, default is true
 
@@ -81,10 +84,10 @@ jobs:
         id: extract
         run: |
           for image in $(echo ${{ env.NFPM_SOURCE_IMAGES }} | tr "," "\n"); do
-            IMG_REF_WITH_TAG="${{ inputs.DOCKER_REGISTRY_URL }}/${{ inputs.DOCKER_REGISTRY_OWNER }}/${image}:${{ inputs.version }}"
+            IMG_REF_WITH_TAG="${{ inputs.DOCKER_REGISTRY_URL }}/${{ inputs.DOCKER_REGISTRY_ORG }}/${image}:${{ inputs.version }}"
             echo "IMG_REF_WITH_TAG=${IMG_REF_WITH_TAG}"
 
-            for platform in $(echo ${{ inputs.DOCKER_TAEGET_PLATFORMS }} | tr "," "\n"); do
+            for platform in $(echo ${{ inputs.DOCKER_TARGET_PLATFORMS }} | tr "," "\n"); do
               set -x
               # Download docker image to a tarball
               docker pull --platform "${platform}" "${IMG_REF_WITH_TAG}"
@@ -120,7 +123,7 @@ jobs:
         id: nfpm
         run: |
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
-          for platform in $(echo ${{ inputs.DOCKER_TAEGET_PLATFORMS }} | tr "," "\n"); do
+          for platform in $(echo ${{ inputs.DOCKER_TARGET_PLATFORMS }} | tr "," "\n"); do
             GOARCH=$(echo ${platform} | sed -e 's/\([^/]*\)\/\([^/]*\).*/\2/g')
             for packager in $(echo ${{ env.NFPM_TARGET_PACKAGER }} | tr "," "\n"); do
               for component in $(echo ${{ env.NFPM_TARGET_COMPONENTS }} | tr "," "\n"); do

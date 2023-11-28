@@ -8,16 +8,19 @@ name: Build and Publish Docker Image
 on:
   workflow_call:
     inputs:
-      DOCKER_TAEGET_PLATFORMS:
+      DOCKER_TARGET_PLATFORMS:
         required: true
         type: string
     outputs:
       DOCKER_REGISTRY_URL:
         description: "docker registry URL of the container image"
         value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_URL }}
-      DOCKER_REGISTRY_OWNER:
-        description: "docker registry owner of the container image"
-        value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_OWNER }}
+      DOCKER_REGISTRY_ORG:
+        description: "docker registry organization of the container image"
+        value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_ORG }}
+      DOCKER_REGISTRY_USER:
+        description: "docker registry username of the container image for login"
+        value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_USER }}
       DOCKER_REGISTRY_TOKEN_NAME:
         description: "docker registry secret name of the container image for login"
         value: ${{ jobs.docker-env.outputs.DOCKER_REGISTRY_TOKEN_NAME }}
@@ -46,7 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       DOCKER_REGISTRY_URL: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_URL }}
-      DOCKER_REGISTRY_OWNER: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_OWNER }}
+      DOCKER_REGISTRY_ORG: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_ORG }}
+      DOCKER_REGISTRY_USER: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_USER }}
       DOCKER_REGISTRY_TOKEN_NAME: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_TOKEN_NAME }}
       DOCKER_REGISTRY_REF: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_REF }}
       DOCKER_REGISTRY_PUSH: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_PUSH }}
@@ -71,33 +75,35 @@ jobs:
         id: docker_env
         env: # Please customize your container image's values
           # DOCKER_REGISTRY_URL: "ghcr.io"
-          # DOCKER_REGISTRY_OWNER: ${{ env.CI_REPOSITORY_OWNER_SLUG }} # must be lowercase
+          # DOCKER_REGISTRY_ORG: ${{ env.CI_REPOSITORY_OWNER_SLUG }} # must be lowercase
           # DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME_SLUG }}
-          # DOCKER_REGISTRY_TOKEN_NAME: "GITHUB_TOKEN"
+          # DOCKER_REGISTRY_USER: ${{ env.CI_REPOSITORY_OWNER_SLUG }} # must be lowercase
+          DOCKER_REGISTRY_USER: ${{ vars.DOCKER_REGISTRY_USER }}
           DOCKER_REGISTRY_PUSH: ${{ github.event_name != 'pull_request' }}
+          DOCKER_REGISTRY_TOKEN_NAME: ${{ vars.DOCKER_REGISTRY_TOKEN_NAME }}
         run: |
 
           # Push to Athenz's docker.io if docker secret exists, else push to actor's personal ghcr.io
-          if [[ "${{ secrets.DOCKER_REGISTRY_TOKEN }}" != "" ]]; then
+          if [[ "${DOCKER_REGISTRY_TOKEN_NAME}" != "" ]]; then
             DOCKER_REGISTRY_URL="${DOCKER_REGISTRY_URL:=docker.io}"
-            DOCKER_REGISTRY_TOKEN_NAME='DOCKER_REGISTRY_TOKEN'
           else
             DOCKER_REGISTRY_URL="${DOCKER_REGISTRY_URL:=ghcr.io}"
             DOCKER_REGISTRY_TOKEN_NAME='GITHUB_TOKEN'
           fi
+          DOCKER_REGISTRY_USER="${DOCKER_REGISTRY_USER:=${CI_REPOSITORY_OWNER_SLUG}}"
 
           # Set default values and create image reference
-          # DOCKER_REGISTRY_OWNER="${DOCKER_REGISTRY_OWNER:=${CI_REPOSITORY_OWNER_SLUG}}"
-          DOCKER_REGISTRY_OWNER="${DOCKER_REGISTRY_OWNER:=abvaidya}"
+          DOCKER_REGISTRY_ORG="${DOCKER_REGISTRY_ORG:=${CI_REPOSITORY_OWNER_SLUG}}"
           DOCKER_REGISTRY_IMAGE="${DOCKER_REGISTRY_IMAGE:=${CI_REPOSITORY_NAME_SLUG}}"
-          DOCKER_REGISTRY_REF=${DOCKER_REGISTRY_URL}/${DOCKER_REGISTRY_OWNER}/${DOCKER_REGISTRY_IMAGE}
+          DOCKER_REGISTRY_REF=${DOCKER_REGISTRY_URL}/${DOCKER_REGISTRY_ORG}/${DOCKER_REGISTRY_IMAGE}
           DOCKER_REGISTRY_PUSH="${DOCKER_REGISTRY_PUSH:=false}"
           SHA_SHORT="${CI_PR_SHA_SHORT:=${CI_SHA_SHORT}}"
 
           # github output
           echo "DOCKER_REGISTRY_URL=${DOCKER_REGISTRY_URL}" >> "$GITHUB_OUTPUT"
+          echo "DOCKER_REGISTRY_ORG=${DOCKER_REGISTRY_ORG}" >> "$GITHUB_OUTPUT"
+          echo "DOCKER_REGISTRY_USER=${DOCKER_REGISTRY_USER}" >> "$GITHUB_OUTPUT"
           echo "DOCKER_REGISTRY_TOKEN_NAME=${DOCKER_REGISTRY_TOKEN_NAME}" >> "$GITHUB_OUTPUT"
-          echo "DOCKER_REGISTRY_OWNER=${DOCKER_REGISTRY_OWNER}" >> "$GITHUB_OUTPUT"
           echo "DOCKER_REGISTRY_IMAGE=${DOCKER_REGISTRY_IMAGE}" >> "$GITHUB_OUTPUT"
           echo "DOCKER_REGISTRY_REF=${DOCKER_REGISTRY_REF}" >> "$GITHUB_OUTPUT"
           echo "DOCKER_REGISTRY_PUSH=${DOCKER_REGISTRY_PUSH}" >> "$GITHUB_OUTPUT"
@@ -109,25 +115,29 @@ jobs:
         name: Extract Docker metadata
         id: meta
         # uses: https://github.com/docker/metadata-action/tags
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_REF }}
           # for latest tag
           # latest=auto for tagging latest only for "master", "main" or "customized" branch
-          flavor: |
-            latest=true
+          # flavor: |
+          #   latest=true
           # eg. refs/heads/master
           # eg. refs/heads/customized
           # eg. refs/pull/318/merge
           # shorthand for {{major}}.{{minor}}.{{patch}} (can include pre-release)
+          # tags: |
+          #   type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+          #   type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
+          #   type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+          #   type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'customized') }}
+          #   type=ref,event=pr
+          #   type=semver,pattern=v{{version}}
+          #   type=schedule,pattern=nightly
+          flavor: |
+            latest=false
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'customized') }}
-            type=ref,event=pr
-            type=semver,pattern=v{{version}}
-            type=schedule,pattern=nightly
+            type=raw,value=nightly
 
   docker-build:
     runs-on: ubuntu-latest
@@ -135,7 +145,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ fromJSON(inputs.DOCKER_TAEGET_PLATFORMS) }}
+        platform: ${{ fromJSON(inputs.DOCKER_TARGET_PLATFORMS) }}
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
     permissions:
       actions: none
@@ -157,7 +167,7 @@ jobs:
         name: Checkout repository
         id: checkout
         # uses: https://github.com/actions/checkout/tags
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -168,10 +178,10 @@ jobs:
         name: Docker Login to registry ${{ needs.docker-env.outputs.DOCKER_REGISTRY_URL }}
         id: login
         # uses: https://github.com/docker/login-action/tags
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ${{ needs.docker-env.outputs.DOCKER_REGISTRY_URL }} # Server address of Docker registry. If not set then will default to Docker Hub
-          username: ${{ needs.docker-env.outputs.DOCKER_REGISTRY_OWNER }} # Username used to log against the Docker registry
+          username: ${{ needs.docker-env.outputs.DOCKER_REGISTRY_USER }} # Username used to log against the Docker registry
           password: ${{ secrets[needs.docker-env.outputs.DOCKER_REGISTRY_TOKEN_NAME] }} # Password or personal access token used to log against the Docker registry
           logout: true # Log out from the Docker registry at the end of a job, default is true
 
@@ -181,7 +191,7 @@ jobs:
         name: Set up QEMU
         id: qemu
         # uses: https://github.com/docker/setup-qemu-action/tags
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       # GitHub Action to set up Docker Buildx.
       # https://github.com/docker/setup-buildx-action
@@ -189,7 +199,7 @@ jobs:
         name: Set up Docker Buildx
         id: buildx
         # uses: https://github.com/docker/setup-buildx-action/tags
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       # A GitHub Action to set environment variables for docker build args
       -
@@ -216,7 +226,7 @@ jobs:
         name: Build and push Docker image for ${{ matrix.platform }}
         id: build_and_push
         # uses: https://github.com/docker/build-push-action/tags
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           platforms: ${{ matrix.platform }}
@@ -282,7 +292,7 @@ jobs:
       statuses: write
     steps:
 
-      # Dowload digest of the container images from all platforms
+      # Download digest of the container images from all platforms
       # https://github.com/actions/download-artifact
       -
         name: Download digests
@@ -297,14 +307,14 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: ${{ needs.docker-env.outputs.DOCKER_REGISTRY_URL }}
-          username: ${{ needs.docker-env.outputs.DOCKER_REGISTRY_OWNER }}
+          username: ${{ needs.docker-env.outputs.DOCKER_REGISTRY_USER }}
           password: ${{ secrets[needs.docker-env.outputs.DOCKER_REGISTRY_TOKEN_NAME] }}
           logout: true
 
       -
         name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       -
         name: Create manifest list and push
