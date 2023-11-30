@@ -79,8 +79,8 @@ jobs:
           # DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME_SLUG }}
           # DOCKER_REGISTRY_USER: ${{ env.CI_REPOSITORY_OWNER_SLUG }} # must be lowercase
           DOCKER_REGISTRY_USER: ${{ vars.DOCKER_REGISTRY_USER }}
-          DOCKER_REGISTRY_PUSH: ${{ github.event_name != 'pull_request' }}
           DOCKER_REGISTRY_TOKEN_NAME: ${{ vars.DOCKER_REGISTRY_TOKEN_NAME }}
+          DOCKER_REGISTRY_PUSH: ${{ github.event_name != 'pull_request' }}
         run: |
 
           # Push to Athenz's docker.io if docker secret exists, else push to actor's personal ghcr.io
