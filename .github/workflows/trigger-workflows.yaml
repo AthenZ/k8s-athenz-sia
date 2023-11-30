@@ -60,7 +60,7 @@ jobs: # https://docs.github.com/en/actions/learn-github-actions/contexts#context
     needs:
       - set-platforms
       - docker-build-publish
-    if: "needs.docker-build-publish.outputs.DOCKER_REGISTRY_PUSH == 'false'"
+    if: "needs.docker-build-publish.outputs.DOCKER_REGISTRY_PUSH == 'true'"
     uses: ./.github/workflows/github-releases.yaml
     secrets: inherit
     with:

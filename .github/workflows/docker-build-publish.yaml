@@ -79,8 +79,7 @@ jobs:
           # DOCKER_REGISTRY_IMAGE: ${{ env.CI_REPOSITORY_NAME_SLUG }}
           # DOCKER_REGISTRY_USER: ${{ env.CI_REPOSITORY_OWNER_SLUG }} # must be lowercase
           DOCKER_REGISTRY_USER: ${{ vars.DOCKER_REGISTRY_USER }}
-          # DOCKER_REGISTRY_PUSH: ${{ github.event_name != 'pull_request' }}
-          DOCKER_REGISTRY_PUSH: true
+          DOCKER_REGISTRY_PUSH: ${{ github.event_name != 'pull_request' }}
           DOCKER_REGISTRY_TOKEN_NAME: ${{ vars.DOCKER_REGISTRY_TOKEN_NAME }}
         run: |
 
@@ -121,24 +120,20 @@ jobs:
           images: ${{ steps.docker_env.outputs.DOCKER_REGISTRY_REF }}
           # for latest tag
           # latest=auto for tagging latest only for "master", "main" or "customized" branch
-          # flavor: |
-          #   latest=true
+          flavor: |
+            latest=true
           # eg. refs/heads/master
           # eg. refs/heads/customized
           # eg. refs/pull/318/merge
           # shorthand for {{major}}.{{minor}}.{{patch}} (can include pre-release)
-          # tags: |
-          #   type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
-          #   type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
-          #   type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
-          #   type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'customized') }}
-          #   type=ref,event=pr
-          #   type=semver,pattern=v{{version}}
-          #   type=schedule,pattern=nightly
-          flavor: |
-            latest=false
           tags: |
-            type=raw,value=nightly
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'customized') }}
+            type=ref,event=pr
+            type=semver,pattern=v{{version}}
+            type=schedule,pattern=nightly
 
   docker-build:
     runs-on: ubuntu-latest
