@@ -45,5 +45,4 @@ vendor/*
 *.log
 
 # enix/x509-certificate-exporter test files
-!third_party/test/badlink.pem
-!third_party/test/badlink-relative.pem
+!third_party/**/*.pem
