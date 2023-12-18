@@ -17,6 +17,7 @@ package token
 import (
 	"fmt"
 	"sync"
+	"unsafe"
 )
 
 type TokenCache interface {
@@ -24,6 +25,12 @@ type TokenCache interface {
 	Load(k CacheKey) Token
 	Range(func(k CacheKey, t Token) error) error
 	Keys() []CacheKey
+	Size() uint
+}
+
+func sizeofString(s string) uint {
+	// size of string struct + number of bytes in string
+	return uint(unsafe.Sizeof(s)) + uint(len(s))
 }
 
 type CacheKey struct {
@@ -38,9 +45,19 @@ func (k CacheKey) String() string {
 	return fmt.Sprintf("{%s:role.%s,%s,%d,%d}", k.Domain, k.Role, k.ProxyForPrincipal, k.MinExpiry, k.MaxExpiry)
 }
 
+func (k CacheKey) Size() uint {
+	structSize := uint(unsafe.Sizeof(k))
+	domainSize := sizeofString(k.Domain)
+	pfpSize := sizeofString(k.ProxyForPrincipal)
+	RoleSize := sizeofString(k.Role)
+	return structSize + domainSize + pfpSize + RoleSize
+}
+
 type LockedTokenCache struct {
 	cache map[CacheKey]Token
 	lock  sync.RWMutex
+	// memoryUsage is the number of bytes used by the cache entries. Usage of the cache map is counted.
+	memoryUsage uint
 }
 
 func NewLockedTokenCache() *LockedTokenCache {
@@ -51,6 +68,8 @@ func (c *LockedTokenCache) Store(k CacheKey, t Token) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.cache[k] = t
+	c.memoryUsage += k.Size() + t.Size()
+	fmt.Printf("Access token cache size[%d], size[%d], size[%d]", c.Size(), k.Size(), t.Size())
 }
 
 func (c *LockedTokenCache) Load(k CacheKey) Token {
@@ -80,4 +99,11 @@ func (c *LockedTokenCache) Keys() []CacheKey {
 		return nil
 	})
 	return r
+}
+
+func (c *LockedTokenCache) Size() uint {
+	structSize := uint(unsafe.Sizeof(c))
+	cacheSize := uint(unsafe.Sizeof(c.cache)) // not exact, there are hidden variables in map
+	lockSize := uint(unsafe.Sizeof(c.lock))   // not exact, there are hidden variables in sync.RWMutex
+	return structSize + cacheSize + lockSize + c.memoryUsage
 }

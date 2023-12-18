@@ -14,6 +14,8 @@
 
 package token
 
+import "unsafe"
+
 type Token interface {
 	Domain() string
 	Role() string
@@ -21,6 +23,9 @@ type Token interface {
 
 	// Expiry returns the expiry time of the token in seconds since Unix epoch.
 	Expiry() int64
+
+	// Size returns the number of bytes used by the token struct.
+	Size() uint
 }
 
 // RoleToken stores role token
@@ -45,6 +50,14 @@ func (t *RoleToken) Raw() string {
 
 func (t *RoleToken) Expiry() int64 {
 	return t.expiry
+}
+
+func (t *RoleToken) Size() uint {
+	structSize := uint(unsafe.Sizeof(*t)) // NOT size of pointer, but the actual struct
+	domainSize := sizeofString(t.domain)
+	roleSize := sizeofString(t.role)
+	rawSize := sizeofString(t.raw)
+	return structSize + domainSize + roleSize + rawSize
 }
 
 // AccessToken stores access token
@@ -74,4 +87,13 @@ func (t *AccessToken) Expiry() int64 {
 
 func (t *AccessToken) Scope() string {
 	return t.scope
+}
+
+func (t *AccessToken) Size() uint {
+	structSize := uint(unsafe.Sizeof(*t)) // NOT size of pointer, but the actual struct
+	domainSize := sizeofString(t.domain)
+	roleSize := sizeofString(t.role)
+	rawSize := sizeofString(t.raw)
+	scopeSize := sizeofString(t.scope)
+	return structSize + domainSize + roleSize + rawSize + scopeSize
 }
