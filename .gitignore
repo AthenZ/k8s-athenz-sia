@@ -43,3 +43,7 @@ vendor/*
 
 # Log files from the built binary
 *.log
+
+# enix/x509-certificate-exporter test files
+!third_party/test/badlink.pem
+!third_party/test/badlink-relative.pem
