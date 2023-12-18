@@ -46,11 +46,14 @@ func (k CacheKey) String() string {
 }
 
 func (k CacheKey) Size() uint {
-	structSize := uint(unsafe.Sizeof(k))
+	// structSize := uint(unsafe.Sizeof(k)) // should equal to the following sizes + sum of all strings' length
 	domainSize := sizeofString(k.Domain)
+	maxExpSize := uint(unsafe.Sizeof(k.MaxExpiry))
+	minExpSize := uint(unsafe.Sizeof(k.MinExpiry))
 	pfpSize := sizeofString(k.ProxyForPrincipal)
-	RoleSize := sizeofString(k.Role)
-	return structSize + domainSize + pfpSize + RoleSize
+	roleSize := sizeofString(k.Role)
+	// log.Debugf("👾👾👾CacheKey[%+v], structSize[%d]; domainSize[%d], maxExpSize[%d], minExpSize[%d], pfpSize[%d], roleSize[%d]\n", k, structSize, domainSize, maxExpSize, minExpSize, pfpSize, roleSize)
+	return domainSize + pfpSize + maxExpSize + minExpSize + roleSize
 }
 
 type LockedTokenCache struct {
@@ -61,15 +64,21 @@ type LockedTokenCache struct {
 }
 
 func NewLockedTokenCache() *LockedTokenCache {
-	return &LockedTokenCache{cache: make(map[CacheKey]Token)}
+	return &LockedTokenCache{
+		cache:       make(map[CacheKey]Token),
+		memoryUsage: 0,
+	}
 }
 
 func (c *LockedTokenCache) Store(k CacheKey, t Token) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.cache[k] = t
-	c.memoryUsage += k.Size() + t.Size()
-	fmt.Printf("Access token cache size[%d], size[%d], size[%d]", c.Size(), k.Size(), t.Size())
+
+	keySize := k.Size()
+	tokenSize := t.Size()
+	c.memoryUsage += keySize + tokenSize
+	// log.Debugf("👾👾👾New entry added to TokenCache, latest totalSize[%d], added keySize[%d], added tokenSize[%d]\n", c.Size(), keySize, tokenSize)
 }
 
 func (c *LockedTokenCache) Load(k CacheKey) Token {
@@ -102,8 +111,10 @@ func (c *LockedTokenCache) Keys() []CacheKey {
 }
 
 func (c *LockedTokenCache) Size() uint {
-	structSize := uint(unsafe.Sizeof(c))
+	// structSize := uint(unsafe.Sizeof(*c))     // should equal to the following sizes
 	cacheSize := uint(unsafe.Sizeof(c.cache)) // not exact, there are hidden variables in map
 	lockSize := uint(unsafe.Sizeof(c.lock))   // not exact, there are hidden variables in sync.RWMutex
-	return structSize + cacheSize + lockSize + c.memoryUsage
+	memSize := uint(unsafe.Sizeof(c.memoryUsage))
+	// log.Debugf("👾👾👾LockedTokenCache[%+v], structSize[%d]; cacheSize[%d], lockSize[%d], memoryUsageSize[%d]\n", c, structSize, cacheSize, lockSize, memSize)
+	return cacheSize + lockSize + memSize + c.memoryUsage
 }

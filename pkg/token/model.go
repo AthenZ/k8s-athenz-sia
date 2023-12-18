@@ -14,7 +14,9 @@
 
 package token
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 type Token interface {
 	Domain() string
@@ -53,11 +55,13 @@ func (t *RoleToken) Expiry() int64 {
 }
 
 func (t *RoleToken) Size() uint {
-	structSize := uint(unsafe.Sizeof(*t)) // NOT size of pointer, but the actual struct
+	// structSize := uint(unsafe.Sizeof(*t)) // should equal to the following sizes + sum of all strings' length
 	domainSize := sizeofString(t.domain)
 	roleSize := sizeofString(t.role)
 	rawSize := sizeofString(t.raw)
-	return structSize + domainSize + roleSize + rawSize
+	expirySize := uint(unsafe.Sizeof(t.expiry))
+	// log.Debugf("👾👾👾RoleToken[%+v], structSize[%d]; domainSize[%d], roleSize[%d], rawSize[%d], expirySize[%d]\n", t, structSize, domainSize, roleSize, rawSize, expirySize)
+	return domainSize + roleSize + rawSize + expirySize
 }
 
 // AccessToken stores access token
@@ -90,10 +94,12 @@ func (t *AccessToken) Scope() string {
 }
 
 func (t *AccessToken) Size() uint {
-	structSize := uint(unsafe.Sizeof(*t)) // NOT size of pointer, but the actual struct
+	// structSize := uint(unsafe.Sizeof(*t)) // should equal to the following sizes + sum of all strings' length
 	domainSize := sizeofString(t.domain)
 	roleSize := sizeofString(t.role)
 	rawSize := sizeofString(t.raw)
 	scopeSize := sizeofString(t.scope)
-	return structSize + domainSize + roleSize + rawSize + scopeSize
+	expirySize := uint(unsafe.Sizeof(t.expiry))
+	// log.Debugf("👾👾👾AccessToken[%+v], structSize[%d]; domainSize[%d], roleSize[%d], rawSize[%d], scopeSize[%d], expirySize[%d]\n", t, structSize, domainSize, roleSize, rawSize, scopeSize, expirySize)
+	return domainSize + roleSize + rawSize + scopeSize + expirySize
 }
