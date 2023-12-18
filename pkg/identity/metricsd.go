@@ -26,7 +26,7 @@ import (
 
 	// using git submodule to import internal package (special package in golang)
 	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
-	internal "github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
+	internal "github.com/AthenZ/k8s-athenz-sia/v3/third_party/metrics"
 )
 
 func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
