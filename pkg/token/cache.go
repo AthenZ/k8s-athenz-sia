@@ -25,7 +25,9 @@ type TokenCache interface {
 	Load(k CacheKey) Token
 	Range(func(k CacheKey, t Token) error) error
 	Keys() []CacheKey
-	Size() uint
+	Size() int64
+	Len() int
+	Clear()
 }
 
 func sizeofString(s string) uint {
@@ -60,7 +62,7 @@ type LockedTokenCache struct {
 	cache map[CacheKey]Token
 	lock  sync.RWMutex
 	// memoryUsage is the number of bytes used by the cache entries. Usage of the cache map is counted.
-	memoryUsage uint
+	memoryUsage int64
 }
 
 func NewLockedTokenCache() *LockedTokenCache {
@@ -73,11 +75,18 @@ func NewLockedTokenCache() *LockedTokenCache {
 func (c *LockedTokenCache) Store(k CacheKey, t Token) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	oldToken, ok := c.cache[k]
 	c.cache[k] = t
 
-	keySize := k.Size()
+	// update cache memory usage
 	tokenSize := t.Size()
-	c.memoryUsage += keySize + tokenSize
+	if ok {
+		oldTokenSize := oldToken.Size()
+		c.memoryUsage += int64(tokenSize) - int64(oldTokenSize)
+	} else {
+		keySize := k.Size()
+		c.memoryUsage += int64(keySize + tokenSize)
+	}
 	// log.Debugf("👾👾👾New entry added to TokenCache, latest totalSize[%d], added keySize[%d], added tokenSize[%d]\n", c.Size(), keySize, tokenSize)
 }
 
@@ -110,11 +119,21 @@ func (c *LockedTokenCache) Keys() []CacheKey {
 	return r
 }
 
-func (c *LockedTokenCache) Size() uint {
+func (c *LockedTokenCache) Size() int64 {
 	// structSize := uint(unsafe.Sizeof(*c))     // should equal to the following sizes
 	cacheSize := uint(unsafe.Sizeof(c.cache)) // not exact, there are hidden variables in map
 	lockSize := uint(unsafe.Sizeof(c.lock))   // not exact, there are hidden variables in sync.RWMutex
 	memSize := uint(unsafe.Sizeof(c.memoryUsage))
 	// log.Debugf("👾👾👾LockedTokenCache[%+v], structSize[%d]; cacheSize[%d], lockSize[%d], memoryUsageSize[%d]\n", c, structSize, cacheSize, lockSize, memSize)
-	return cacheSize + lockSize + memSize + c.memoryUsage
+	return int64(cacheSize+lockSize+memSize) + c.memoryUsage
+}
+
+func (c *LockedTokenCache) Len() int {
+	return len(c.cache)
+}
+
+func (c *LockedTokenCache) Clear() {
+	for t := range c.cache {
+		delete(c.cache, t)
+	}
 }
