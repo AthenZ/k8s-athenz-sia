@@ -391,7 +391,5 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 		}
 	}()
 
-	// testing(d, report)
-
 	return nil, shutdownChan
 }
