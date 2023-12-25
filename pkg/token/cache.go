@@ -125,7 +125,11 @@ func (c *LockedTokenCache) Size() int64 {
 	lockSize := uint(unsafe.Sizeof(c.lock))   // not exact, there are hidden variables in sync.RWMutex
 	memSize := uint(unsafe.Sizeof(c.memoryUsage))
 	// log.Debugf("👾👾👾LockedTokenCache[%+v], structSize[%d]; cacheSize[%d], lockSize[%d], memoryUsageSize[%d]\n", c, structSize, cacheSize, lockSize, memSize)
-	return int64(cacheSize+lockSize+memSize) + c.memoryUsage
+
+	_, bSize := getMapBucketLenAndSize(c.cache)
+	// log.Debugf("👾👾👾LockedTokenCache go map bucket len[%d], size[%d]\n", bLen, bSize)
+
+	return int64(cacheSize+lockSize+memSize) + c.memoryUsage + bSize
 }
 
 func (c *LockedTokenCache) Len() int {
