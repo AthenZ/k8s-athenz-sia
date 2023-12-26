@@ -127,7 +127,10 @@ func (c *LockedTokenCache) Len() int {
 }
 
 func (c *LockedTokenCache) Clear() {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	for t := range c.cache {
 		delete(c.cache, t)
 	}
+	c.memoryUsage = 0
 }
