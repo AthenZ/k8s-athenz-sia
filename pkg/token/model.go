@@ -55,13 +55,10 @@ func (t *RoleToken) Expiry() int64 {
 }
 
 func (t *RoleToken) Size() uint {
-	// structSize := uint(unsafe.Sizeof(*t)) // should equal to the following sizes + sum of all strings' length
-	domainSize := sizeofString(t.domain)
-	roleSize := sizeofString(t.role)
-	rawSize := sizeofString(t.raw)
-	expirySize := uint(unsafe.Sizeof(t.expiry))
-	// log.Debugf("👾👾👾RoleToken[%+v], structSize[%d]; domainSize[%d], roleSize[%d], rawSize[%d], expirySize[%d]\n", t, structSize, domainSize, roleSize, rawSize, expirySize)
-	return domainSize + roleSize + rawSize + expirySize
+	structSize := uint(unsafe.Sizeof(*t))
+	// unsafe.Sizeof() ONLY count the string struct, need to count the actual string block explicitly
+	stringSize := len(t.domain) + len(t.role) + len(t.raw)
+	return structSize + uint(stringSize)
 }
 
 // AccessToken stores access token
@@ -94,12 +91,8 @@ func (t *AccessToken) Scope() string {
 }
 
 func (t *AccessToken) Size() uint {
-	// structSize := uint(unsafe.Sizeof(*t)) // should equal to the following sizes + sum of all strings' length
-	domainSize := sizeofString(t.domain)
-	roleSize := sizeofString(t.role)
-	rawSize := sizeofString(t.raw)
-	scopeSize := sizeofString(t.scope)
-	expirySize := uint(unsafe.Sizeof(t.expiry))
-	// log.Debugf("👾👾👾AccessToken[%+v], structSize[%d]; domainSize[%d], roleSize[%d], rawSize[%d], scopeSize[%d], expirySize[%d]\n", t, structSize, domainSize, roleSize, rawSize, scopeSize, expirySize)
-	return domainSize + roleSize + rawSize + scopeSize + expirySize
+	structSize := uint(unsafe.Sizeof(*t))
+	// unsafe.Sizeof() ONLY count the string struct, need to count the actual string block explicitly
+	stringSize := len(t.domain) + len(t.role) + len(t.raw) + len(t.scope)
+	return structSize + uint(stringSize)
 }

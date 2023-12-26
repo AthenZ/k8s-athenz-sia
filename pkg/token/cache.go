@@ -30,11 +30,6 @@ type TokenCache interface {
 	Clear()
 }
 
-func sizeofString(s string) uint {
-	// size of string struct + number of bytes in string
-	return uint(unsafe.Sizeof(s)) + uint(len(s))
-}
-
 type CacheKey struct {
 	Domain            string
 	MaxExpiry         int
@@ -48,20 +43,17 @@ func (k CacheKey) String() string {
 }
 
 func (k CacheKey) Size() uint {
-	// structSize := uint(unsafe.Sizeof(k)) // should equal to the following sizes + sum of all strings' length
-	domainSize := sizeofString(k.Domain)
-	maxExpSize := uint(unsafe.Sizeof(k.MaxExpiry))
-	minExpSize := uint(unsafe.Sizeof(k.MinExpiry))
-	pfpSize := sizeofString(k.ProxyForPrincipal)
-	roleSize := sizeofString(k.Role)
-	// log.Debugf("👾👾👾CacheKey[%+v], structSize[%d]; domainSize[%d], maxExpSize[%d], minExpSize[%d], pfpSize[%d], roleSize[%d]\n", k, structSize, domainSize, maxExpSize, minExpSize, pfpSize, roleSize)
-	return domainSize + pfpSize + maxExpSize + minExpSize + roleSize
+	structSize := uint(unsafe.Sizeof(k))
+	// unsafe.Sizeof() ONLY count the string struct, need to count the actual string block explicitly
+	stringSize := len(k.Domain) + len(k.ProxyForPrincipal) + len(k.Role)
+	return structSize + uint(stringSize)
 }
 
 type LockedTokenCache struct {
 	cache map[CacheKey]Token
 	lock  sync.RWMutex
-	// memoryUsage is the number of bytes used by the cache entries. Usage of the cache map is counted.
+
+	// memoryUsage is the estimated number of bytes used by the cache.
 	memoryUsage int64
 }
 
@@ -87,7 +79,6 @@ func (c *LockedTokenCache) Store(k CacheKey, t Token) {
 		keySize := k.Size()
 		c.memoryUsage += int64(keySize + tokenSize)
 	}
-	// log.Debugf("👾👾👾New entry added to TokenCache, latest totalSize[%d], added keySize[%d], added tokenSize[%d]\n", c.Size(), keySize, tokenSize)
 }
 
 func (c *LockedTokenCache) Load(k CacheKey) Token {
@@ -120,14 +111,13 @@ func (c *LockedTokenCache) Keys() []CacheKey {
 }
 
 func (c *LockedTokenCache) Size() int64 {
-	// structSize := uint(unsafe.Sizeof(*c))     // should equal to the following sizes
+	// structSize := uint(unsafe.Sizeof(*c)) // should equal to the following sizes
 	cacheSize := uint(unsafe.Sizeof(c.cache)) // not exact, there are hidden variables in map
 	lockSize := uint(unsafe.Sizeof(c.lock))   // not exact, there are hidden variables in sync.RWMutex
 	memSize := uint(unsafe.Sizeof(c.memoryUsage))
-	// log.Debugf("👾👾👾LockedTokenCache[%+v], structSize[%d]; cacheSize[%d], lockSize[%d], memoryUsageSize[%d]\n", c, structSize, cacheSize, lockSize, memSize)
 
+	// estimate hidden bucket allocation by map
 	_, bSize := getMapBucketLenAndSize(c.cache)
-	// log.Debugf("👾👾👾LockedTokenCache go map bucket len[%d], size[%d]\n", bLen, bSize)
 
 	return int64(cacheSize+lockSize+memSize) + c.memoryUsage + bSize
 }
