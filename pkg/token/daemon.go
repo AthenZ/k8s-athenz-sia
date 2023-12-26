@@ -360,18 +360,21 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 		sysMemValue := validSample(samples[0])
 		heapMemValue := validSample(samples[1])
 		releasedHeapMemValue := validSample(samples[2])
+		sysMemInUse := sysMemValue - releasedHeapMemValue
 
 		// gather token cache metrics
 		atcSize := d.accessTokenCache.Size()
 		atcLen := d.accessTokenCache.Len()
 		rtcSize := d.roleTokenCache.Size()
 		rtcLen := d.roleTokenCache.Len()
+		totalSize := atcSize + rtcSize
+		totalLen := atcLen + rtcLen
 
 		// report as log message
 		toMB := func(f float64) float64 {
 			return f / 1024 / 1024
 		}
-		log.Infof("system_memory_inuse[%.1fMB]; go_memstats_heap_alloc_bytes[%.1fMB]; accesstoken:cached_token_bytes[%.1fMB],entries[%d]; roletoken:cached_token_bytes[%.1fMB],entries[%d]; total:cached_token_bytes[%.1fMB],entries[%d]; cache_token_ratio:sys[%.1f%%],heap[%.1f%%]", toMB(sysMemValue-releasedHeapMemValue), toMB(heapMemValue), toMB(float64(atcSize)), atcLen, toMB(float64(rtcSize)), rtcLen, toMB(float64(atcSize+rtcSize)), atcLen+rtcLen, float64(atcSize+rtcSize)/sysMemValue*100, float64(atcSize+rtcSize)/heapMemValue*100)
+		log.Infof("system_memory_inuse[%.1fMB]; go_memstats_heap_alloc_bytes[%.1fMB]; accesstoken:cached_token_bytes[%.1fMB],entries[%d]; roletoken:cached_token_bytes[%.1fMB],entries[%d]; total:cached_token_bytes[%.1fMB],entries[%d]; cache_token_ratio:sys[%.1f%%],heap[%.1f%%]", toMB(sysMemInUse), toMB(heapMemValue), toMB(float64(atcSize)), atcLen, toMB(float64(rtcSize)), rtcLen, toMB(float64(totalSize)), totalLen, float64(totalSize)/sysMemInUse*100, float64(totalSize)/heapMemValue*100)
 
 		// TODO: memory triggers
 		// if mem > warn threshold, warning log
