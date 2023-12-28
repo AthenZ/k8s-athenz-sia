@@ -71,11 +71,11 @@ func (c *LockedTokenCache) Store(k CacheKey, t Token) {
 	c.cache[k] = t
 
 	// update cache memory usage
-	tokenSize := t.Size()
 	if ok {
-		c.memoryUsage += int64(tokenSize) - int64(oldToken.Size())
+		// convert unsigned to signed to allow negative result
+		c.memoryUsage += int64(t.Size()) - int64(oldToken.Size())
 	} else {
-		c.memoryUsage += int64(k.Size() + tokenSize)
+		c.memoryUsage += int64(t.Size() + k.Size())
 	}
 }
 
