@@ -88,7 +88,3 @@ submodule-update:
 
 submodule-update-remote:
 	git submodule update --recursive --init --remote
-
-submodule-use-tag:
-	# please update tag in .gitmodules before using this command, tag is not git submodule standard
-	git submodule foreach --recursive 'tag="$$(git config -f $$toplevel/.gitmodules submodule.$$name.tag)";[[ -n $$tag ]] && git reset --hard  $$tag || echo "$$name module has no tag"'
