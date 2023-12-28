@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 	"unsafe"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type TokenCache interface {
@@ -55,12 +57,16 @@ type LockedTokenCache struct {
 
 	// memoryUsage is the estimated number of bytes used by the cache.
 	memoryUsage int64
+
+	// tokenType is used as a constant label for prometheus metrics
+	tokenType string
 }
 
-func NewLockedTokenCache() *LockedTokenCache {
+func NewLockedTokenCache(tokenType string) *LockedTokenCache {
 	return &LockedTokenCache{
 		cache:       make(map[CacheKey]Token),
 		memoryUsage: 0,
+		tokenType:   tokenType,
 	}
 }
 
@@ -131,4 +137,30 @@ func (c *LockedTokenCache) Clear() {
 		delete(c.cache, t)
 	}
 	c.memoryUsage = 0
+}
+
+var (
+	expiryMetric = "token_expiry_timestamp"
+	expiryHelp   = "Expiry time in seconds since Unix epoch."
+	labelKeys    = []string{"domain", "role"}
+)
+
+func (c *LockedTokenCache) Describe(ch chan<- *prometheus.Desc) {
+	ch <- prometheus.NewDesc(expiryMetric, expiryHelp, labelKeys, prometheus.Labels{
+		"type": c.tokenType,
+	})
+}
+
+func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
+	// loop without lock
+	for k, t := range c.cache {
+		ch <- prometheus.MustNewConstMetric(
+			prometheus.NewDesc(expiryMetric, expiryHelp, labelKeys, prometheus.Labels{
+				"type": c.tokenType,
+			}),
+			prometheus.GaugeValue,
+			float64(t.Expiry()),
+			k.Domain, k.Role,
+		)
+	}
 }
