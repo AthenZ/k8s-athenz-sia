@@ -17,6 +17,7 @@ package token
 import (
 	"fmt"
 	"sync"
+	"unsafe"
 )
 
 type TokenCache interface {
@@ -24,6 +25,9 @@ type TokenCache interface {
 	Load(k CacheKey) Token
 	Range(func(k CacheKey, t Token) error) error
 	Keys() []CacheKey
+	Size() int64
+	Len() int
+	Clear()
 }
 
 type CacheKey struct {
@@ -38,19 +42,41 @@ func (k CacheKey) String() string {
 	return fmt.Sprintf("{%s:role.%s,%s,%d,%d}", k.Domain, k.Role, k.ProxyForPrincipal, k.MinExpiry, k.MaxExpiry)
 }
 
+func (k CacheKey) Size() uint {
+	structSize := uint(unsafe.Sizeof(k))
+	// unsafe.Sizeof() ONLY count the string struct, need to count the actual string block explicitly
+	stringSize := len(k.Domain) + len(k.ProxyForPrincipal) + len(k.Role)
+	return structSize + uint(stringSize)
+}
+
 type LockedTokenCache struct {
 	cache map[CacheKey]Token
 	lock  sync.RWMutex
+
+	// memoryUsage is the estimated number of bytes used by the cache.
+	memoryUsage int64
 }
 
 func NewLockedTokenCache() *LockedTokenCache {
-	return &LockedTokenCache{cache: make(map[CacheKey]Token)}
+	return &LockedTokenCache{
+		cache:       make(map[CacheKey]Token),
+		memoryUsage: 0,
+	}
 }
 
 func (c *LockedTokenCache) Store(k CacheKey, t Token) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	oldToken, ok := c.cache[k]
 	c.cache[k] = t
+
+	// update cache memory usage
+	if ok {
+		// convert unsigned to signed to allow negative result
+		c.memoryUsage += int64(t.Size()) - int64(oldToken.Size())
+	} else {
+		c.memoryUsage += int64(t.Size() + k.Size())
+	}
 }
 
 func (c *LockedTokenCache) Load(k CacheKey) Token {
@@ -80,4 +106,29 @@ func (c *LockedTokenCache) Keys() []CacheKey {
 		return nil
 	})
 	return r
+}
+
+func (c *LockedTokenCache) Size() int64 {
+	// structSize := uint(unsafe.Sizeof(*c)) // should equal to the following sizes
+	cacheSize := uint(unsafe.Sizeof(c.cache)) // not exact, there are hidden variables in map
+	lockSize := uint(unsafe.Sizeof(c.lock))   // not exact, there are hidden variables in sync.RWMutex
+	memSize := uint(unsafe.Sizeof(c.memoryUsage))
+
+	// estimate hidden bucket allocation by map
+	_, bSize := getMapBucketLenAndSize(c.cache)
+
+	return int64(cacheSize+lockSize+memSize) + c.memoryUsage + bSize
+}
+
+func (c *LockedTokenCache) Len() int {
+	return len(c.cache)
+}
+
+func (c *LockedTokenCache) Clear() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for t := range c.cache {
+		delete(c.cache, t)
+	}
+	c.memoryUsage = 0
 }

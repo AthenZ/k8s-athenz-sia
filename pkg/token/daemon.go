@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"runtime/metrics"
 	"strings"
 	"time"
 
@@ -26,6 +27,8 @@ import (
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
@@ -73,6 +76,44 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 			}
 		}
 	}
+
+	// register prometheus metrics
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "cached_token_bytes",
+		Help: "Number of bytes cached.",
+		ConstLabels: prometheus.Labels{
+			"type": "accesstoken",
+		},
+	}, func() float64 {
+		return float64(accessTokenCache.Size())
+	})
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "cached_token_bytes",
+		Help: "Number of bytes cached.",
+		ConstLabels: prometheus.Labels{
+			"type": "roletoken",
+		},
+	}, func() float64 {
+		return float64(roleTokenCache.Size())
+	})
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "cached_token_entries",
+		Help: "Number of entries cached.",
+		ConstLabels: prometheus.Labels{
+			"type": "accesstoken",
+		},
+	}, func() float64 {
+		return float64(accessTokenCache.Len())
+	})
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "cached_token_entries",
+		Help: "Number of entries cached.",
+		ConstLabels: prometheus.Labels{
+			"type": "roletoken",
+		},
+	}, func() float64 {
+		return float64(roleTokenCache.Len())
+	})
 
 	ztsClient, err := newZTSClient(idConfig.KeyFile, idConfig.CertFile, idConfig.ServerCACert, idConfig.Endpoint)
 	if err != nil {
@@ -231,7 +272,7 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 		return nil, nil
 	}
 
-	// start token server
+	// start token server daemon
 	httpServer := &http.Server{
 		Addr:      idConfig.TokenServerAddr,
 		Handler:   newHandlerFunc(d, idConfig.TokenServerTimeout),
@@ -283,6 +324,71 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 					log.Fatalf("Failed to shutdown token provider: %s", err.Error())
 				}
 				<-serverDone
+				return
+			}
+		}
+	}()
+
+	// start token cache report daemon (no need for graceful shutdown)
+	report := func() {
+		// gather golang metrics
+		const sysMemMetric = "/memory/classes/total:bytes"                  // go_memstats_sys_bytes
+		const heapMemMetric = "/memory/classes/heap/objects:bytes"          // go_memstats_heap_alloc_bytes
+		const releasedHeapMemMetric = "/memory/classes/heap/released:bytes" // go_memstats_heap_released_bytes
+		// https://pkg.go.dev/runtime/metrics#pkg-examples
+		// https://github.com/prometheus/client_golang/blob/3f8bd73e9b6d1e20e8e1536622bd0fda8bb3cb50/prometheus/go_collector_latest.go#L32
+		samples := make([]metrics.Sample, 3)
+		samples[0].Name = sysMemMetric
+		samples[1].Name = heapMemMetric
+		samples[2].Name = releasedHeapMemMetric
+		metrics.Read(samples)
+		validSample := func(s metrics.Sample) float64 {
+			name, value := s.Name, s.Value
+			switch value.Kind() {
+			case metrics.KindUint64:
+				return float64(value.Uint64())
+			case metrics.KindFloat64:
+				return value.Float64()
+			case metrics.KindBad:
+				// Check if the metric is actually supported. If it's not, the resulting value will always have kind KindBad.
+				panic(fmt.Sprintf("%q: metric is no longer supported", name))
+			default:
+				// Check if the metrics specification has changed.
+				panic(fmt.Sprintf("%q: unexpected metric Kind: %v\n", name, value.Kind()))
+			}
+		}
+		sysMemValue := validSample(samples[0])
+		heapMemValue := validSample(samples[1])
+		releasedHeapMemValue := validSample(samples[2])
+		sysMemInUse := sysMemValue - releasedHeapMemValue
+
+		// gather token cache metrics
+		atcSize := d.accessTokenCache.Size()
+		atcLen := d.accessTokenCache.Len()
+		rtcSize := d.roleTokenCache.Size()
+		rtcLen := d.roleTokenCache.Len()
+		totalSize := atcSize + rtcSize
+		totalLen := atcLen + rtcLen
+
+		// report as log message
+		toMB := func(f float64) float64 {
+			return f / 1024 / 1024
+		}
+		log.Infof("system_memory_inuse[%.1fMB]; go_memstats_heap_alloc_bytes[%.1fMB]; accesstoken:cached_token_bytes[%.1fMB],entries[%d]; roletoken:cached_token_bytes[%.1fMB],entries[%d]; total:cached_token_bytes[%.1fMB],entries[%d]; cache_token_ratio:sys[%.1f%%],heap[%.1f%%]", toMB(sysMemInUse), toMB(heapMemValue), toMB(float64(atcSize)), atcLen, toMB(float64(rtcSize)), rtcLen, toMB(float64(totalSize)), totalLen, float64(totalSize)/sysMemInUse*100, float64(totalSize)/heapMemValue*100)
+
+		// TODO: memory triggers
+		// if mem > warn threshold, warning log
+		// if mem > error threshold, binary heap dump, i.e. debug.WriteHeapDump(os.Stdout.Fd())
+	}
+	reportTicker := time.NewTicker(time.Minute)
+	go func() {
+		defer reportTicker.Stop()
+		for {
+			select {
+			case <-reportTicker.C:
+				report()
+			case <-stopChan:
+				// stop token cache report daemon
 				return
 			}
 		}
