@@ -73,8 +73,7 @@ func (c *LockedTokenCache) Store(k CacheKey, t Token) {
 	// update cache memory usage
 	tokenSize := t.Size()
 	if ok {
-		oldTokenSize := oldToken.Size()
-		c.memoryUsage += int64(tokenSize) - int64(oldTokenSize)
+		c.memoryUsage += int64(tokenSize) - int64(oldToken.Size())
 	} else {
 		c.memoryUsage += int64(k.Size() + tokenSize)
 	}
