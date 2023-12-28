@@ -61,7 +61,8 @@ func Test_getMapBucketLenAndSize(t *testing.T) {
 			wantBucketLen:  2048,
 			wantBucketSize: int64(b) * computeRequiredBuckets(10000),
 		},
-		// will fail: https://github.com/golang/go/blob/2184a394777ccc9ce9625932b2ad773e6e626be0/src/runtime/map.go#L346
+		// will fail as there are special handling logic when entry size is large, the simple formula in computeRequiredBuckets() does not apply
+		// special handling logic: https://github.com/golang/go/blob/2184a394777ccc9ce9625932b2ad773e6e626be0/src/runtime/map.go#L346
 		// {
 		// 	name: "100000 map",
 		// 	args: args{
