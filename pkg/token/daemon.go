@@ -177,7 +177,7 @@ func (d *daemon) updateTokenCaches() <-chan error {
 	}
 
 	log.Infof("Token cache updated: accessTokens(success:%d, error:%d), roleTokens(success:%d, error:%d)", len(atTargets)-atErrorCount, atErrorCount, len(rtTargets)-rtErrorCount, rtErrorCount)
-	return nil
+	return echan
 
 }
 
@@ -273,7 +273,8 @@ func (d *daemon) writeFiles() error {
 	}
 
 	w := util.NewWriter()
-	d.accessTokenCache.Range(func(k CacheKey, t Token) error {
+
+	err := d.accessTokenCache.Range(func(k CacheKey, t Token) error {
 		domain := t.Domain()
 		role := t.Role()
 		at := t.Raw()
@@ -285,7 +286,10 @@ func (d *daemon) writeFiles() error {
 		}
 		return nil
 	})
-	d.roleTokenCache.Range(func(k CacheKey, t Token) error {
+	if err != nil {
+		return err
+	}
+	err = d.roleTokenCache.Range(func(k CacheKey, t Token) error {
 		domain := t.Domain()
 		role := t.Role()
 		rt := t.Raw()
@@ -297,6 +301,9 @@ func (d *daemon) writeFiles() error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	return w.Save()
 }
