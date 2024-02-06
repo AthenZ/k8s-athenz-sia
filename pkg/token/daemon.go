@@ -154,30 +154,32 @@ func (d *daemon) updateTokenCaches() <-chan error {
 	atTargets := d.accessTokenCache.Keys()
 	rtTargets := d.roleTokenCache.Keys()
 	log.Infof("Attempting to fetch tokens from Athenz ZTS server: access token targets[%v], role token targets[%v]...", atTargets, rtTargets)
-	atErrorCount := 0
-	rtErrorCount := 0
 	echan := make(chan error, len(atTargets)+len(rtTargets))
 	defer close(echan)
-
-	for _, t := range atTargets {
-		key := t // prevent closure over loop variable
-		err := d.updateTokenWithRetry(key, ACCESS_TOKEN)
-		if err != nil {
-			echan <- err
-			atErrorCount += 1
+	go func() {
+		atErrorCount := 0
+		for _, t := range atTargets {
+			key := t // prevent closure over loop variable
+			err := d.updateTokenWithRetry(key, ACCESS_TOKEN)
+			if err != nil {
+				echan <- err
+				atErrorCount += 1
+			}
 		}
-	}
-
-	for _, t := range rtTargets {
-		key := t // prevent closure over loop variable
-		err := d.updateTokenWithRetry(key, ROLE_TOKEN)
-		if err != nil {
-			echan <- err
-			rtErrorCount += 1
+		log.Infof("Access Token cache updated. success:%d, error:%d", len(atTargets)-atErrorCount, atErrorCount)
+	}()
+	go func() {
+		rtErrorCount := 0
+		for _, t := range rtTargets {
+			key := t // prevent closure over loop variable
+			err := d.updateTokenWithRetry(key, ROLE_TOKEN)
+			if err != nil {
+				echan <- err
+				rtErrorCount += 1
+			}
 		}
-	}
-
-	log.Infof("Token cache updated: accessTokens(success:%d, error:%d), roleTokens(success:%d, error:%d)", len(atTargets)-atErrorCount, atErrorCount, len(rtTargets)-rtErrorCount, rtErrorCount)
+		log.Infof("Role Token cache updated. success:%d, error:%d", len(rtTargets)-rtErrorCount, rtErrorCount)
+	}()
 	return echan
 
 }
