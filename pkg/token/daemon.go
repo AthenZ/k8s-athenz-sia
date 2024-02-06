@@ -157,6 +157,7 @@ func (d *daemon) updateTokenCaches() <-chan error {
 	atErrorCount := 0
 	rtErrorCount := 0
 	echan := make(chan error, len(atTargets)+len(rtTargets))
+	defer close(echan)
 
 	for _, t := range atTargets {
 		key := t // prevent closure over loop variable
@@ -205,7 +206,7 @@ func (d *daemon) updateToken(key CacheKey, tt tokenType) error {
 		}
 		d.accessTokenCache.Store(key, at)
 		log.Debugf("Successfully received token from Athenz ZTS server: accessTokens(%s, len=%d)", key, len(at.Raw()))
-		return d.writeTokenToFile(key, at, tt)
+		return nil
 	}
 	updateRoleToken := func(key CacheKey) error {
 		rt, err := fetchRoleToken(d.ztsClient, key)
@@ -214,7 +215,7 @@ func (d *daemon) updateToken(key CacheKey, tt tokenType) error {
 		}
 		d.roleTokenCache.Store(key, rt)
 		log.Debugf("Successfully received token from Athenz ZTS server: roleTokens(%s, len=%d)", key, len(rt.Raw()))
-		return d.writeTokenToFile(key, rt, tt)
+		return nil
 	}
 
 	switch tt {
@@ -226,44 +227,17 @@ func (d *daemon) updateToken(key CacheKey, tt tokenType) error {
 		return fmt.Errorf("Invalid token type: %d", tt)
 	}
 }
+func (d *daemon) writeFilesWithRetry() error {
+	// backoff config with first retry delay of 5s, and backoff retry until tokenRefresh / 4
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 5 * time.Second
+	b.Multiplier = 2
+	b.MaxElapsedTime = d.tokenRefresh / 4
 
-func (d *daemon) writeTokenToFile(key CacheKey, t Token, tt tokenType) error {
-	if d.tokenDir == "" {
-		log.Debugf("Skipping to write token files to directory[%s]", d.tokenDir)
-		return nil
+	notifyOnErr := func(err error, backoffDelay time.Duration) {
+		log.Errorf("Failed to write token files: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
-	w := util.NewWriter()
-	domain := t.Domain()
-	role := t.Role()
-	rawToken := t.Raw()
-
-	writeAccessTokenToFile := func() error {
-		log.Infof("[New Access Token] Domain: %s, Role: %s", domain, role)
-		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
-		log.Debugf("Saving Access Token[%d bytes] at %s", len(rawToken), outPath)
-		if err := w.AddBytes(outPath, 0644, []byte(rawToken)); err != nil {
-			return errors.Wrap(err, "unable to save access token")
-		}
-		return w.Save()
-	}
-	writeRoleTokenToFile := func() error {
-		log.Infof("[New Role Token] Domain: %s, Role: %s", domain, role)
-		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
-		log.Debugf("Saving Role Token[%d bytes] at %s", len(rawToken), outPath)
-		if err := w.AddBytes(outPath, 0644, []byte(rawToken)); err != nil {
-			return errors.Wrap(err, "unable to save role token")
-		}
-		return w.Save()
-	}
-
-	switch tt {
-	case ACCESS_TOKEN:
-		return writeAccessTokenToFile()
-	case ROLE_TOKEN:
-		return writeRoleTokenToFile()
-	default:
-		return fmt.Errorf("Invalid token type: %d", tt)
-	}
+	return backoff.RetryNotify(d.writeFiles, b, notifyOnErr)
 }
 
 func (d *daemon) writeFiles() error {
@@ -419,6 +393,9 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 			case <-t.C:
 				for err := range d.updateTokenCaches() {
 					log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
+				}
+				if err := d.writeFilesWithRetry(); err != nil {
+					log.Errorf("Failed to write token files after multiple retries: %s", err.Error())
 				}
 			case <-stopChan:
 				log.Info("Initiating shutdown of token provider daemon ...")
