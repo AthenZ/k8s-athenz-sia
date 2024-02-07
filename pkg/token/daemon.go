@@ -155,6 +155,7 @@ func (d *daemon) updateTokenCaches() <-chan error {
 	rtTargets := d.roleTokenCache.Keys()
 	log.Infof("Attempting to fetch tokens from Athenz ZTS server: access token targets[%v], role token targets[%v]...", atTargets, rtTargets)
 	echan := make(chan error, len(atTargets)+len(rtTargets))
+	defer close(echan)
 	atErrorCount := 0
 	for _, t := range atTargets {
 		key := t // prevent closure over loop variable
