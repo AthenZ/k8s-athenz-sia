@@ -55,13 +55,6 @@ type daemon struct {
 	roleAuthHeader      string
 }
 
-type tokenType int
-
-const (
-	ACCESS_TOKEN = iota
-	ROLE_TOKEN
-)
-
 func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 
 	// initialize token cache with placeholder
@@ -160,7 +153,7 @@ func (d *daemon) updateTokenCaches() <-chan error {
 		atErrorCount := 0
 		for _, t := range atTargets {
 			key := t // prevent closure over loop variable
-			err := d.updateTokenWithRetry(key, ACCESS_TOKEN)
+			err := d.updateTokenWithRetry(key, mACCESS_TOKEN)
 			if err != nil {
 				echan <- err
 				atErrorCount += 1
@@ -170,7 +163,7 @@ func (d *daemon) updateTokenCaches() <-chan error {
 		rtErrorCount := 0
 		for _, t := range rtTargets {
 			key := t // prevent closure over loop variable
-			err := d.updateTokenWithRetry(key, ROLE_TOKEN)
+			err := d.updateTokenWithRetry(key, mROLE_TOKEN)
 			if err != nil {
 				echan <- err
 				rtErrorCount += 1
@@ -181,7 +174,7 @@ func (d *daemon) updateTokenCaches() <-chan error {
 	return echan
 }
 
-func (d *daemon) updateTokenWithRetry(key CacheKey, tt tokenType) error {
+func (d *daemon) updateTokenWithRetry(key CacheKey, tt mode) error {
 	// backoff config with first retry delay of 5s, and backoff retry until tokenRefresh / 4
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = 5 * time.Second
@@ -197,7 +190,7 @@ func (d *daemon) updateTokenWithRetry(key CacheKey, tt tokenType) error {
 	return backoff.RetryNotify(operation, b, notifyOnErr)
 }
 
-func (d *daemon) updateToken(key CacheKey, tt tokenType) error {
+func (d *daemon) updateToken(key CacheKey, tt mode) error {
 	updateAccessToken := func(key CacheKey) error {
 		at, err := fetchAccessToken(d.ztsClient, key, d.saService)
 		if err != nil {
@@ -218,9 +211,9 @@ func (d *daemon) updateToken(key CacheKey, tt tokenType) error {
 	}
 
 	switch tt {
-	case ACCESS_TOKEN:
+	case mACCESS_TOKEN:
 		return updateAccessToken(key)
-	case ROLE_TOKEN:
+	case mROLE_TOKEN:
 		return updateRoleToken(key)
 	default:
 		return fmt.Errorf("Invalid token type: %d", tt)
