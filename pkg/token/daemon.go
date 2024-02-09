@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"runtime/metrics"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
@@ -144,32 +146,38 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 }
 
 func (d *daemon) updateTokenCaches() <-chan error {
+	var atErrorCount, rtErrorCount atomic.Int64
 	atTargets := d.accessTokenCache.Keys()
 	rtTargets := d.roleTokenCache.Keys()
 	log.Infof("Attempting to fetch tokens from Athenz ZTS server: access token targets[%v], role token targets[%v]...", atTargets, rtTargets)
 	echan := make(chan error, len(atTargets)+len(rtTargets))
 	go func() {
 		defer close(echan)
-		atErrorCount := 0
+		wg := new(sync.WaitGroup)
 		for _, t := range atTargets {
-			key := t // prevent closure over loop variable
-			err := d.updateTokenWithRetry(key, mACCESS_TOKEN)
-			if err != nil {
-				echan <- err
-				atErrorCount += 1
-			}
+			wg.Add(1)
+			go func(key CacheKey) {
+				defer wg.Done()
+				err := d.updateTokenWithRetry(key, mACCESS_TOKEN)
+				if err != nil {
+					echan <- err
+					atErrorCount.Add(1)
+				}
+			}(t)
 		}
-		log.Infof("Access Token cache updated. success:%d, error:%d", len(atTargets)-atErrorCount, atErrorCount)
-		rtErrorCount := 0
 		for _, t := range rtTargets {
-			key := t // prevent closure over loop variable
-			err := d.updateTokenWithRetry(key, mROLE_TOKEN)
-			if err != nil {
-				echan <- err
-				rtErrorCount += 1
-			}
+			wg.Add(1)
+			go func(key CacheKey) {
+				defer wg.Done()
+				err := d.updateTokenWithRetry(key, mROLE_TOKEN)
+				if err != nil {
+					echan <- err
+					rtErrorCount.Add(1)
+				}
+			}(t)
 		}
-		log.Infof("Role Token cache updated. success:%d, error:%d", len(rtTargets)-rtErrorCount, rtErrorCount)
+		wg.Wait()
+		log.Infof("Token cache updated. accesstoken:success[%d],error[%d]; roletoken:success[%d],error[%d]", int64(len(atTargets))-atErrorCount.Load(), atErrorCount.Load(), int64(len(rtTargets))-rtErrorCount.Load(), rtErrorCount.Load())
 	}()
 	return echan
 }
