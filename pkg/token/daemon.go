@@ -151,34 +151,35 @@ func (d *daemon) updateTokenCaches() <-chan error {
 	rtTargets := d.roleTokenCache.Keys()
 	log.Infof("Attempting to fetch tokens from Athenz ZTS server: access token targets[%v], role token targets[%v]...", atTargets, rtTargets)
 	echan := make(chan error, len(atTargets)+len(rtTargets))
-	go func() {
-		defer close(echan)
-		wg := new(sync.WaitGroup)
-		for _, t := range atTargets {
-			wg.Add(1)
-			go func(key CacheKey) {
-				defer wg.Done()
-				err := d.updateTokenWithRetry(key, mACCESS_TOKEN)
-				if err != nil {
-					echan <- err
-					atErrorCount.Add(1)
-				}
-			}(t)
-		}
-		for _, t := range rtTargets {
-			wg.Add(1)
-			go func(key CacheKey) {
-				defer wg.Done()
-				err := d.updateTokenWithRetry(key, mROLE_TOKEN)
-				if err != nil {
-					echan <- err
-					rtErrorCount.Add(1)
-				}
-			}(t)
-		}
-		wg.Wait()
-		log.Infof("Token cache updated. accesstoken:success[%d],error[%d]; roletoken:success[%d],error[%d]", int64(len(atTargets))-atErrorCount.Load(), atErrorCount.Load(), int64(len(rtTargets))-rtErrorCount.Load(), rtErrorCount.Load())
-	}()
+	defer close(echan)
+	wg := new(sync.WaitGroup)
+
+	for _, t := range atTargets {
+		wg.Add(1)
+		go func(key CacheKey) {
+			defer wg.Done()
+			err := d.updateTokenWithRetry(key, mACCESS_TOKEN)
+			if err != nil {
+				echan <- err
+				atErrorCount.Add(1)
+			}
+		}(t)
+	}
+
+	for _, t := range rtTargets {
+		wg.Add(1)
+		go func(key CacheKey) {
+			defer wg.Done()
+			err := d.updateTokenWithRetry(key, mROLE_TOKEN)
+			if err != nil {
+				echan <- err
+				rtErrorCount.Add(1)
+			}
+		}(t)
+	}
+
+	wg.Wait()
+	log.Infof("Token cache updated. accesstoken:success[%d],error[%d]; roletoken:success[%d],error[%d]", int64(len(atTargets))-atErrorCount.Load(), atErrorCount.Load(), int64(len(rtTargets))-rtErrorCount.Load(), rtErrorCount.Load())
 	return echan
 }
 
