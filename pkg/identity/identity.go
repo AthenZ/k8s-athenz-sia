@@ -16,7 +16,6 @@ package identity
 
 import (
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -39,6 +38,7 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
+	"github.com/AthenZ/athenz/libs/go/athenzutils"
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
@@ -496,36 +496,17 @@ func PrivateKeyFromPEMBytes(privatePEMBytes []byte) (crypto.Signer, error) {
 		return handle(fmt.Errorf("unable to load private key, invalid PEM block: %s", privatePEMBytes))
 	}
 	switch block.Type {
-	case "EC PRIVATE KEY":
-		k, err := x509.ParseECPrivateKey(block.Bytes)
-		if err != nil {
-			return handle(err)
-		}
-		return k, nil
 	case "ECDSA PRIVATE KEY":
 		k, err := x509.ParseECPrivateKey(block.Bytes)
 		if err != nil {
 			return handle(err)
 		}
 		return k, nil
-	case "RSA PRIVATE KEY":
-		k, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	default:
+		k, _, err := athenzutils.ExtractSignerInfo(privatePEMBytes)
 		if err != nil {
 			return handle(err)
 		}
 		return k, nil
-	case "PRIVATE KEY":
-		k, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if err != nil {
-			return handle(err)
-		}
-		switch key := k.(type) {
-		case *ecdsa.PrivateKey:
-			return key, nil
-		default:
-			return handle(fmt.Errorf("Unsupported PKCS#8 wrapping private key type: %s", key))
-		}
-	default:
-		return handle(fmt.Errorf("unsupported private key type: %s", block.Type))
 	}
 }
