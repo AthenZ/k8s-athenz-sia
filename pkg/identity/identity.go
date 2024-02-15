@@ -488,12 +488,9 @@ func extractServiceDetailsFromCert(cert *x509.Certificate) (string, string, erro
 // PrivateKeyFromPEMBytes returns a private key along with its type from its supplied
 // PEM representation.
 func PrivateKeyFromPEMBytes(privatePEMBytes []byte) (crypto.Signer, error) {
-	handle := func(err error) (crypto.Signer, error) {
-		return nil, errors.Wrap(err, "PrivateKeyFromPEMBytes")
-	}
 	k, _, err := athenzutils.ExtractSignerInfo(privatePEMBytes)
 	if err != nil {
-		return handle(err)
+		return nil, errors.Wrap(err, "PrivateKeyFromPEMBytes")
 	}
 	return k, nil
 }
