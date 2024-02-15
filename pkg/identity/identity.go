@@ -491,22 +491,9 @@ func PrivateKeyFromPEMBytes(privatePEMBytes []byte) (crypto.Signer, error) {
 	handle := func(err error) (crypto.Signer, error) {
 		return nil, errors.Wrap(err, "PrivateKeyFromPEMBytes")
 	}
-	block, _ := pem.Decode(privatePEMBytes)
-	if block == nil {
-		return handle(fmt.Errorf("unable to load private key, invalid PEM block: %s", privatePEMBytes))
+	k, _, err := athenzutils.ExtractSignerInfo(privatePEMBytes)
+	if err != nil {
+		return handle(err)
 	}
-	switch block.Type {
-	case "ECDSA PRIVATE KEY":
-		k, err := x509.ParseECPrivateKey(block.Bytes)
-		if err != nil {
-			return handle(err)
-		}
-		return k, nil
-	default:
-		k, _, err := athenzutils.ExtractSignerInfo(privatePEMBytes)
-		if err != nil {
-			return handle(err)
-		}
-		return k, nil
-	}
+	return k, nil
 }
