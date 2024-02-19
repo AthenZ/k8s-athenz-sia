@@ -187,7 +187,6 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(atResponse)
-	return
 }
 
 func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
