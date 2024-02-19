@@ -137,13 +137,15 @@ func (c *LockedTokenCache) Clear() {
 	defer c.lock.Unlock()
 	for t := range c.cache {
 		delete(c.cache, t)
+		// TODO: reset metrics on delete
+
 	}
 	c.memoryUsage = 0
 }
 
 var (
 	tokenExpiresInMetric = "token_expires_in_seconds"
-	tokenExpiresInHelp   = "Indicates remaining time until the token expires."
+	tokenExpiresInHelp   = "Indicates remaining time until the token expires"
 )
 
 func (c *LockedTokenCache) Describe(ch chan<- *prometheus.Desc) {
@@ -158,6 +160,11 @@ func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
 	defer c.lock.Unlock()
 
 	for k, t := range c.cache {
+		// skip placeholder token added during daemon creation
+		if t.Raw() == "" {
+			continue
+		}
+
 		labelKeys := []string{"domain", "role"}
 		labelValues := []string{k.Domain, k.Role}
 		if k.ProxyForPrincipal != "" {
