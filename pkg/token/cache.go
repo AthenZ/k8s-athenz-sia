@@ -137,7 +137,6 @@ func (c *LockedTokenCache) Clear() {
 	defer c.lock.Unlock()
 	for t := range c.cache {
 		delete(c.cache, t)
-<<<<<<< HEAD
 		// TODO: reset metrics on delete
 
 	}
@@ -195,8 +194,3 @@ func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
 		ch <- metric
 	}
 }
-=======
-	}
-	c.memoryUsage = 0
-}
->>>>>>> 8c5a9a0 (expose token cache size in metrics and log (#69))
