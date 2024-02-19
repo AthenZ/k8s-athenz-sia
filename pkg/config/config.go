@@ -90,6 +90,7 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("TOKEN_EXPIRY", &idConfig.rawTokenExpiry)
 	loadEnv("TOKEN_SERVER_ADDR", &idConfig.TokenServerAddr)
 	loadEnv("TOKEN_SERVER_REST_API", &idConfig.rawTokenServerRESTAPI)
+	loadEnv("TOKEN_SERVER_ENVOY_API", &idConfig.rawTokenServerEnvoyAPI)
 	loadEnv("TOKEN_SERVER_TIMEOUT", &idConfig.rawTokenServerTimeout)
 	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idConfig.TokenServerTLSCAPath)
 	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idConfig.TokenServerTLSCertPath)
@@ -136,6 +137,10 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	idConfig.TokenServerRESTAPI, err = strconv.ParseBool(idConfig.rawTokenServerRESTAPI)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %v", idConfig.rawTokenServerRESTAPI, err)
+	}
+	idConfig.TokenServerEnvoyAPI, err = strconv.ParseBool(idConfig.rawTokenServerEnvoyAPI)
+	if err != nil {
+		return fmt.Errorf("Invalid TOKEN_SERVER_Envoy_API [%q], %v", idConfig.rawTokenServerEnvoyAPI, err)
 	}
 	idConfig.TokenServerTimeout, err = time.ParseDuration(idConfig.rawTokenServerTimeout)
 	if err != nil {
@@ -190,6 +195,7 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	f.DurationVar(&idConfig.TokenExpiry, "token-expiry", idConfig.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
 	f.StringVar(&idConfig.TokenServerAddr, "token-server-addr", idConfig.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
 	f.BoolVar(&idConfig.TokenServerRESTAPI, "token-server-rest-api", idConfig.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
+	f.BoolVar(&idConfig.TokenServerEnvoyAPI, "token-server-envoy-api", idConfig.TokenServerEnvoyAPI, "enable token server Envoy API (true/false)")
 	f.DurationVar(&idConfig.TokenServerTimeout, "token-server-timeout", idConfig.TokenServerTimeout, "token server timeout (default 3s)")
 	f.StringVar(&idConfig.TokenServerTLSCAPath, "token-server-tls-ca-path", idConfig.TokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
 	f.StringVar(&idConfig.TokenServerTLSCertPath, "token-server-tls-cert-path", idConfig.TokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")

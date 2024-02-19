@@ -218,70 +218,75 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 			}
 		}
 
-		// API for envoy (all methods and paths)
-		domain := r.Header.Get(DOMAIN_HEADER)
-		role := r.Header.Get(ROLE_HEADER)
+		if d.tokenEnvoyAPI {
+			// API for envoy (all methods and paths)
+			domain := r.Header.Get(DOMAIN_HEADER)
+			role := r.Header.Get(ROLE_HEADER)
 
-		var errMsg = ""
-		var aToken, rToken Token
-		if domain == "" || role == "" {
-			errMsg = fmt.Sprintf("http headers not set: %s[%s] %s[%s].", DOMAIN_HEADER, domain, ROLE_HEADER, role)
-		} else {
-			k := CacheKey{Domain: domain, Role: role, MinExpiry: d.tokenExpiryInSecond}
-			if d.tokenType&mACCESS_TOKEN != 0 {
-				aToken = d.accessTokenCache.Load(k)
-				if aToken == nil {
-					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
+			var errMsg = ""
+			var aToken, rToken Token
+			if domain == "" || role == "" {
+				errMsg = fmt.Sprintf("http headers not set: %s[%s] %s[%s].", DOMAIN_HEADER, domain, ROLE_HEADER, role)
+			} else {
+				k := CacheKey{Domain: domain, Role: role, MinExpiry: d.tokenExpiryInSecond}
+				if d.tokenType&mACCESS_TOKEN != 0 {
+					aToken = d.accessTokenCache.Load(k)
+					if aToken == nil {
+						errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
+					}
+				}
+				if d.tokenType&mROLE_TOKEN != 0 {
+					rToken = d.roleTokenCache.Load(k)
+					if rToken == nil {
+						errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
+					}
 				}
 			}
-			if d.tokenType&mROLE_TOKEN != 0 {
-				rToken = d.roleTokenCache.Load(k)
-				if rToken == nil {
-					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
-				}
+
+			// check context cancelled
+			if r.Context().Err() != nil {
+				log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+				return
 			}
-		}
 
-		// check context cancelled
-		if r.Context().Err() != nil {
-			log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
-			return
-		}
+			if len(errMsg) > 0 {
+				response, err := json.Marshal(map[string]string{"error": errMsg})
+				if err != nil {
+					log.Warnf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				errMsg = fmt.Sprintf("Error while handling request with: %s[%s] %s[%s], error[%s]", DOMAIN_HEADER, domain, ROLE_HEADER, role, errMsg)
+				log.Warnf(errMsg)
+				w.WriteHeader(http.StatusBadRequest)
+				io.WriteString(w, string(response))
+				return
+			}
 
-		if len(errMsg) > 0 {
-			response, err := json.Marshal(map[string]string{"error": errMsg})
+			resJSON := make(map[string]string, 2)
+			if aToken != nil {
+				at := aToken.Raw()
+				w.Header().Set("Authorization", "bearer "+at)
+				resJSON["accesstoken"] = at
+			}
+			if rToken != nil {
+				rt := rToken.Raw()
+				w.Header().Set(d.roleAuthHeader, rt)
+				resJSON["roletoken"] = rt
+			}
+			response, err := json.Marshal(resJSON)
 			if err != nil {
 				log.Warnf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			errMsg = fmt.Sprintf("Error while handling request with: %s[%s] %s[%s], error[%s]", DOMAIN_HEADER, domain, ROLE_HEADER, role, errMsg)
-			log.Warnf(errMsg)
-			w.WriteHeader(http.StatusBadRequest)
+
+			log.Debugf("Returning %d for domain[%s], role[%s]", d.tokenType, domain, role)
 			io.WriteString(w, string(response))
-			return
 		}
 
-		resJSON := make(map[string]string, 2)
-		if aToken != nil {
-			at := aToken.Raw()
-			w.Header().Set("Authorization", "bearer "+at)
-			resJSON["accesstoken"] = at
-		}
-		if rToken != nil {
-			rt := rToken.Raw()
-			w.Header().Set(d.roleAuthHeader, rt)
-			resJSON["roletoken"] = rt
-		}
-		response, err := json.Marshal(resJSON)
-		if err != nil {
-			log.Warnf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		log.Debugf("Returning %d for domain[%s], role[%s]", d.tokenType, domain, role)
-		io.WriteString(w, string(response))
+		w.WriteHeader(http.StatusNotFound)
+		io.WriteString(w, string("404 page not found"))
 	}
 
 	// timeout handler

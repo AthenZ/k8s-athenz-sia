@@ -54,6 +54,7 @@ type IdentityConfig struct {
 	TokenExpiry               time.Duration
 	TokenServerAddr           string
 	TokenServerRESTAPI        bool
+	TokenServerEnvoyAPI       bool
 	TokenServerTimeout        time.Duration
 	TokenServerTLSCAPath      string
 	TokenServerTLSCertPath    string
@@ -77,6 +78,7 @@ type IdentityConfig struct {
 	rawTokenRefresh          string
 	rawTokenExpiry           string
 	rawTokenServerRESTAPI    string
+	rawTokenServerEnvoyAPI   string
 	rawTokenServerTimeout    string
 	rawDeleteInstanceID      string
 	rawShutdownTimeout       string
