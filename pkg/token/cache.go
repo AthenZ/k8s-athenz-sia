@@ -144,10 +144,10 @@ func (c *LockedTokenCache) Clear() {
 var (
 	tokenExpiresInMetric = "token_expires_in_seconds"
 	tokenExpiresInHelp   = "Indicates remaining time until the token expires."
-	labelKeys            = []string{"domain", "role"}
 )
 
 func (c *LockedTokenCache) Describe(ch chan<- *prometheus.Desc) {
+	labelKeys := []string{"domain", "role"}
 	ch <- prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, prometheus.Labels{
 		"type": c.tokenType,
 	})
@@ -158,13 +158,27 @@ func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
 	defer c.lock.Unlock()
 
 	for k, t := range c.cache {
+		labelKeys := []string{"domain", "role"}
+		labelValues := []string{k.Domain, k.Role}
+		if k.ProxyForPrincipal != "" {
+			labelKeys = append(labelKeys, "proxy_for_principal")
+			labelValues = append(labelValues, k.ProxyForPrincipal)
+		}
+		if k.MinExpiry != 0 {
+			labelKeys = append(labelKeys, "min_expiry")
+			labelValues = append(labelValues, fmt.Sprintf("%d", k.MinExpiry))
+		}
+		if k.MaxExpiry != 0 {
+			labelKeys = append(labelKeys, "max_expiry")
+			labelValues = append(labelValues, fmt.Sprintf("%d", k.MaxExpiry))
+		}
 		metric, err := prometheus.NewConstMetric(
 			prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, prometheus.Labels{
 				"type": c.tokenType,
 			}),
 			prometheus.GaugeValue,
 			float64(time.Until(time.Unix(t.Expiry(), 0)).Seconds()),
-			k.Domain, k.Role,
+			labelValues...,
 		)
 		if err != nil {
 			log.Errorf("Failed to create metric: %v", err)
