@@ -17,7 +17,11 @@ package token
 import (
 	"fmt"
 	"sync"
+	"time"
 	"unsafe"
+
+	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type TokenCache interface {
@@ -55,12 +59,16 @@ type LockedTokenCache struct {
 
 	// memoryUsage is the estimated number of bytes used by the cache.
 	memoryUsage int64
+
+	// tokenType is the type of token stored in the cache.
+	tokenType string
 }
 
-func NewLockedTokenCache() *LockedTokenCache {
+func NewLockedTokenCache(tokenType string) *LockedTokenCache {
 	return &LockedTokenCache{
 		cache:       make(map[CacheKey]Token),
 		memoryUsage: 0,
+		tokenType:   tokenType,
 	}
 }
 
@@ -129,6 +137,60 @@ func (c *LockedTokenCache) Clear() {
 	defer c.lock.Unlock()
 	for t := range c.cache {
 		delete(c.cache, t)
+		// TODO: reset metrics on delete
+
 	}
 	c.memoryUsage = 0
+}
+
+var (
+	tokenExpiresInMetric = "token_expires_in_seconds"
+	tokenExpiresInHelp   = "Indicates remaining time until the token expires"
+)
+
+func (c *LockedTokenCache) Describe(ch chan<- *prometheus.Desc) {
+	labelKeys := []string{"domain", "role"}
+	ch <- prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, prometheus.Labels{
+		"type": c.tokenType,
+	})
+}
+
+func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for k, t := range c.cache {
+		// skip placeholder token added during daemon creation
+		if t.Raw() == "" {
+			continue
+		}
+
+		labelKeys := []string{"domain", "role"}
+		labelValues := []string{k.Domain, k.Role}
+		if k.ProxyForPrincipal != "" {
+			labelKeys = append(labelKeys, "proxy_for_principal")
+			labelValues = append(labelValues, k.ProxyForPrincipal)
+		}
+		if k.MinExpiry != 0 {
+			labelKeys = append(labelKeys, "min_expiry")
+			labelValues = append(labelValues, fmt.Sprintf("%d", k.MinExpiry))
+		}
+		if k.MaxExpiry != 0 {
+			labelKeys = append(labelKeys, "max_expiry")
+			labelValues = append(labelValues, fmt.Sprintf("%d", k.MaxExpiry))
+		}
+		metric, err := prometheus.NewConstMetric(
+			prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, prometheus.Labels{
+				"type": c.tokenType,
+			}),
+			prometheus.GaugeValue,
+			float64(time.Until(time.Unix(t.Expiry(), 0)).Seconds()),
+			labelValues...,
+		)
+		if err != nil {
+			log.Errorf("Failed to create metric: %v", err)
+			continue
+		}
+		ch <- metric
+	}
 }
