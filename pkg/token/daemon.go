@@ -321,6 +321,9 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 	for err := range d.updateTokenCaches() {
 		log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 	}
+	if err := d.writeFilesWithRetry(); err != nil {
+		log.Errorf("Failed to write token files after multiple retries: %s", err.Error())
+	}
 	if idConfig.Init {
 		log.Infof("Token server is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
 		return nil, nil
