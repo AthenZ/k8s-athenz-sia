@@ -283,6 +283,7 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 
 			log.Debugf("Returning %d for domain[%s], role[%s]", d.tokenType, domain, role)
 			io.WriteString(w, string(response))
+			return
 		}
 
 		w.WriteHeader(http.StatusNotFound)
