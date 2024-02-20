@@ -96,7 +96,6 @@ func DefaultIdentityConfig() *IdentityConfig {
 		TokenExpiry:               DEFAULT_TOKEN_EXPIRY,
 		TokenServerAddr:           "",
 		TokenServerRESTAPI:        false,
-		TokenServerEnvoyAPI:       false,
 		TokenServerTimeout:        DEFAULT_TOKEN_SERVER_TIMEOUT,
 		TokenServerTLSCAPath:      "",
 		TokenServerTLSCertPath:    "",
@@ -106,6 +105,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		HealthCheckAddr:           "",
 		HealthCheckEndpoint:       "",
 		DeleteInstanceID:          true,
+		EnvoyAPIEnable:            false,
 		ShutdownTimeout:           DEFAULT_SHUTDOWN_TIMEOUT,
 		ShutdownDelay:             DEFAULT_SHUTDOWN_DELAY,
 
@@ -119,9 +119,9 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawTokenRefresh:          DEFAULT_TOKEN_REFRESH.String(),
 		rawTokenExpiry:           DEFAULT_TOKEN_EXPIRY.String(),
 		rawTokenServerRESTAPI:    "false",
-		rawTokenServerEnvoyAPI:   "false",
 		rawTokenServerTimeout:    DEFAULT_TOKEN_SERVER_TIMEOUT.String(),
 		rawDeleteInstanceID:      "true",
+		rawEnvoyAPIEnable:        "false",
 		rawShutdownTimeout:       DEFAULT_SHUTDOWN_TIMEOUT.String(),
 		rawShutdownDelay:         DEFAULT_SHUTDOWN_DELAY.String(),
 	}

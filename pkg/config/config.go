@@ -90,7 +90,6 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("TOKEN_EXPIRY", &idConfig.rawTokenExpiry)
 	loadEnv("TOKEN_SERVER_ADDR", &idConfig.TokenServerAddr)
 	loadEnv("TOKEN_SERVER_REST_API", &idConfig.rawTokenServerRESTAPI)
-	loadEnv("TOKEN_SERVER_ENVOY_API", &idConfig.rawTokenServerEnvoyAPI)
 	loadEnv("TOKEN_SERVER_TIMEOUT", &idConfig.rawTokenServerTimeout)
 	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idConfig.TokenServerTLSCAPath)
 	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idConfig.TokenServerTLSCertPath)
@@ -98,6 +97,7 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("TOKEN_DIR", &idConfig.TokenDir)
 	loadEnv("METRICS_SERVER_ADDR", &idConfig.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idConfig.rawDeleteInstanceID)
+	loadEnv("ENVOY_API_ENABLE", &idConfig.rawEnvoyAPIEnable)
 
 	loadEnv("LOG_DIR", &idConfig.LogDir)
 	loadEnv("LOG_LEVEL", &idConfig.LogLevel)
@@ -138,10 +138,6 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %v", idConfig.rawTokenServerRESTAPI, err)
 	}
-	idConfig.TokenServerEnvoyAPI, err = strconv.ParseBool(idConfig.rawTokenServerEnvoyAPI)
-	if err != nil {
-		return fmt.Errorf("Invalid TOKEN_SERVER_Envoy_API [%q], %v", idConfig.rawTokenServerEnvoyAPI, err)
-	}
 	idConfig.TokenServerTimeout, err = time.ParseDuration(idConfig.rawTokenServerTimeout)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_SERVER_TIMEOUT [%q], %v", idConfig.rawTokenServerTimeout, err)
@@ -149,6 +145,10 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	idConfig.DeleteInstanceID, err = strconv.ParseBool(idConfig.rawDeleteInstanceID)
 	if err != nil {
 		return fmt.Errorf("Invalid DELETE_INSTANCE_ID [%q], %v", idConfig.rawDeleteInstanceID, err)
+	}
+	idConfig.EnvoyAPIEnable, err = strconv.ParseBool(idConfig.rawEnvoyAPIEnable)
+	if err != nil {
+		return fmt.Errorf("Invalid ENVOY_API_ENABLE [%q], %v", idConfig.rawEnvoyAPIEnable, err)
 	}
 	idConfig.ShutdownTimeout, err = time.ParseDuration(idConfig.rawShutdownTimeout)
 	if err != nil {
@@ -195,7 +195,6 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	f.DurationVar(&idConfig.TokenExpiry, "token-expiry", idConfig.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
 	f.StringVar(&idConfig.TokenServerAddr, "token-server-addr", idConfig.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
 	f.BoolVar(&idConfig.TokenServerRESTAPI, "token-server-rest-api", idConfig.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
-	f.BoolVar(&idConfig.TokenServerEnvoyAPI, "token-server-envoy-api", idConfig.TokenServerEnvoyAPI, "enable token server Envoy API (true/false)")
 	f.DurationVar(&idConfig.TokenServerTimeout, "token-server-timeout", idConfig.TokenServerTimeout, "token server timeout (default 3s)")
 	f.StringVar(&idConfig.TokenServerTLSCAPath, "token-server-tls-ca-path", idConfig.TokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
 	f.StringVar(&idConfig.TokenServerTLSCertPath, "token-server-tls-cert-path", idConfig.TokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
@@ -203,6 +202,8 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	f.StringVar(&idConfig.TokenDir, "token-dir", idConfig.TokenDir, "directory to write token files")
 	f.StringVar(&idConfig.MetricsServerAddr, "metrics-server-addr", idConfig.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idConfig.DeleteInstanceID, "delete-instance-id", idConfig.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
+	// Envoy API
+	f.BoolVar(&idConfig.EnvoyAPIEnable, "envoy-api-enable", idConfig.EnvoyAPIEnable, "enable token server Envoy API (true/false)")
 	// log
 	f.StringVar(&idConfig.LogDir, "log-dir", idConfig.LogDir, "directory to store the log files")
 	f.StringVar(&idConfig.LogLevel, "log-level", idConfig.LogLevel, "logging level")

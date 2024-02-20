@@ -156,7 +156,7 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 		tokenExpiryInSecond: tokenExpiryInSecond,
 		roleAuthHeader:      idConfig.RoleAuthHeader,
 
-		tokenEnvoyAPI: idConfig.TokenServerEnvoyAPI,
+		tokenEnvoyAPI: idConfig.EnvoyAPIEnable,
 	}, nil
 }
 
