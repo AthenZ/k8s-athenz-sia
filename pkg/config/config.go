@@ -97,7 +97,7 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("TOKEN_DIR", &idConfig.TokenDir)
 	loadEnv("METRICS_SERVER_ADDR", &idConfig.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idConfig.rawDeleteInstanceID)
-	loadEnv("ENVOY_API_ENABLE", &idConfig.rawEnvoyAPIEnable)
+	loadEnv("TOKEN_SERVER_ENVOY_API", &idConfig.rawTokenServerEnvoyAPI)
 
 	loadEnv("LOG_DIR", &idConfig.LogDir)
 	loadEnv("LOG_LEVEL", &idConfig.LogLevel)
@@ -146,9 +146,9 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid DELETE_INSTANCE_ID [%q], %v", idConfig.rawDeleteInstanceID, err)
 	}
-	idConfig.EnvoyAPIEnable, err = strconv.ParseBool(idConfig.rawEnvoyAPIEnable)
+	idConfig.TokenServerEnvoyAPI, err = strconv.ParseBool(idConfig.rawTokenServerEnvoyAPI)
 	if err != nil {
-		return fmt.Errorf("Invalid ENVOY_API_ENABLE [%q], %v", idConfig.rawEnvoyAPIEnable, err)
+		return fmt.Errorf("Invalid TOKEN_SERVER_ENVOY_API [%q], %v", idConfig.rawTokenServerEnvoyAPI, err)
 	}
 	idConfig.ShutdownTimeout, err = time.ParseDuration(idConfig.rawShutdownTimeout)
 	if err != nil {
@@ -203,7 +203,7 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	f.StringVar(&idConfig.MetricsServerAddr, "metrics-server-addr", idConfig.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idConfig.DeleteInstanceID, "delete-instance-id", idConfig.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// Envoy API
-	f.BoolVar(&idConfig.EnvoyAPIEnable, "envoy-api-enable", idConfig.EnvoyAPIEnable, "enable token server Envoy API (true/false)")
+	f.BoolVar(&idConfig.TokenServerEnvoyAPI, "token-server-envoy-api", idConfig.TokenServerEnvoyAPI, "enable token server Envoy API (true/false)")
 	// log
 	f.StringVar(&idConfig.LogDir, "log-dir", idConfig.LogDir, "directory to store the log files")
 	f.StringVar(&idConfig.LogLevel, "log-level", idConfig.LogLevel, "logging level")
