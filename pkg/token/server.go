@@ -218,8 +218,9 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 			}
 		}
 
-		// envoy api disabled
 		if !d.tokenEnvoyAPI {
+			w.WriteHeader(http.StatusNotFound)
+			io.WriteString(w, string("404 page not found"))
 			return
 		}
 		// API for envoy (all methods and paths)
