@@ -61,8 +61,8 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 
 	// initialize token cache with placeholder
 	tokenExpiryInSecond := int(idConfig.TokenExpiry.Seconds())
-	accessTokenCache := NewLockedTokenCache()
-	roleTokenCache := NewLockedTokenCache()
+	accessTokenCache := NewLockedTokenCache("accesstoken")
+	roleTokenCache := NewLockedTokenCache("roletoken")
 	targets := strings.Split(idConfig.TargetDomainRoles, ",")
 	if idConfig.TargetDomainRoles != "" || len(targets) != 1 {
 		for _, dr := range targets {
@@ -116,6 +116,17 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 	}, func() float64 {
 		return float64(roleTokenCache.Len())
 	})
+
+	var err error
+	err = prometheus.Register(accessTokenCache)
+	if err != nil {
+		return nil, err
+	}
+
+	err = prometheus.Register(roleTokenCache)
+	if err != nil {
+		return nil, err
+	}
 
 	ztsClient, err := newZTSClient(idConfig.KeyFile, idConfig.CertFile, idConfig.ServerCACert, idConfig.Endpoint)
 	if err != nil {
