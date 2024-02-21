@@ -55,6 +55,8 @@ type daemon struct {
 	tokenRefresh        time.Duration
 	tokenExpiryInSecond int
 	roleAuthHeader      string
+
+	tokenEnvoyAPI bool
 }
 
 func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
@@ -153,6 +155,8 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 		tokenRefresh:        idConfig.TokenRefresh,
 		tokenExpiryInSecond: tokenExpiryInSecond,
 		roleAuthHeader:      idConfig.RoleAuthHeader,
+
+		tokenEnvoyAPI: idConfig.TokenServerEnvoyAPI,
 	}, nil
 }
 
@@ -316,6 +320,9 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 	// initialize
 	for err := range d.updateTokenCaches() {
 		log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
+	}
+	if err := d.writeFilesWithRetry(); err != nil {
+		log.Errorf("Failed to write token files after multiple retries: %s", err.Error())
 	}
 	if idConfig.Init {
 		log.Infof("Token server is disabled for init mode: address[%s]", idConfig.TokenServerAddr)

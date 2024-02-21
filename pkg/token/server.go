@@ -218,6 +218,11 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 			}
 		}
 
+		if !d.tokenEnvoyAPI {
+			w.WriteHeader(http.StatusNotFound)
+			io.WriteString(w, string("404 page not found"))
+			return
+		}
 		// API for envoy (all methods and paths)
 		domain := r.Header.Get(DOMAIN_HEADER)
 		role := r.Header.Get(ROLE_HEADER)
