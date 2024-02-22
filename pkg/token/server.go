@@ -218,7 +218,7 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 			}
 		}
 
-		if !d.tokenEnvoyAPI {
+		if !d.headerTokenServer {
 			w.WriteHeader(http.StatusNotFound)
 			io.WriteString(w, string("404 page not found"))
 			return

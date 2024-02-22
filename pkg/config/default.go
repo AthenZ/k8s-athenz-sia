@@ -105,7 +105,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		HealthCheckAddr:           "",
 		HealthCheckEndpoint:       "",
 		DeleteInstanceID:          true,
-		TokenServerEnvoyAPI:       false,
+		HeaderTokenServer:         false,
 		ShutdownTimeout:           DEFAULT_SHUTDOWN_TIMEOUT,
 		ShutdownDelay:             DEFAULT_SHUTDOWN_DELAY,
 
@@ -121,7 +121,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawTokenServerRESTAPI:    "false",
 		rawTokenServerTimeout:    DEFAULT_TOKEN_SERVER_TIMEOUT.String(),
 		rawDeleteInstanceID:      "true",
-		rawTokenServerEnvoyAPI:   "false",
+		rawHeaderTokenServer:     "false",
 		rawShutdownTimeout:       DEFAULT_SHUTDOWN_TIMEOUT.String(),
 		rawShutdownDelay:         DEFAULT_SHUTDOWN_DELAY.String(),
 	}
