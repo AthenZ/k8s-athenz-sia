@@ -203,7 +203,7 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	f.StringVar(&idConfig.MetricsServerAddr, "metrics-server-addr", idConfig.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idConfig.DeleteInstanceID, "delete-instance-id", idConfig.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// Header Token Server
-	f.BoolVar(&idConfig.HeaderTokenServer, "token-server-envoy-api", idConfig.HeaderTokenServer, "enable token server Envoy API (true/false)")
+	f.BoolVar(&idConfig.HeaderTokenServer, "header-token-server", idConfig.HeaderTokenServer, "enable header token server (true/false)")
 	// log
 	f.StringVar(&idConfig.LogDir, "log-dir", idConfig.LogDir, "directory to store the log files")
 	f.StringVar(&idConfig.LogLevel, "log-level", idConfig.LogLevel, "logging level")
