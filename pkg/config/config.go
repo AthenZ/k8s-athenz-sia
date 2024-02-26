@@ -242,6 +242,7 @@ func (idConfig *IdentityConfig) validateAndInit() (err error) {
 	if pollInterval > util.DefaultPollInterval {
 		pollInterval = util.DefaultPollInterval
 	}
+	log.Infof("pollInterval: %d", pollInterval)
 	idConfig.Reloader, err = util.NewCertReloader(util.ReloadConfig{
 		KeyFile:      idConfig.KeyFile,
 		CertFile:     idConfig.CertFile,
