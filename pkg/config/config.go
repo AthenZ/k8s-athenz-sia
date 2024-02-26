@@ -249,7 +249,7 @@ func (idConfig *IdentityConfig) validateAndInit() (err error) {
 		PollInterval: pollInterval,
 	})
 
-	log.Infof("pollInterval: %d", pollInterval)
+	log.Infof("pollInterval: %s", pollInterval)
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
 	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
