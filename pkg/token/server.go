@@ -289,6 +289,37 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 		io.WriteString(w, string(response))
 	}
 
-	// timeout handler
-	return http.TimeoutHandler(http.HandlerFunc(mainHandler), timeout, "Handler timeout by token-server-timeout")
+	// logging && timeout handler
+	return withLogging(http.TimeoutHandler(http.HandlerFunc(mainHandler), timeout, "Handler timeout"))
+}
+
+// withLogging wraps handler with logging
+func withLogging(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
+		log.Infof("Received request: Method[%s], URI[%s], RemoteAddr[%s]", r.Method, r.RequestURI, r.RemoteAddr)
+
+		wrappedWriter := newLoggingResponseWriter(w)
+		handler.ServeHTTP(wrappedWriter, r)
+
+		latency := time.Since(startTime)
+		statusCode := wrappedWriter.statusCode
+		log.Infof("Response sent: StatusCode[%d], Latency[%s]", statusCode, latency)
+	})
+}
+
+// loggingResponseWriter is wrapper for http.ResponseWriter
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+// WriteHeader calls underlying WriteHeader method
+func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
+
+func newLoggingResponseWriter(w http.ResponseWriter) *loggingResponseWriter {
+	return &loggingResponseWriter{w, http.StatusOK}
 }

@@ -38,8 +38,6 @@ func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		return nil, nil
 	}
 
-	log.Infof("Starting health check server[%s]", idConfig.HealthCheckAddr)
-
 	healthCheckServer := &http.Server{
 		Addr:    idConfig.HealthCheckAddr,
 		Handler: createHealthCheckServiceMux(idConfig.HealthCheckEndpoint),
