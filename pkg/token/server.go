@@ -15,6 +15,7 @@
 package token
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +24,7 @@ import (
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"github.com/google/uuid"
 )
 
 const (
@@ -293,18 +295,29 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 	return withLogging(http.TimeoutHandler(http.HandlerFunc(mainHandler), timeout, "Handler timeout"))
 }
 
-// withLogging wraps handler with logging
+// contextKey is used to create context key to avoid collision
+type contextKey struct {
+	name string
+}
+
+var contextKeyRequestID = &contextKey{"requestID"}
+
+// withLogging wraps handler with logging and request ID injection
 func withLogging(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		startTime := time.Now()
-		log.Infof("Received request: Method[%s], URI[%s], RemoteAddr[%s]", r.Method, r.RequestURI, r.RemoteAddr)
+		requestID := uuid.New().String()
+		ctx := context.WithValue(r.Context(), contextKeyRequestID, requestID)
 
+		startTime := time.Now()
+		log.Printf("[%s] Received request: Method[%s], URI[%s], RemoteAddr[%s]", requestID, r.Method, r.RequestURI, r.RemoteAddr)
+
+		// wrap ResponseWriter to cache status code
 		wrappedWriter := newLoggingResponseWriter(w)
-		handler.ServeHTTP(wrappedWriter, r)
+		handler.ServeHTTP(wrappedWriter, r.WithContext(ctx))
 
 		latency := time.Since(startTime)
 		statusCode := wrappedWriter.statusCode
-		log.Infof("Response sent: StatusCode[%d], Latency[%s]", statusCode, latency)
+		log.Printf("[%s] Response sent: StatusCode[%d], Latency[%s]", requestID, statusCode, latency)
 	})
 }
 
