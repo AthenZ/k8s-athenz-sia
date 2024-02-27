@@ -33,6 +33,8 @@ const (
 )
 
 func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
+	requestID := r.Context().Value(contextKeyRequestID).(string)
+
 	var err error
 	defer func() {
 		if r.Context().Err() != nil {
@@ -40,7 +42,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err != nil {
-			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
+			errMsg := fmt.Sprintf("Error: %s requestID[%s]\t%s", err.Error(), requestID, http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
 			log.Errorf(errMsg)
 		}
@@ -83,7 +85,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// cache lookup (token TTL must >= 1 minute)
 	rToken := d.roleTokenCache.Load(k)
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s]", k.String())
+		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
 		// on cache miss, fetch token from Athenz ZTS server
 		rToken, err = fetchRoleToken(d.ztsClient, k)
 		if err != nil {
@@ -91,12 +93,12 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		}
 		// update cache
 		d.roleTokenCache.Store(k, rToken)
-		log.Infof("Successfully updated role token cache due to a cache miss: target[%s]", k.String())
+		log.Infof("Successfully updated role token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
 	}
 
 	// check context cancelled
 	if r.Context().Err() != nil {
-		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], requestID[%s], Err[%s]", r.URL.String(), domain, role, requestID, r.Context().Err().Error())
 		return
 	}
 
@@ -112,6 +114,8 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 }
 
 func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
+	requestID := r.Context().Value(contextKeyRequestID).(string)
+
 	var err error
 	defer func() {
 		if r.Context().Err() != nil {
@@ -119,7 +123,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err != nil {
-			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
+			errMsg := fmt.Sprintf("Error: %s requestID[%s]\t%s", err.Error(), requestID, http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
 			log.Errorf(errMsg)
 		}
@@ -159,7 +163,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// cache lookup (token TTL must >= 1 minute)
 	aToken := d.accessTokenCache.Load(k)
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s]", k.String())
+		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
 		// on cache miss, fetch token from Athenz ZTS server
 		aToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
 		if err != nil {
@@ -167,12 +171,12 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		}
 		// update cache
 		d.accessTokenCache.Store(k, aToken)
-		log.Infof("Successfully updated access token cache due to a cache miss: target[%s]", k.String())
+		log.Infof("Successfully updated access token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
 	}
 
 	// check context cancelled
 	if r.Context().Err() != nil {
-		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s], requestID[%s]", r.URL.String(), domain, role, r.Context().Err().Error(), requestID)
 		return
 	}
 
@@ -195,13 +199,14 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 	// main handler is responsible to monitor whether the request context is cancelled
 	mainHandler := func(w http.ResponseWriter, r *http.Request) {
+		requestID := r.Context().Value(contextKeyRequestID).(string)
 		defer func() {
 			// handle panic, reference: https://github.com/golang/go/blob/go1.20.7/src/net/http/server.go#L1851-L1856
 			if err := recover(); err != nil && err != http.ErrAbortHandler {
 				const size = 64 << 10
 				buf := make([]byte, size)
 				buf = buf[:runtime.Stack(buf, false)]
-				log.Errorf("http: panic serving %v: %v\n%s", r.RemoteAddr, err, buf)
+				log.Errorf("http: panic serving %v: %v requestID[%s]\n%s", r.RemoteAddr, err, requestID, buf)
 
 				w.WriteHeader(http.StatusInternalServerError)
 			}
@@ -251,7 +256,7 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 
 		// check context cancelled
 		if r.Context().Err() != nil {
-			log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+			log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], requestID[%s], Err[%s]", r.URL.String(), domain, role, requestID, r.Context().Err().Error())
 			return
 		}
 
