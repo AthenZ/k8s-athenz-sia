@@ -309,7 +309,7 @@ func withLogging(handler http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), contextKeyRequestID, requestID)
 
 		startTime := time.Now()
-		log.Printf("Received request: method[%s], URI[%s], remoteAddr[%s] requestID[%s]", r.Method, r.RequestURI, r.RemoteAddr, requestID)
+		log.Infof("Received request: method[%s], endpoint[%s], remoteAddr[%s] requestID[%s]", r.Method, r.RequestURI, r.RemoteAddr, requestID)
 
 		// wrap ResponseWriter to cache status code
 		wrappedWriter := newLoggingResponseWriter(w)
@@ -317,7 +317,7 @@ func withLogging(handler http.Handler) http.Handler {
 
 		latency := time.Since(startTime)
 		statusCode := wrappedWriter.statusCode
-		log.Printf("Response sent: statusCode[%d], latency[%s], requestID[%s]", statusCode, latency, requestID)
+		log.Infof("Response sent: statusCode[%d], latency[%s], requestID[%s]", statusCode, latency, requestID)
 	})
 }
 
