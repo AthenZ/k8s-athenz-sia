@@ -224,7 +224,7 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 			return
 		}
 
-		// token server that attaches tokens to the response headers logic begins:
+		// Logic for the token server that attaches tokens to response headers begins here:
 		domain := r.Header.Get(DOMAIN_HEADER)
 		role := r.Header.Get(ROLE_HEADER)
 
