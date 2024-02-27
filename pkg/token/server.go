@@ -83,7 +83,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// cache lookup (token TTL must >= 1 minute)
 	rToken := d.roleTokenCache.Load(k)
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Role token cache miss, attempting to fetch token from Athenz ZTS server: target[%s]", k.String())
+		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s]", k.String())
 		// on cache miss, fetch token from Athenz ZTS server
 		rToken, err = fetchRoleToken(d.ztsClient, k)
 		if err != nil {
@@ -91,7 +91,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		}
 		// update cache
 		d.roleTokenCache.Store(k, rToken)
-		log.Infof("Role token cache miss, successfully updated role token cache: target[%s]", k.String())
+		log.Infof("Successfully updated role token cache due to a cache miss: target[%s]", k.String())
 	}
 
 	// check context cancelled
@@ -159,7 +159,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// cache lookup (token TTL must >= 1 minute)
 	aToken := d.accessTokenCache.Load(k)
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Access token cache miss, attempting to fetch token from Athenz ZTS server: target[%s]", k.String())
+		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s]", k.String())
 		// on cache miss, fetch token from Athenz ZTS server
 		aToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
 		if err != nil {
@@ -167,7 +167,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		}
 		// update cache
 		d.accessTokenCache.Store(k, aToken)
-		log.Infof("Access token cache miss, successfully updated access token cache: target[%s]", k.String())
+		log.Infof("Successfully updated access token cache due to a cache miss: target[%s]", k.String())
 	}
 
 	// check context cancelled
