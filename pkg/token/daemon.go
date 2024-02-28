@@ -56,7 +56,7 @@ type daemon struct {
 	tokenExpiryInSecond int
 	roleAuthHeader      string
 
-	tokenEnvoyAPI bool
+	useTokenServer bool
 }
 
 func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
@@ -156,7 +156,7 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 		tokenExpiryInSecond: tokenExpiryInSecond,
 		roleAuthHeader:      idConfig.RoleAuthHeader,
 
-		tokenEnvoyAPI: idConfig.TokenServerEnvoyAPI,
+		useTokenServer: idConfig.UseTokenServer,
 	}, nil
 }
 
