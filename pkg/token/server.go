@@ -298,7 +298,7 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 	}
 
 	// logging && timeout handler
-	return withLogging(http.TimeoutHandler(http.HandlerFunc(mainHandler), timeout, "Handler timeout"))
+	return withLogging(http.TimeoutHandler(http.HandlerFunc(mainHandler), timeout, "Handler timeout by token-server-timeout"))
 }
 
 // contextKey is used to create context key to avoid collision
