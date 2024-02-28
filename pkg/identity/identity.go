@@ -21,11 +21,11 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -89,7 +89,7 @@ func InitIdentityHandler(config *config.IdentityConfig) (*identityHandler, error
 
 	if config.ServerCACert != "" {
 		certPool := x509.NewCertPool()
-		caCert, err := ioutil.ReadFile(config.ServerCACert)
+		caCert, err := os.ReadFile(config.ServerCACert)
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +170,7 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 		return nil, nil, fmt.Errorf("Failed to generate key and csr, err: %v", err)
 	}
 
-	saToken, err := ioutil.ReadFile(h.config.SaTokenFile)
+	saToken, err := os.ReadFile(h.config.SaTokenFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to read service account token file, err: %v", err)
 	}
@@ -239,7 +239,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 	}
 	if h.config.ServerCACert != "" {
 		certPool := x509.NewCertPool()
-		caCert, err := ioutil.ReadFile(h.config.ServerCACert)
+		caCert, err := os.ReadFile(h.config.ServerCACert)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to load tls client ca certificate for PostRoleCertificateRequest, err: %v", err)
 		}
