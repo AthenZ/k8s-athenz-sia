@@ -15,6 +15,7 @@
 package token
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +24,7 @@ import (
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"github.com/google/uuid"
 )
 
 const (
@@ -31,6 +33,8 @@ const (
 )
 
 func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
+	requestID := r.Context().Value(contextKeyRequestID).(string)
+
 	var err error
 	defer func() {
 		if r.Context().Err() != nil {
@@ -38,7 +42,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err != nil {
-			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
+			errMsg := fmt.Sprintf("Error: %s requestID[%s]\t%s", err.Error(), requestID, http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
 			log.Errorf(errMsg)
 		}
@@ -81,7 +85,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// cache lookup (token TTL must >= 1 minute)
 	rToken := d.roleTokenCache.Load(k)
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Role token cache miss, attempting to fetch token from Athenz ZTS server: target[%s]", k.String())
+		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
 		// on cache miss, fetch token from Athenz ZTS server
 		rToken, err = fetchRoleToken(d.ztsClient, k)
 		if err != nil {
@@ -89,12 +93,12 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		}
 		// update cache
 		d.roleTokenCache.Store(k, rToken)
-		log.Infof("Role token cache miss, successfully updated role token cache: target[%s]", k.String())
+		log.Infof("Successfully updated role token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
 	}
 
 	// check context cancelled
 	if r.Context().Err() != nil {
-		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], requestID[%s], Err[%s]", r.URL.String(), domain, role, requestID, r.Context().Err().Error())
 		return
 	}
 
@@ -110,6 +114,8 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 }
 
 func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
+	requestID := r.Context().Value(contextKeyRequestID).(string)
+
 	var err error
 	defer func() {
 		if r.Context().Err() != nil {
@@ -117,7 +123,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err != nil {
-			errMsg := fmt.Sprintf("Error: %s\t%s", err.Error(), http.StatusText(http.StatusInternalServerError))
+			errMsg := fmt.Sprintf("Error: %s requestID[%s]\t%s", err.Error(), requestID, http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
 			log.Errorf(errMsg)
 		}
@@ -157,7 +163,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// cache lookup (token TTL must >= 1 minute)
 	aToken := d.accessTokenCache.Load(k)
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Access token cache miss, attempting to fetch token from Athenz ZTS server: target[%s]", k.String())
+		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
 		// on cache miss, fetch token from Athenz ZTS server
 		aToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
 		if err != nil {
@@ -165,12 +171,12 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		}
 		// update cache
 		d.accessTokenCache.Store(k, aToken)
-		log.Infof("Access token cache miss, successfully updated access token cache: target[%s]", k.String())
+		log.Infof("Successfully updated access token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
 	}
 
 	// check context cancelled
 	if r.Context().Err() != nil {
-		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s], requestID[%s]", r.URL.String(), domain, role, r.Context().Err().Error(), requestID)
 		return
 	}
 
@@ -193,13 +199,14 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 	// main handler is responsible to monitor whether the request context is cancelled
 	mainHandler := func(w http.ResponseWriter, r *http.Request) {
+		requestID := r.Context().Value(contextKeyRequestID).(string)
 		defer func() {
 			// handle panic, reference: https://github.com/golang/go/blob/go1.20.7/src/net/http/server.go#L1851-L1856
 			if err := recover(); err != nil && err != http.ErrAbortHandler {
 				const size = 64 << 10
 				buf := make([]byte, size)
 				buf = buf[:runtime.Stack(buf, false)]
-				log.Errorf("http: panic serving %v: %v\n%s", r.RemoteAddr, err, buf)
+				log.Errorf("http: panic serving %v: %v requestID[%s]\n%s", r.RemoteAddr, err, requestID, buf)
 
 				w.WriteHeader(http.StatusInternalServerError)
 			}
@@ -250,7 +257,7 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 
 		// check context cancelled
 		if r.Context().Err() != nil {
-			log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s]", r.URL.String(), domain, role, r.Context().Err().Error())
+			log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], requestID[%s], Err[%s]", r.URL.String(), domain, role, requestID, r.Context().Err().Error())
 			return
 		}
 
@@ -290,6 +297,48 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 		io.WriteString(w, string(response))
 	}
 
-	// timeout handler
-	return http.TimeoutHandler(http.HandlerFunc(mainHandler), timeout, "Handler timeout by token-server-timeout")
+	// logging && timeout handler
+	return withLogging(http.TimeoutHandler(http.HandlerFunc(mainHandler), timeout, "Handler timeout by token-server-timeout"))
+}
+
+// contextKey is used to create context key to avoid collision
+type contextKey struct {
+	name string
+}
+
+var contextKeyRequestID = &contextKey{"requestID"}
+
+// withLogging wraps handler with logging and request ID injection
+func withLogging(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestID := uuid.New().String()
+		ctx := context.WithValue(r.Context(), contextKeyRequestID, requestID)
+
+		startTime := time.Now()
+		log.Infof("Received request: method[%s], endpoint[%s], remoteAddr[%s] requestID[%s]", r.Method, r.RequestURI, r.RemoteAddr, requestID)
+
+		// wrap ResponseWriter to cache status code
+		wrappedWriter := newLoggingResponseWriter(w)
+		handler.ServeHTTP(wrappedWriter, r.WithContext(ctx))
+
+		latency := time.Since(startTime)
+		statusCode := wrappedWriter.statusCode
+		log.Infof("Response sent: statusCode[%d], latency[%s], requestID[%s]", statusCode, latency, requestID)
+	})
+}
+
+// loggingResponseWriter is wrapper for http.ResponseWriter
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+// WriteHeader calls underlying WriteHeader method
+func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
+
+func newLoggingResponseWriter(w http.ResponseWriter) *loggingResponseWriter {
+	return &loggingResponseWriter{w, http.StatusOK}
 }
