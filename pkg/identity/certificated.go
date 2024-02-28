@@ -16,7 +16,6 @@ package identity
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -210,11 +209,11 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		} else if idConfig.KeyFile != "" && idConfig.CertFile != "" {
 			log.Debugf("Attempting to load x509 certificate from local file: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
 
-			localFileCertPEM, err := ioutil.ReadFile(idConfig.CertFile)
+			localFileCertPEM, err := os.ReadFile(idConfig.CertFile)
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
 			}
-			localFileKeyPEM, err = ioutil.ReadFile(idConfig.KeyFile)
+			localFileKeyPEM, err = os.ReadFile(idConfig.KeyFile)
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
 			}

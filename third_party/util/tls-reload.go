@@ -7,7 +7,6 @@ package util
 import (
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"sync"
@@ -71,11 +70,11 @@ func (w *CertReloader) maybeReload() error {
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("unable to load cert from %s,%s", w.certFile, w.keyFile))
 	}
-	certPEM, err := ioutil.ReadFile(w.certFile)
+	certPEM, err := os.ReadFile(w.certFile)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("unable to load cert from %s", w.certFile))
 	}
-	keyPEM, err := ioutil.ReadFile(w.keyFile)
+	keyPEM, err := os.ReadFile(w.keyFile)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("unable to load key from %s", w.keyFile))
 	}
