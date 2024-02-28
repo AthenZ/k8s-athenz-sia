@@ -225,12 +225,13 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 			}
 		}
 
-		if !d.tokenEnvoyAPI {
+		if !d.useTokenServer {
 			w.WriteHeader(http.StatusNotFound)
 			io.WriteString(w, string("404 page not found"))
 			return
 		}
-		// API for envoy (all methods and paths)
+
+		// Logic for the token server that attaches tokens to response headers begins here:
 		domain := r.Header.Get(DOMAIN_HEADER)
 		role := r.Header.Get(ROLE_HEADER)
 
