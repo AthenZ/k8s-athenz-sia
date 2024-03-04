@@ -24,6 +24,8 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/identity"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const serviceName = "athenz-sia"
@@ -72,7 +74,7 @@ func main() {
 
 	// re-init logger from user config
 	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
-	log.Infof("Version: %s, Build Date: %s\n", VERSION, BUILD_DATE)
+	log.Infof("starting %s version: %s, built: %s\n", os.Args[0], VERSION, BUILD_DATE)
 	log.Infof("Booting up with args: %v, config: %+v", os.Args, idConfig)
 
 	certificateChan := make(chan struct{}, 1)
@@ -83,6 +85,20 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 		return
+	}
+
+	// show version and build date at metrics
+	if !idConfig.Init && idConfig.MetricsServerAddr != "" {
+		promauto.NewGaugeFunc(prometheus.GaugeOpts{
+			Name: "build_info",
+			Help: "A metric with a constant '1' value labeled with version, build date",
+			ConstLabels: prometheus.Labels{
+				"version": VERSION,
+				"built":   BUILD_DATE,
+			},
+		}, func() float64 {
+			return float64(1)
+		})
 	}
 
 	if !idConfig.Init {
