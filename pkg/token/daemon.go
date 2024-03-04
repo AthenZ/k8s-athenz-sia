@@ -31,6 +31,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
@@ -39,6 +40,7 @@ import (
 )
 
 type daemon struct {
+	group            singleflight.Group
 	accessTokenCache TokenCache
 	roleTokenCache   TokenCache
 
