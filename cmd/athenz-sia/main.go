@@ -72,6 +72,7 @@ func main() {
 
 	// re-init logger from user config
 	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
+	log.Infof("Version: %s, Build Date: %s\n", VERSION, BUILD_DATE)
 	log.Infof("Booting up with args: %v, config: %+v", os.Args, idConfig)
 
 	certificateChan := make(chan struct{}, 1)
