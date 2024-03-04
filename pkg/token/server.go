@@ -113,9 +113,8 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 			return requestID, nil
 		})
 
-		// if it is shared and not handled by this request, log it
 		handledRequestId := id.(string)
-		if shared && handledRequestId != requestID {
+		if shared && handledRequestId != requestID { // if it is shared and not the actual performer:
 			if err == nil {
 				log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handledRequestId, requestID)
 			} else {
@@ -207,9 +206,8 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 			return requestID, nil
 		})
 
-		// if it is shared and not handled by this request, log it
 		handledRequestId := id.(string)
-		if shared && handledRequestId != requestID {
+		if shared && handledRequestId != requestID { // if it is shared and not the actual performer:
 			if err == nil {
 				log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handledRequestId, requestID)
 			} else {
