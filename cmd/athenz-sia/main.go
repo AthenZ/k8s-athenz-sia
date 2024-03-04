@@ -87,11 +87,11 @@ func main() {
 		return
 	}
 
-	// show version and build date at metrics
+	// show version and build date in metrics
 	if !idConfig.Init && idConfig.MetricsServerAddr != "" {
 		promauto.NewGaugeFunc(prometheus.GaugeOpts{
 			Name: "build_info",
-			Help: "A metric with a constant '1' value labeled with version, build date",
+			Help: "A metric with a constant '1' value labeled with app name, version, build date",
 			ConstLabels: prometheus.Labels{
 				"app_name":   filepath.Base(os.Args[0]),
 				"version":    VERSION,
