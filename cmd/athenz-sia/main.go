@@ -74,7 +74,7 @@ func main() {
 
 	// re-init logger from user config
 	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
-	log.Infof("starting %s version: %s, built: %s\n", os.Args[0], VERSION, BUILD_DATE)
+	log.Infof("starting %s version: %s, build date: %s\n", filepath.Base(os.Args[0]), VERSION, BUILD_DATE)
 	log.Infof("Booting up with args: %v, config: %+v", os.Args, idConfig)
 
 	certificateChan := make(chan struct{}, 1)
@@ -93,8 +93,9 @@ func main() {
 			Name: "build_info",
 			Help: "A metric with a constant '1' value labeled with version, build date",
 			ConstLabels: prometheus.Labels{
-				"version": VERSION,
-				"built":   BUILD_DATE,
+				"app_name":   filepath.Base(os.Args[0]),
+				"version":    VERSION,
+				"build_date": BUILD_DATE,
 			},
 		}, func() float64 {
 			return float64(1)
