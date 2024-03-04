@@ -28,9 +28,21 @@ import (
 )
 
 const (
-	DOMAIN_HEADER = "X-Athenz-Domain"
-	ROLE_HEADER   = "X-Athenz-Role"
+	DOMAIN_HEADER        = "X-Athenz-Domain"
+	ROLE_HEADER          = "X-Athenz-Role"
+	roleTokenKeyHeader   = "role"
+	accessTokenKeyHeader = "access"
 )
+
+// getKey returns key for the singleflight.Group,
+// ensuring that the key used in singleflight is unique is important to prevent collisions.
+// Athenz domain naming rule: "[a-zA-Z0-9_][a-zA-Z0-9_-]*")
+// Athenz role naming rule: "[a-zA-Z0-9_][a-zA-Z0-9_-]*"
+// and therefore delimiter "|" is used to separate domain and role for uniqueness.
+func getKey(tokenType, domain, role string) string {
+	d := "|" // delimiter; using not allowed character for domain/role
+	return tokenType + d + domain + d + role
+}
 
 func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	requestID := r.Context().Value(contextKeyRequestID).(string)
@@ -86,14 +98,30 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	rToken := d.roleTokenCache.Load(k)
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
 		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
-		// on cache miss, fetch token from Athenz ZTS server
-		rToken, err = fetchRoleToken(d.ztsClient, k)
-		if err != nil {
-			return
+
+		id, err, shared := d.group.Do(getKey(roleTokenKeyHeader, domain, role), func() (interface{}, error) {
+			// on cache miss, fetch token from Athenz ZTS server
+			fetchedRoleToken, err := fetchRoleToken(d.ztsClient, k)
+			if err != nil {
+				log.Debugf("Failed to fetch role token from Athenz ZTS server after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
+				return requestID, err
+			}
+
+			// update cache
+			d.roleTokenCache.Store(k, fetchedRoleToken)
+			log.Infof("Successfully updated role token cache after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
+			return requestID, nil
+		})
+
+		// if it is shared and not handled by this request, log it
+		handledRequestId := id.(string)
+		if shared && handledRequestId != requestID {
+			if err == nil {
+				log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handledRequestId, requestID)
+			} else {
+				log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), handledRequestId, requestID, err)
+			}
 		}
-		// update cache
-		d.roleTokenCache.Store(k, rToken)
-		log.Infof("Successfully updated role token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
 	}
 
 	// check context cancelled
@@ -164,14 +192,30 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	aToken := d.accessTokenCache.Load(k)
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
 		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
-		// on cache miss, fetch token from Athenz ZTS server
-		aToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
-		if err != nil {
-			return
+
+		id, err, shared := d.group.Do(getKey(accessTokenKeyHeader, domain, role), func() (interface{}, error) {
+			// on cache miss, fetch token from Athenz ZTS server
+			fetchedAccessToken, err := fetchAccessToken(d.ztsClient, k, d.saService)
+			if err != nil {
+				log.Debugf("Failed to fetch access token from Athenz ZTS server after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
+				return requestID, err
+			}
+
+			// update cache
+			d.accessTokenCache.Store(k, fetchedAccessToken)
+			log.Infof("Successfully updated access token cache after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
+			return requestID, nil
+		})
+
+		// if it is shared and not handled by this request, log it
+		handledRequestId := id.(string)
+		if shared && handledRequestId != requestID {
+			if err == nil {
+				log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handledRequestId, requestID)
+			} else {
+				log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), handledRequestId, requestID, err)
+			}
 		}
-		// update cache
-		d.accessTokenCache.Store(k, aToken)
-		log.Infof("Successfully updated access token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
 	}
 
 	// check context cancelled
