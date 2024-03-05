@@ -72,6 +72,11 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	// set app name and other stuff...
+	idConfig.AppName = filepath.Base(os.Args[0])
+	idConfig.AppVersion = VERSION
+	idConfig.AppBuildDate = BUILD_DATE
+
 	// re-init logger from user config
 	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
 	log.Infof("starting %s version: %s, build date: %s\n", filepath.Base(os.Args[0]), VERSION, BUILD_DATE)

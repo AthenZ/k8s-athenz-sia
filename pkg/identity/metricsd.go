@@ -23,9 +23,13 @@ import (
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	// using git submodule to import internal package (special package in golang)
 	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
+	"path/filepath"
+
 	internal "github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
 )
 
@@ -43,6 +47,19 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		log.Infof("Metrics exporter is disabled with empty options: address[%s]", idConfig.MetricsServerAddr)
 		return nil, nil
 	}
+
+	// show version and build_date in metrics
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "build_info",
+		Help: "A metric with a constant '1' value labeled with app name, version, build_date",
+		ConstLabels: prometheus.Labels{
+			"app_name":   filepath.Base(idConfig.AppName),
+			"version":    idConfig.AppVersion,
+			"build_date": idConfig.AppBuildDate,
+		},
+	}, func() float64 {
+		return float64(1)
+	})
 
 	log.Infof("Starting metrics exporter[%s]", idConfig.MetricsServerAddr)
 

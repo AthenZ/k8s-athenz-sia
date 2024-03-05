@@ -22,6 +22,11 @@ import (
 
 // IdentityConfig from cmd line args
 type IdentityConfig struct {
+	// configs built during the build:
+	AppName      string
+	AppVersion   string
+	AppBuildDate string
+
 	Init                      bool
 	Endpoint                  string
 	ProviderService           string
