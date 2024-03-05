@@ -58,10 +58,10 @@ func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 
 		<-stopChan
 		log.Info("Initiating shutdown of health check daemon ...")
-		ctx, cancel := context.WithTimeout(context.Background(), idConfig.ShutdownTimeout)
-		defer cancel()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // force shutdown health check server without delay
 		healthCheckServer.SetKeepAlivesEnabled(false)
-		if err := healthCheckServer.Shutdown(ctx); err != nil {
+		if err := healthCheckServer.Shutdown(ctx); err != nil && err != context.Canceled {
 			log.Errorf("Failed to shutdown health check server: %s", err.Error())
 		}
 		<-serverDone
