@@ -304,19 +304,20 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	}
 
 	if idConfig.DelayJitterSeconds != 0 {
-		rand.Seed(time.Now().UnixNano())
 		sleep := time.Duration(rand.Int63n(idConfig.DelayJitterSeconds)) * time.Second
 		log.Infof("Delaying boot with jitter [%s] randomized from [%s]...", sleep, time.Duration(idConfig.DelayJitterSeconds)*time.Second)
 		time.Sleep(sleep)
 	}
 
 	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
-
-	if idConfig.Init {
-		if err != nil {
-			log.Errorf("Failed to get initial certificate after multiple retries: %s", err.Error())
+	if err != nil {
+		// mode=init, must output preset certificates
+		if idConfig.Init {
+			log.Errorf("Failed to get initial certificate after multiple retries for init mode: %s", err.Error())
 			return err, nil
 		}
+		// mode=refresh, on retry error, ignore and continue server startup
+		log.Errorf("Failed to get initial certificate after multiple retries for refresh mode: %s, will try to continue startup process...", err.Error())
 	}
 
 	tokenChan := make(chan struct{}, 1)
