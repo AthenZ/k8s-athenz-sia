@@ -74,7 +74,7 @@ func main() {
 
 	// re-init logger from user config
 	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
-	log.Infof("starting %s version: %s, build date: %s\n", filepath.Base(os.Args[0]), VERSION, BUILD_DATE)
+	log.Infof("starting %s version: %s, build date: %s", filepath.Base(os.Args[0]), VERSION, BUILD_DATE)
 	log.Infof("Booting up with args: %v, config: %+v", os.Args, idConfig)
 
 	certificateChan := make(chan struct{}, 1)
@@ -87,11 +87,11 @@ func main() {
 		return
 	}
 
-	// show version and build date in metrics
+	// register a metric to display the application's app_name, version and build_date
 	if !idConfig.Init && idConfig.MetricsServerAddr != "" {
 		promauto.NewGaugeFunc(prometheus.GaugeOpts{
 			Name: "build_info",
-			Help: "A metric with a constant '1' value labeled with app name, version, build date",
+			Help: "Indicates the application name, build version and date",
 			ConstLabels: prometheus.Labels{
 				"app_name":   filepath.Base(os.Args[0]),
 				"version":    VERSION,
