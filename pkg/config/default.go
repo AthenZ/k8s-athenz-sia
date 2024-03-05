@@ -86,7 +86,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		PodUID:                    "",
 		Reloader:                  nil,
 		ServerCACert:              "",
-		TargetDomainRoles:         "",
+		TargetDomainRoles:         []DomainRole{},
 		RoleCertDir:               "",
 		RoleCertFilenameDelimiter: DEFAULT_ROLE_CERT_FILENAME_DELIMITER,
 		RoleCertKeyFileOutput:     false,
@@ -113,6 +113,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		LogLevel: "INFO",
 
 		rawMode:                  "init",
+		rawTargetDomainRoles:     "",
 		rawRefresh:               "24h",
 		rawDelayJitterSeconds:    "0",
 		rawRoleCertKeyFileOutput: "false",

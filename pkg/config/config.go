@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
@@ -47,6 +48,12 @@ func LoadConfig(program string, args []string) (*IdentityConfig, error) {
 		return nil, err
 	}
 
+	// parse custom values that shared by ENV and args to prevent duplicated warnings
+	if err := idConfig.parseRawValues(); err != nil {
+		return nil, err
+	}
+
+	// check fatal errors that startup should be stopped
 	if err := idConfig.validateAndInit(); err != nil {
 		return nil, err
 	}
@@ -79,7 +86,7 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("POD_IP", &idConfig.PodIP)
 	loadEnv("POD_UID", &idConfig.PodUID)
 	loadEnv("SERVER_CA_CERT", &idConfig.ServerCACert)
-	loadEnv("TARGET_DOMAIN_ROLES", &idConfig.TargetDomainRoles)
+	loadEnv("TARGET_DOMAIN_ROLES", &idConfig.rawTargetDomainRoles)
 	loadEnv("ROLECERT_DIR", &idConfig.RoleCertDir)
 	loadEnv("ROLE_CERT_FILENAME_DELIMITER", &idConfig.RoleCertFilenameDelimiter)
 	loadEnv("ROLE_CERT_KEY_FILE_OUTPUT", &idConfig.rawRoleCertKeyFileOutput)
@@ -109,10 +116,6 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 
 	// parse values
 	var err error
-	idConfig.Init, err = parseMode(idConfig.rawMode)
-	if err != nil {
-		return fmt.Errorf("Invalid MODE [%q], %w", idConfig.rawMode, err)
-	}
 	idConfig.Refresh, err = time.ParseDuration(idConfig.rawRefresh)
 	if err != nil {
 		return fmt.Errorf("Invalid REFRESH_INTERVAL [%q], %w", idConfig.rawRefresh, err)
@@ -184,7 +187,7 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	// PodIP
 	// PodUID
 	f.StringVar(&idConfig.ServerCACert, "server-ca-cert", idConfig.ServerCACert, "path to CA certificate file to verify ZTS server certs")
-	f.StringVar(&idConfig.TargetDomainRoles, "target-domain-roles", idConfig.TargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idConfig.RoleCertFilenameDelimiter+"admin,sys.auth"+idConfig.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
+	f.StringVar(&idConfig.rawTargetDomainRoles, "target-domain-roles", idConfig.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idConfig.RoleCertFilenameDelimiter+"admin,sys.auth"+idConfig.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
 	f.StringVar(&idConfig.RoleCertDir, "rolecert-dir", idConfig.RoleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
 	// RoleCertFilenameDelimiter
 	f.BoolVar(&idConfig.RoleCertKeyFileOutput, "rolecert-key-file-output", idConfig.RoleCertKeyFileOutput, "output role certificate key file (true/false)")
@@ -216,13 +219,29 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 		return err
 	}
 
-	// parse values
-	var err error
+	return nil
+}
+
+func (idConfig *IdentityConfig) parseRawValues() (err error) {
 	idConfig.Init, err = parseMode(idConfig.rawMode)
 	if err != nil {
-		return fmt.Errorf("Invalid mode [%q], %w", idConfig.rawMode, err)
+		return fmt.Errorf("Invalid MODE/mode [%q], %w", idConfig.rawMode, err)
 	}
-	return nil
+
+	if idConfig.rawTargetDomainRoles != "" {
+		idConfig.TargetDomainRoles, err = parseTargetDomainRoles(idConfig.rawTargetDomainRoles)
+		if err != nil {
+			// continue if partially valid, fail if nothing valid
+			log.Warnf("Invalid TARGET_DOMAIN_ROLES/target-domain-roles [%q], warnings:\n%s", idConfig.rawTargetDomainRoles, err.Error())
+			if len(idConfig.TargetDomainRoles) == 0 {
+				return fmt.Errorf("Invalid TARGET_DOMAIN_ROLES [%q], %w", idConfig.rawTargetDomainRoles, fmt.Errorf("NO valid domain-role pairs"))
+			}
+			// reset warnings
+			err = nil
+		}
+	}
+
+	return err
 }
 
 func (idConfig *IdentityConfig) validateAndInit() (err error) {
@@ -252,7 +271,7 @@ func (idConfig *IdentityConfig) validateAndInit() (err error) {
 	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
 	if idConfig.ProviderService == "" && !idConfig.RoleCertKeyFileOutput {
 		// if role certificate issuing is enabled, warn user about the mismatch problem
-		if idConfig.TargetDomainRoles != "" && idConfig.RoleCertDir != "" {
+		if idConfig.rawTargetDomainRoles != "" && idConfig.RoleCertDir != "" {
 			log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idConfig.KeyFile)
 		}
 	}
@@ -293,4 +312,24 @@ func parseMode(raw string) (bool, error) {
 		return false, fmt.Errorf(`must be one of "init" or "refresh"`)
 	}
 	return raw == "init", nil
+}
+
+func parseTargetDomainRoles(raw string) ([]DomainRole, error) {
+	elements := strings.Split(raw, ",")
+	errs := make([]error, 0, len(elements))
+	domainRoles := make([]DomainRole, 0, len(elements))
+
+	for _, domainRole := range elements {
+		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to read target domain and role from element: [%q], err: %w", domainRole, err))
+			continue
+		}
+		domainRoles = append(domainRoles, DomainRole{
+			Domain: targetDomain,
+			Role:   targetRole,
+		})
+	}
+
+	return domainRoles, errors.Join(errs...)
 }

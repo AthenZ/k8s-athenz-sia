@@ -39,7 +39,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idConfig.ProviderService)
 	}
 
-	if idConfig.TargetDomainRoles == "" || idConfig.RoleCertDir == "" {
+	if len(idConfig.TargetDomainRoles) == 0 || idConfig.RoleCertDir == "" {
 		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idConfig.TargetDomainRoles, idConfig.RoleCertDir)
 	}
 
@@ -160,7 +160,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	roleCertProvisioningRequest := func() (err error, roleCerts [](*RoleCertificate), roleKeyPEM []byte) {
 		var roleIdentity *InstanceIdentity
 
-		if idConfig.TargetDomainRoles == "" || idConfig.RoleCertDir == "" {
+		if len(idConfig.TargetDomainRoles) == 0 || idConfig.RoleCertDir == "" {
 			return nil, nil, nil
 		}
 

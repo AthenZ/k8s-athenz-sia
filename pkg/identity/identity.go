@@ -37,7 +37,6 @@ import (
 
 	"github.com/AthenZ/athenz/clients/go/zts"
 	"github.com/AthenZ/athenz/libs/go/athenzutils"
-	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
@@ -387,16 +386,13 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 
 	var roleCsrOptions []util.CSROptions
 
-	if cfg.TargetDomainRoles == "" || cfg.RoleCertDir == "" {
+	if len(cfg.TargetDomainRoles) == 0 || cfg.RoleCertDir == "" {
 		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", cfg.TargetDomainRoles, cfg.RoleCertDir)
 		return nil, nil
 	}
 
-	for _, domainrole := range strings.Split(cfg.TargetDomainRoles, ",") {
-		targetDomain, targetRole, err := athenz.SplitRoleName(domainrole)
-		if err != nil {
-			return nil, err
-		}
+	for _, dr := range cfg.TargetDomainRoles {
+		targetDomain, targetRole := dr.Domain, dr.Role
 
 		domainDNSPart := extutil.DomainToDNSPart(domain)
 
