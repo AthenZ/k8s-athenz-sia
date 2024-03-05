@@ -365,7 +365,7 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 			return httpServer.ListenAndServe()
 		}
 		if err := listenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Errorf("Failed to start token provider: %s", err.Error())
+			log.Fatalf("Failed to start token provider: %s", err.Error())
 		}
 		close(serverDone)
 	}()

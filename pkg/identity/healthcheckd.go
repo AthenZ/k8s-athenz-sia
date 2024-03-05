@@ -47,7 +47,7 @@ func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	go func() {
 		log.Infof("Starting health check server[%s]", idConfig.HealthCheckAddr)
 		if err := healthCheckServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Errorf("Failed to start health check server: %s", err.Error())
+			log.Fatalf("Failed to start health check server: %s", err.Error())
 		}
 		close(serverDone)
 	}()

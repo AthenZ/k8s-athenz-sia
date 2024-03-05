@@ -82,7 +82,7 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 	go func() {
 		err := exporter.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			log.Errorf("Failed to start metrics exporter: %s", err.Error())
+			log.Fatalf("Failed to start metrics exporter: %s", err.Error())
 		}
 		close(serverDone)
 	}()
