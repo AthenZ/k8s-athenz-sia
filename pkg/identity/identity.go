@@ -348,10 +348,6 @@ func PrepareIdentityCsrOptions(cfg *config.IdentityConfig, domain, service strin
 
 	domainDNSPart := extutil.DomainToDNSPart(domain)
 
-	ip := net.ParseIP(cfg.PodIP)
-	if ip == nil {
-		return nil, errors.New("pod IP for identity csr is nil")
-	}
 	spiffeURI, err := extutil.ServiceSpiffeURI(domain, service)
 	if err != nil {
 		return nil, err
@@ -375,7 +371,7 @@ func PrepareIdentityCsrOptions(cfg *config.IdentityConfig, domain, service strin
 		Subject: subject,
 		SANs: util.SubjectAlternateNames{
 			DNSNames:    sans,
-			IPAddresses: []net.IP{ip},
+			IPAddresses: []net.IP{cfg.PodIP},
 			URIs:        []url.URL{*spiffeURI},
 		},
 	}, nil
@@ -396,10 +392,6 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 
 		domainDNSPart := extutil.DomainToDNSPart(domain)
 
-		ip := net.ParseIP(cfg.PodIP)
-		if ip == nil {
-			return nil, errors.New("pod IP for role csr is nil")
-		}
 		spiffeURI, err := extutil.RoleSpiffeURI(targetDomain, targetRole)
 		if err != nil {
 			return nil, err
@@ -421,7 +413,7 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 			Subject: subject,
 			SANs: util.SubjectAlternateNames{
 				DNSNames:    sans,
-				IPAddresses: []net.IP{ip},
+				IPAddresses: []net.IP{cfg.PodIP},
 				URIs: []url.URL{
 					*spiffeURI,
 				},

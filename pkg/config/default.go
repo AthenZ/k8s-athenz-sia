@@ -16,6 +16,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"time"
 )
@@ -82,7 +83,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		AthenzSuffix:              "",
 		ServiceAccount:            "",
 		SaTokenFile:               "",
-		PodIP:                     "127.0.0.1",
+		PodIP:                     net.ParseIP("127.0.0.1"),
 		PodUID:                    "",
 		Reloader:                  nil,
 		ServerCACert:              "",
@@ -113,6 +114,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		LogLevel: "INFO",
 
 		rawMode:                  "init",
+		rawPodIP:                 "127.0.0.1",
 		rawTargetDomainRoles:     "",
 		rawRefresh:               "24h",
 		rawDelayJitterSeconds:    "0",

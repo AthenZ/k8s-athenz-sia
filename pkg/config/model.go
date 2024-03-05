@@ -16,6 +16,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
@@ -41,7 +42,7 @@ type IdentityConfig struct {
 	AthenzSuffix              string
 	ServiceAccount            string
 	SaTokenFile               string
-	PodIP                     string
+	PodIP                     net.IP
 	PodUID                    string
 	Reloader                  *util.CertReloader
 	ServerCACert              string
@@ -73,6 +74,7 @@ type IdentityConfig struct {
 
 	// raw strings before parsing
 	rawMode                  string
+	rawPodIP                 string
 	rawTargetDomainRoles     string
 	rawRefresh               string
 	rawDelayJitterSeconds    string

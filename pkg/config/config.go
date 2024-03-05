@@ -18,6 +18,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -83,7 +84,7 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("ATHENZ_SUFFIX", &idConfig.AthenzSuffix)
 	loadEnv("SERVICEACCOUNT", &idConfig.ServiceAccount)
 	loadEnv("SA_TOKEN_FILE", &idConfig.SaTokenFile)
-	loadEnv("POD_IP", &idConfig.PodIP)
+	loadEnv("POD_IP", &idConfig.rawPodIP)
 	loadEnv("POD_UID", &idConfig.PodUID)
 	loadEnv("SERVER_CA_CERT", &idConfig.ServerCACert)
 	loadEnv("TARGET_DOMAIN_ROLES", &idConfig.rawTargetDomainRoles)
@@ -116,6 +117,11 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 
 	// parse values
 	var err error
+	idConfig.PodIP = net.ParseIP(idConfig.rawPodIP)
+	if idConfig.PodIP == nil {
+		// PodIP should always be non-nil to issue role certificate
+		return fmt.Errorf("Invalid POD_IP [%q]", idConfig.rawPodIP)
+	}
 	idConfig.Refresh, err = time.ParseDuration(idConfig.rawRefresh)
 	if err != nil {
 		return fmt.Errorf("Invalid REFRESH_INTERVAL [%q], %w", idConfig.rawRefresh, err)
