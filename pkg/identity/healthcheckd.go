@@ -62,7 +62,7 @@ func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		defer cancel()
 		healthCheckServer.SetKeepAlivesEnabled(false)
 		if err := healthCheckServer.Shutdown(ctx); err != nil {
-			log.Fatalf("Failed to shutdown health check server: %s", err.Error())
+			log.Errorf("Failed to shutdown health check server: %s", err.Error())
 		}
 		<-serverDone
 	}()

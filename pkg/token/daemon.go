@@ -396,6 +396,7 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 				defer cancel()
 				httpServer.SetKeepAlivesEnabled(false)
 				if err := httpServer.Shutdown(ctx); err != nil {
+					// graceful shutdown error should be fatal
 					log.Fatalf("Failed to shutdown token provider: %s", err.Error())
 				}
 				<-serverDone
