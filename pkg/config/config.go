@@ -15,13 +15,12 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
-
-	"github.com/pkg/errors"
 
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -112,51 +111,51 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	var err error
 	idConfig.Init, err = parseMode(idConfig.rawMode)
 	if err != nil {
-		return fmt.Errorf("Invalid MODE [%q], %v", idConfig.rawMode, err)
+		return fmt.Errorf("Invalid MODE [%q], %w", idConfig.rawMode, err)
 	}
 	idConfig.Refresh, err = time.ParseDuration(idConfig.rawRefresh)
 	if err != nil {
-		return fmt.Errorf("Invalid REFRESH_INTERVAL [%q], %v", idConfig.rawRefresh, err)
+		return fmt.Errorf("Invalid REFRESH_INTERVAL [%q], %w", idConfig.rawRefresh, err)
 	}
 	idConfig.DelayJitterSeconds, err = strconv.ParseInt(idConfig.rawDelayJitterSeconds, 10, 64)
 	if err != nil {
-		return fmt.Errorf("Invalid DELAY_JITTER_SECONDS [%q], %v", idConfig.rawDelayJitterSeconds, err)
+		return fmt.Errorf("Invalid DELAY_JITTER_SECONDS [%q], %w", idConfig.rawDelayJitterSeconds, err)
 	}
 	idConfig.RoleCertKeyFileOutput, err = strconv.ParseBool(idConfig.rawRoleCertKeyFileOutput)
 	if err != nil {
-		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %v", idConfig.rawRoleCertKeyFileOutput, err)
+		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %w", idConfig.rawRoleCertKeyFileOutput, err)
 	}
 	idConfig.TokenRefresh, err = time.ParseDuration(idConfig.rawTokenRefresh)
 	if err != nil {
-		return fmt.Errorf("Invalid TOKEN_REFRESH_INTERVAL [%q], %v", idConfig.rawTokenRefresh, err)
+		return fmt.Errorf("Invalid TOKEN_REFRESH_INTERVAL [%q], %w", idConfig.rawTokenRefresh, err)
 	}
 	idConfig.TokenExpiry, err = time.ParseDuration(idConfig.rawTokenExpiry)
 	if err != nil {
-		return fmt.Errorf("Invalid TOKEN_EXPIRY [%q], %v", idConfig.rawTokenExpiry, err)
+		return fmt.Errorf("Invalid TOKEN_EXPIRY [%q], %w", idConfig.rawTokenExpiry, err)
 	}
 	idConfig.TokenServerRESTAPI, err = strconv.ParseBool(idConfig.rawTokenServerRESTAPI)
 	if err != nil {
-		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %v", idConfig.rawTokenServerRESTAPI, err)
+		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %w", idConfig.rawTokenServerRESTAPI, err)
 	}
 	idConfig.TokenServerTimeout, err = time.ParseDuration(idConfig.rawTokenServerTimeout)
 	if err != nil {
-		return fmt.Errorf("Invalid TOKEN_SERVER_TIMEOUT [%q], %v", idConfig.rawTokenServerTimeout, err)
+		return fmt.Errorf("Invalid TOKEN_SERVER_TIMEOUT [%q], %w", idConfig.rawTokenServerTimeout, err)
 	}
 	idConfig.DeleteInstanceID, err = strconv.ParseBool(idConfig.rawDeleteInstanceID)
 	if err != nil {
-		return fmt.Errorf("Invalid DELETE_INSTANCE_ID [%q], %v", idConfig.rawDeleteInstanceID, err)
+		return fmt.Errorf("Invalid DELETE_INSTANCE_ID [%q], %w", idConfig.rawDeleteInstanceID, err)
 	}
 	idConfig.UseTokenServer, err = strconv.ParseBool(idConfig.rawUseTokenServer)
 	if err != nil {
-		return fmt.Errorf("Invalid USE_TOKEN_SERVER [%q], %v", idConfig.rawUseTokenServer, err)
+		return fmt.Errorf("Invalid USE_TOKEN_SERVER [%q], %w", idConfig.rawUseTokenServer, err)
 	}
 	idConfig.ShutdownTimeout, err = time.ParseDuration(idConfig.rawShutdownTimeout)
 	if err != nil {
-		return fmt.Errorf("Invalid SHUTDOWN_TIMEOUT [%q], %v", idConfig.rawShutdownTimeout, err)
+		return fmt.Errorf("Invalid SHUTDOWN_TIMEOUT [%q], %w", idConfig.rawShutdownTimeout, err)
 	}
 	idConfig.ShutdownDelay, err = time.ParseDuration(idConfig.rawShutdownDelay)
 	if err != nil {
-		return fmt.Errorf("Invalid SHUTDOWN_DELAY [%q], %v", idConfig.rawShutdownDelay, err)
+		return fmt.Errorf("Invalid SHUTDOWN_DELAY [%q], %w", idConfig.rawShutdownDelay, err)
 	}
 	return nil
 }
@@ -221,7 +220,7 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	var err error
 	idConfig.Init, err = parseMode(idConfig.rawMode)
 	if err != nil {
-		return fmt.Errorf("Invalid mode [%q], %v", idConfig.rawMode, err)
+		return fmt.Errorf("Invalid mode [%q], %w", idConfig.rawMode, err)
 	}
 	return nil
 }
@@ -283,7 +282,7 @@ func (idConfig *IdentityConfig) validateAndInit() (err error) {
 		return errors.New("Deleted X.509 certificate that already existed.")
 	}
 	if !idConfig.Init && err != nil {
-		return errors.Wrap(err, "unable to read key and cert")
+		return fmt.Errorf("Unable to read key and cert: %w", err)
 	}
 
 	return nil

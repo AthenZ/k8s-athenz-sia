@@ -27,7 +27,6 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 	"github.com/cenkalti/backoff"
-	"github.com/pkg/errors"
 )
 
 func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
@@ -70,17 +69,17 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			if len(leafPEM) != 0 && len(keyPEM) != 0 {
 				x509Cert, err := util.CertificateFromPEMBytes(leafPEM)
 				if err != nil {
-					return errors.Wrap(err, "unable to parse x509 cert")
+					return fmt.Errorf("unable to parse x509 cert: %w", err)
 				}
 				log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
 					x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
 				log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), idConfig.CertFile)
 				if err := w.AddBytes(idConfig.CertFile, 0644, leafPEM); err != nil {
-					return errors.Wrap(err, "unable to save x509 cert")
+					return fmt.Errorf("unable to save x509 cert: %w", err)
 				}
 				log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idConfig.KeyFile)
 				if err := w.AddBytes(idConfig.KeyFile, 0644, keyPEM); err != nil { // TODO: finalize perms and user
-					return errors.Wrap(err, "unable to save x509 key")
+					return fmt.Errorf("unable to save x509 key: %w", err)
 				}
 			}
 
@@ -88,7 +87,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			if len(caCertPEM) != 0 && idConfig.CaCertFile != "" {
 				log.Debugf("Saving x509 cacert[%d bytes] at %s", len(caCertPEM), idConfig.CaCertFile)
 				if err := w.AddBytes(idConfig.CaCertFile, 0644, caCertPEM); err != nil {
-					return errors.Wrap(err, "unable to save x509 cacert")
+					return fmt.Errorf("unable to save x509 cacert: %w", err)
 				}
 			}
 		}
@@ -96,7 +95,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		if roleCerts != nil {
 			// Create the directory before saving role certificates
 			if err := os.MkdirAll(idConfig.RoleCertDir, 0755); err != nil {
-				return errors.Wrap(err, "unable to create directory for x509 role cert")
+				return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
 			}
 
 			for _, rolecert := range roleCerts {
@@ -107,14 +106,14 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 					outPath := filepath.Join(idConfig.RoleCertDir, rolecert.Domain+idConfig.RoleCertFilenameDelimiter+rolecert.Role+".cert.pem")
 					log.Debugf("Saving x509 role cert[%d bytes] at [%s]", len(roleCertPEM), outPath)
 					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {
-						return errors.Wrap(err, "unable to save x509 role cert")
+						return fmt.Errorf("unable to save x509 role cert: %w", err)
 					}
 
 					if idConfig.RoleCertKeyFileOutput {
 						outKeyPath := filepath.Join(idConfig.RoleCertDir, rolecert.Domain+idConfig.RoleCertFilenameDelimiter+rolecert.Role+".key.pem")
 						log.Debugf("Saving x509 role cert key[%d bytes] at [%s]", len(roleKeyPEM), outKeyPath)
 						if err := w.AddBytes(outKeyPath, 0644, roleKeyPEM); err != nil {
-							return errors.Wrap(err, "unable to save x509 role cert key")
+							return fmt.Errorf("unable to save x509 role cert key: %w", err)
 						}
 					}
 				}
@@ -256,7 +255,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
-			return errors.New("Failed to prepare x509 certificate")
+			return fmt.Errorf("Failed to prepare x509 certificate")
 		}
 
 		if k8sSecretBackupIdentity != nil && len(k8sSecretBackupKeyPEM) != 0 && idConfig.ProviderService != "" {

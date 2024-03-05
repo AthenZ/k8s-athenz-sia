@@ -28,7 +28,6 @@ import (
 	"github.com/AthenZ/athenz/clients/go/zts"
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	"github.com/cenkalti/backoff"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -273,7 +272,7 @@ func (d *daemon) writeFiles() error {
 		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
 		log.Debugf("Saving Access Token[%d bytes] at %s", len(at), outPath)
 		if err := w.AddBytes(outPath, 0644, []byte(at)); err != nil {
-			return errors.Wrap(err, "unable to save access token")
+			return fmt.Errorf("unable to save access token: %w", err)
 		}
 		return nil
 	})
@@ -288,7 +287,7 @@ func (d *daemon) writeFiles() error {
 		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
 		log.Debugf("Saving Role Token[%d bytes] at %s", len(rt), outPath)
 		if err := w.AddBytes(outPath, 0644, []byte(rt)); err != nil {
-			return errors.Wrap(err, "unable to save role token")
+			return fmt.Errorf("unable to save role token: %w", err)
 		}
 		return nil
 	})

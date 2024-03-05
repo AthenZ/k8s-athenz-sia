@@ -30,8 +30,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/k8s"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -490,7 +488,7 @@ func extractServiceDetailsFromCert(cert *x509.Certificate) (string, string, erro
 func PrivateKeyFromPEMBytes(privatePEMBytes []byte) (crypto.Signer, error) {
 	k, _, err := athenzutils.ExtractSignerInfo(privatePEMBytes)
 	if err != nil {
-		return nil, errors.Wrap(err, "PrivateKeyFromPEMBytes")
+		return nil, fmt.Errorf("Invalid private key bytes: %w", err)
 	}
 	return k, nil
 }
