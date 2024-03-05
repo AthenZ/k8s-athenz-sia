@@ -88,19 +88,17 @@ func main() {
 	}
 
 	// register a metric to display the application's app_name, version and build_date
-	if !idConfig.Init && idConfig.MetricsServerAddr != "" {
-		promauto.NewGaugeFunc(prometheus.GaugeOpts{
-			Name: "build_info",
-			Help: "Indicates the application name, build version and date",
-			ConstLabels: prometheus.Labels{
-				"app_name":   filepath.Base(os.Args[0]),
-				"version":    VERSION,
-				"build_date": BUILD_DATE,
-			},
-		}, func() float64 {
-			return float64(1)
-		})
-	}
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "build_info",
+		Help: "Indicates the application name, build version and date",
+		ConstLabels: prometheus.Labels{
+			"app_name":   filepath.Base(os.Args[0]),
+			"version":    VERSION,
+			"build_date": BUILD_DATE,
+		},
+	}, func() float64 {
+		return float64(1)
+	})
 
 	if !idConfig.Init {
 		s := <-ch // wait until receiving os.Signal from channel ch
