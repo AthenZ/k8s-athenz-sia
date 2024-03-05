@@ -74,7 +74,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		CertFile:                  "",
 		CaCertFile:                "",
 		IntermediateCertBundle:    DEFAULT_INTERMEDIATE_CERT_BUNDLE,
-		Backup:                    "read+write",
+		Backup:                    "",
 		CertSecret:                "",
 		Namespace:                 "",
 		AthenzDomain:              "",
