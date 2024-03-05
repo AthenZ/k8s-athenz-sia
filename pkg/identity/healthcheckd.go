@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"runtime"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -80,12 +81,24 @@ func createHealthCheckServiceMux(pattern string) *http.ServeMux {
 
 // handleHealthCheckRequest is a handler function for and health check request, which always a HTTP Status OK (200) result
 func handleHealthCheckRequest(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		// handle panic, reference: https://github.com/golang/go/blob/go1.20.7/src/net/http/server.go#L1851-L1856
+		if err := recover(); err != nil && err != http.ErrAbortHandler {
+			const size = 64 << 10
+			buf := make([]byte, size)
+			buf = buf[:runtime.Stack(buf, false)]
+			log.Errorf("http: panic serving %v: %v\n%s", r.RemoteAddr, err, buf)
+
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}()
+
 	if r.Method == http.MethodGet {
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-type", "text/plain; charset=utf-8")
 		_, err := fmt.Fprint(w, http.StatusText(http.StatusOK))
 		if err != nil {
-			log.Fatal(err)
+			log.Errorf("Failed to write health check server response: %v", err)
 		}
 	}
 }
