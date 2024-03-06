@@ -34,13 +34,6 @@ const (
 	accessToken   = "access token"
 )
 
-// GroupDoHandledResult contains token and its requestID after singleFlight.group.Do()
-// TODO: Maybe shorter name for GroupDoHandledResult
-type GroupDoHandledResult struct {
-	requestID string
-	token     Token
-}
-
 // getKey returns key for the singleflight.Group,
 // ensuring that the key used in singleflight is unique is important to prevent collisions.
 // Athenz domain naming rule: "[a-zA-Z0-9_][a-zA-Z0-9_-]*")
@@ -51,7 +44,14 @@ func getKey(tokenType, domain, role string) string {
 	return tokenType + d + domain + d + role
 }
 
-// requestTokenToZts sends a request to ZTS server to fetch a token
+// GroupDoHandledResult contains token and its requestID after singleFlight.group.Do()
+// TODO: Maybe shorter name for GroupDoHandledResult
+type GroupDoHandledResult struct {
+	requestID string
+	token     Token
+}
+
+// requestTokenToZts sends a request to ZTS server to fetch either role token or access token.
 func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID, domain, role string) (GroupDoHandledResult, error) {
 	if tokenName != roleToken && tokenName != accessToken {
 		return GroupDoHandledResult{}, fmt.Errorf("Invalid token name: %s", tokenName)
