@@ -105,26 +105,29 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
 		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
 
-		id, err, shared := d.group.Do(getKey(roleTokenKeyHeader, domain, role), func() (interface{}, error) {
+		r, err, shared := d.group.Do(getKey(roleTokenKeyHeader, domain, role), func() (interface{}, error) {
 			// on cache miss, fetch token from Athenz ZTS server
 			fetchedRoleToken, err := fetchRoleToken(d.ztsClient, k)
 			if err != nil {
 				log.Debugf("Failed to fetch role token from Athenz ZTS server after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
-				return requestID, err
+				return GroupDoHandledResult{requestID: requestID, token: nil}, err
 			}
 
 			// update cache
 			d.roleTokenCache.Store(k, fetchedRoleToken)
 			log.Infof("Successfully updated role token cache after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
-			return requestID, nil
+			return GroupDoHandledResult{requestID: requestID, token: fetchedRoleToken}, nil
 		})
 
-		handledRequestId := id.(string)
-		if shared && handledRequestId != requestID { // if it is shared and not the actual performer:
+		handled := r.(GroupDoHandledResult)
+		log.Debugf("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, handled.requestID, handled.token)
+		rToken = handled.token // apply the fetched token from zts server to the var rToken
+
+		if shared && handled.requestID != requestID { // if it is shared and not the actual performer:
 			if err == nil {
-				log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handledRequestId, requestID)
+				log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handled.requestID, requestID)
 			} else {
-				log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), handledRequestId, requestID, err)
+				log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), handled.requestID, requestID, err)
 			}
 		}
 	}
