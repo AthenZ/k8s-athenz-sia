@@ -56,7 +56,7 @@ func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID, domain, role
 	// TODO: Is this really for cache miss? I don't think so.
 	log.Debugf("Attempting to fetch %s due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 
-	r, err, shared := d.group.Do(getKey(roleToken, domain, role), func() (interface{}, error) {
+	r, err, shared := d.group.Do(getKey(tokenName, domain, role), func() (interface{}, error) {
 		// define variables before request to ZTS
 		var fetchedToken Token
 		var err error
@@ -76,7 +76,12 @@ func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID, domain, role
 		}
 
 		// update cache
-		d.roleTokenCache.Store(k, fetchedToken)
+		if tokenName == roleToken {
+			d.roleTokenCache.Store(k, fetchedToken)
+		} else {
+			d.accessTokenCache.Store(k, fetchedToken)
+		}
+
 		log.Infof("Successfully updated %s cache after a cache miss: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 		return GroupDoHandledResult{requestID: requestID, token: fetchedToken}, nil
 	})
