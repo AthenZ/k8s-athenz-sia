@@ -53,10 +53,6 @@ type GroupDoHandledResult struct {
 
 // requestTokenToZts sends a request to ZTS server to fetch either role token or access token.
 func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID, domain, role string) (GroupDoHandledResult, error) {
-	if tokenName != roleToken && tokenName != accessToken {
-		return GroupDoHandledResult{}, fmt.Errorf("Invalid token name: %s", tokenName)
-	}
-
 	// TODO: Is this really for cache miss? I don't think so.
 	log.Debugf("Attempting to fetch %s due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 
@@ -68,8 +64,10 @@ func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID, domain, role
 		// on cache miss, fetch token from Athenz ZTS server
 		if tokenName == roleToken {
 			fetchedToken, err = fetchRoleToken(d.ztsClient, k)
-		} else { // or access token
+		} else if tokenName == accessToken {
 			fetchedToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
+		} else {
+			return GroupDoHandledResult{}, fmt.Errorf("Invalid token name: %s", tokenName)
 		}
 
 		if err != nil {
