@@ -34,7 +34,8 @@ const (
 	accessTokenKeyHeader = "access"
 )
 
-// GroupDoHandledResult contains token and its requestID after single flight
+// GroupDoHandledResult contains token and its requestID after singleFlight.group.Do()
+// TODO: Maybe shorter name for GroupDoHandledResult
 type GroupDoHandledResult struct {
 	requestID string
 	token     Token
