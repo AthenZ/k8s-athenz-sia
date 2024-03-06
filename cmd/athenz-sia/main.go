@@ -89,12 +89,12 @@ func main() {
 
 	// register a metric to display the application's app_name, version and build_date
 	promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "build_info",
+		Name: "sidecar_build_info",
 		Help: "Indicates the application name, build version and date",
 		ConstLabels: prometheus.Labels{
-			"app_name":   filepath.Base(os.Args[0]),
-			"version":    VERSION,
-			"build_date": BUILD_DATE,
+			"app_name": filepath.Base(os.Args[0]),
+			"version":  VERSION,
+			"built":    BUILD_DATE, // reference:https://github.com/enix/x509-certificate-exporter/blob/b33c43ac520dfbced529bf7543d8271d052947d0/internal/collector.go#L49
 		},
 	}, func() float64 {
 		return float64(1)
