@@ -94,7 +94,7 @@ func main() {
 		ConstLabels: prometheus.Labels{
 			"app_name": filepath.Base(os.Args[0]),
 			"version":  VERSION,
-			"built":    BUILD_DATE, // reference:https://github.com/enix/x509-certificate-exporter/blob/b33c43ac520dfbced529bf7543d8271d052947d0/internal/collector.go#L49
+			"built":    BUILD_DATE, // reference: https://github.com/enix/x509-certificate-exporter/blob/b33c43ac520dfbced529bf7543d8271d052947d0/internal/collector.go#L49
 		},
 	}, func() float64 {
 		return float64(1)
