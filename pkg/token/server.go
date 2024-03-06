@@ -34,6 +34,12 @@ const (
 	accessTokenKeyHeader = "access"
 )
 
+// GroupDoHandledResult contains token and its requestID after single flight
+type GroupDoHandledResult struct {
+	requestID string
+	token     Token
+}
+
 // getKey returns key for the singleflight.Group,
 // ensuring that the key used in singleflight is unique is important to prevent collisions.
 // Athenz domain naming rule: "[a-zA-Z0-9_][a-zA-Z0-9_-]*")
@@ -192,26 +198,29 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
 		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
 
-		id, err, shared := d.group.Do(getKey(accessTokenKeyHeader, domain, role), func() (interface{}, error) {
+		r, err, shared := d.group.Do(getKey(accessTokenKeyHeader, domain, role), func() (interface{}, error) {
 			// on cache miss, fetch token from Athenz ZTS server
 			fetchedAccessToken, err := fetchAccessToken(d.ztsClient, k, d.saService)
 			if err != nil {
 				log.Debugf("Failed to fetch access token from Athenz ZTS server after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
-				return requestID, err
+				return GroupDoHandledResult{requestID: requestID, token: nil}, err
 			}
 
 			// update cache
 			d.accessTokenCache.Store(k, fetchedAccessToken)
 			log.Infof("Successfully updated access token cache after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
-			return requestID, nil
+			return GroupDoHandledResult{requestID: requestID, token: fetchedAccessToken}, nil
 		})
 
-		handledRequestId := id.(string)
-		if shared && handledRequestId != requestID { // if it is shared and not the actual performer:
+		handled := r.(GroupDoHandledResult)
+		log.Debugf("requestID: [%s] handledRequestId: [%s] accessToken: [%s]", requestID, handled.requestID, handled.token)
+		aToken = handled.token // apply the fetched token from zts server to the var aToken
+
+		if shared && handled.requestID != requestID { // if it is shared and not the actual performer:
 			if err == nil {
-				log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handledRequestId, requestID)
+				log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handled.requestID, requestID)
 			} else {
-				log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), handledRequestId, requestID, err)
+				log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), handled.requestID, requestID, err)
 			}
 		}
 	}
