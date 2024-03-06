@@ -28,10 +28,10 @@ import (
 )
 
 const (
-	DOMAIN_HEADER        = "X-Athenz-Domain"
-	ROLE_HEADER          = "X-Athenz-Role"
-	roleTokenKeyHeader   = "role"
-	accessTokenKeyHeader = "access"
+	DOMAIN_HEADER = "X-Athenz-Domain"
+	ROLE_HEADER   = "X-Athenz-Role"
+	roleToken     = "role token"
+	accessToken   = "access token"
 )
 
 // GroupDoHandledResult contains token and its requestID after singleFlight.group.Do()
@@ -49,6 +49,52 @@ type GroupDoHandledResult struct {
 func getKey(tokenType, domain, role string) string {
 	d := "|" // delimiter; using not allowed character for domain/role
 	return tokenType + d + domain + d + role
+}
+
+// requestTokenToZts sends a request to ZTS server to fetch a token
+func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID, domain, role string) (GroupDoHandledResult, error) {
+	if tokenName != roleToken && tokenName != accessToken {
+		return GroupDoHandledResult{}, fmt.Errorf("Invalid token name: %s", tokenName)
+	}
+
+	// TODO: Is this really for cache miss? I don't think so.
+	log.Debugf("Attempting to fetch %s due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+
+	r, err, shared := d.group.Do(getKey(roleToken, domain, role), func() (interface{}, error) {
+		// define variables before request to ZTS
+		var fetchedToken Token
+		var err error
+
+		// on cache miss, fetch token from Athenz ZTS server
+		if tokenName == roleToken {
+			fetchedToken, err = fetchRoleToken(d.ztsClient, k)
+		} else { // or access token
+			fetchedToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
+		}
+
+		if err != nil {
+			log.Debugf("Failed to fetch %s from Athenz ZTS server after a cache miss: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+			return GroupDoHandledResult{requestID: requestID, token: nil}, err
+		}
+
+		// update cache
+		d.roleTokenCache.Store(k, fetchedToken)
+		log.Infof("Successfully updated %s cache after a cache miss: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+		return GroupDoHandledResult{requestID: requestID, token: fetchedToken}, nil
+	})
+
+	handled := r.(GroupDoHandledResult)
+	log.Debugf("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, handled.requestID, handled.token)
+
+	if shared && handled.requestID != requestID { // if it is shared and not the actual performer:
+		if err == nil {
+			log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handled.requestID, requestID)
+		} else {
+			log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), handled.requestID, requestID, err)
+		}
+	}
+
+	return handled, err
 }
 
 func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
@@ -103,34 +149,14 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 
 	// cache lookup (token TTL must >= 1 minute)
 	rToken := d.roleTokenCache.Load(k)
+	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
+	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
-
-		r, err, shared := d.group.Do(getKey(roleTokenKeyHeader, domain, role), func() (interface{}, error) {
-			// on cache miss, fetch token from Athenz ZTS server
-			fetchedRoleToken, err := fetchRoleToken(d.ztsClient, k)
-			if err != nil {
-				log.Debugf("Failed to fetch role token from Athenz ZTS server after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
-				return GroupDoHandledResult{requestID: requestID, token: nil}, err
-			}
-
-			// update cache
-			d.roleTokenCache.Store(k, fetchedRoleToken)
-			log.Infof("Successfully updated role token cache after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
-			return GroupDoHandledResult{requestID: requestID, token: fetchedRoleToken}, nil
-		})
-
-		handled := r.(GroupDoHandledResult)
-		log.Debugf("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, handled.requestID, handled.token)
-		rToken = handled.token // apply the fetched token from zts server to the var rToken
-
-		if shared && handled.requestID != requestID { // if it is shared and not the actual performer:
-			if err == nil {
-				log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handled.requestID, requestID)
-			} else {
-				log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), handled.requestID, requestID, err)
-			}
+		res, err := requestTokenToZts(d, k, roleToken, requestID, domain, role)
+		if err != nil {
+			return
 		}
+		rToken = res.token
 	}
 
 	// check context cancelled
@@ -199,34 +225,14 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 
 	// cache lookup (token TTL must >= 1 minute)
 	aToken := d.accessTokenCache.Load(k)
+	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
+	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
-
-		r, err, shared := d.group.Do(getKey(accessTokenKeyHeader, domain, role), func() (interface{}, error) {
-			// on cache miss, fetch token from Athenz ZTS server
-			fetchedAccessToken, err := fetchAccessToken(d.ztsClient, k, d.saService)
-			if err != nil {
-				log.Debugf("Failed to fetch access token from Athenz ZTS server after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
-				return GroupDoHandledResult{requestID: requestID, token: nil}, err
-			}
-
-			// update cache
-			d.accessTokenCache.Store(k, fetchedAccessToken)
-			log.Infof("Successfully updated access token cache after a cache miss: target[%s], requestID[%s]", k.String(), requestID)
-			return GroupDoHandledResult{requestID: requestID, token: fetchedAccessToken}, nil
-		})
-
-		handled := r.(GroupDoHandledResult)
-		log.Debugf("requestID: [%s] handledRequestId: [%s] accessToken: [%s]", requestID, handled.requestID, handled.token)
-		aToken = handled.token // apply the fetched token from zts server to the var aToken
-
-		if shared && handled.requestID != requestID { // if it is shared and not the actual performer:
-			if err == nil {
-				log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handled.requestID, requestID)
-			} else {
-				log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), handled.requestID, requestID, err)
-			}
+		res, err := requestTokenToZts(d, k, accessToken, requestID, domain, role)
+		if err != nil {
+			return
 		}
+		aToken = res.token
 	}
 
 	// check context cancelled
