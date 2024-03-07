@@ -39,11 +39,11 @@ type GroupDoResult struct {
 }
 
 // requestTokenToZts sends a request to ZTS server to fetch either role token or access token.
-// It will return invalid token type for any others.
-func requestTokenToZts(d *daemon, k CacheKey, requestID string) (GroupDoResult, error) {
+// for mode, it only accepts mROLE_TOKEN or mACCESS_TOKEN
+func requestTokenToZts(d *daemon, k CacheKey, m mode, requestID string) (GroupDoResult, error) {
 	tokenName := "" // tokenName is used for logger (role token or access token only)
-	isRoleTokenRequested := d.tokenType&mROLE_TOKEN != 0
-	isAccessTokenRequested := d.tokenType&mACCESS_TOKEN != 0
+	isRoleTokenRequested := m == mROLE_TOKEN
+	isAccessTokenRequested := m == mACCESS_TOKEN
 
 	if isRoleTokenRequested {
 		tokenName = "role token"
@@ -150,7 +150,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		res, err := requestTokenToZts(d, k, requestID)
+		res, err := requestTokenToZts(d, k, mROLE_TOKEN, requestID)
 		if err != nil {
 			return
 		}
@@ -226,7 +226,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		res, err := requestTokenToZts(d, k, requestID)
+		res, err := requestTokenToZts(d, k, mACCESS_TOKEN, requestID)
 		if err != nil {
 			return
 		}
