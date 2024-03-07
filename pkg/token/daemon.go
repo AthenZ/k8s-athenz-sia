@@ -170,6 +170,7 @@ type GroupDoResult struct {
 
 // requestTokenToZts sends a request to ZTS server to fetch either role token or access token.
 // for mode, it only accepts mROLE_TOKEN or mACCESS_TOKEN
+// it also stores in cache for you after successful fetch.
 func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupDoResult, error) {
 	tokenName := "" // tokenName is used for logger (role token or access token only)
 	isRoleTokenRequested := m == mROLE_TOKEN
