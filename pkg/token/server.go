@@ -34,16 +34,6 @@ const (
 	accessToken   = "access token"
 )
 
-// getKey returns key for the singleflight.Group,
-// ensuring that the key used in singleflight is unique is important to prevent collisions.
-// Athenz domain naming rule: "[a-zA-Z0-9_][a-zA-Z0-9_-]*")
-// Athenz role naming rule: "[a-zA-Z0-9_][a-zA-Z0-9_-]*"
-// and therefore delimiter "|" is used to separate domain and role for uniqueness.
-func getKey(tokenType, domain, role string) string {
-	d := "|" // delimiter; using not allowed character for domain/role
-	return tokenType + d + domain + d + role
-}
-
 // GroupDoHandledResult contains token and its requestID after singleFlight.group.Do()
 // TODO: Maybe shorter name for GroupDoHandledResult
 type GroupDoHandledResult struct {
@@ -52,11 +42,11 @@ type GroupDoHandledResult struct {
 }
 
 // requestTokenToZts sends a request to ZTS server to fetch either role token or access token.
-func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID, domain, role string) (GroupDoHandledResult, error) {
+func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID string) (GroupDoHandledResult, error) {
 	// TODO: Is this really for cache miss? I don't think so.
 	log.Debugf("Attempting to fetch %s due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 
-	r, err, shared := d.group.Do(getKey(tokenName, domain, role), func() (interface{}, error) {
+	r, err, shared := d.group.Do(k.UniqueId(tokenName), func() (interface{}, error) {
 		// define variables before request to ZTS
 		var fetchedToken Token
 		var err error
@@ -149,13 +139,12 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	if k.MinExpiry == 0 {
 		k.MinExpiry = d.tokenExpiryInSecond
 	}
-
 	// cache lookup (token TTL must >= 1 minute)
 	rToken := d.roleTokenCache.Load(k)
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		res, err := requestTokenToZts(d, k, roleToken, requestID, domain, role)
+		res, err := requestTokenToZts(d, k, roleToken, requestID)
 		if err != nil {
 			return
 		}
@@ -231,7 +220,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		res, err := requestTokenToZts(d, k, accessToken, requestID, domain, role)
+		res, err := requestTokenToZts(d, k, accessToken, requestID)
 		if err != nil {
 			return
 		}
