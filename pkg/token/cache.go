@@ -17,6 +17,7 @@ package token
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -50,7 +51,7 @@ type CacheKey struct {
 // and therefore delimiter "|" is used to separate domain and role for uniqueness.
 func (k CacheKey) UniqueId(tokenType string) string {
 	d := "|" // delimiter; using not allowed character for domain/role
-	return tokenType + d + k.Domain + d + k.Role + d + strconv.Itoa(k.MaxExpiry) + d + strconv.Itoa(k.MinExpiry) + d + k.ProxyForPrincipal
+	return strings.Join([]string{tokenType, k.Domain, k.Role, strconv.Itoa(k.MaxExpiry), strconv.Itoa(k.MinExpiry), k.ProxyForPrincipal}, d)
 }
 
 // String returns CacheKey's information in a string format, usually for logging purpose.
