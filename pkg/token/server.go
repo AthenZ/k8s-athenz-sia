@@ -34,15 +34,14 @@ const (
 	accessToken   = "access token"
 )
 
-// GroupDoHandledResult contains token and its requestID after singleFlight.group.Do()
-// TODO: Maybe shorter name for GroupDoHandledResult
-type GroupDoHandledResult struct {
+// GroupDoResult contains token and its requestID after singleFlight.group.Do()
+type GroupDoResult struct {
 	requestID string
 	token     Token
 }
 
 // requestTokenToZts sends a request to ZTS server to fetch either role token or access token.
-func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID string) (GroupDoHandledResult, error) {
+func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID string) (GroupDoResult, error) {
 	// TODO: Is this really for cache miss? I don't think so.
 	log.Debugf("Attempting to fetch %s due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 
@@ -57,12 +56,12 @@ func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID string) (Grou
 		} else if tokenName == accessToken {
 			fetchedToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
 		} else {
-			return GroupDoHandledResult{}, fmt.Errorf("Invalid token name: %s", tokenName)
+			return GroupDoResult{}, fmt.Errorf("Invalid token name: %s", tokenName)
 		}
 
 		if err != nil {
 			log.Debugf("Failed to fetch %s from Athenz ZTS server after a cache miss: target[%s], requestID[%s]", tokenName, k.String(), requestID)
-			return GroupDoHandledResult{requestID: requestID, token: nil}, err
+			return GroupDoResult{requestID: requestID, token: nil}, err
 		}
 
 		// update cache
@@ -73,10 +72,10 @@ func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID string) (Grou
 		}
 
 		log.Infof("Successfully updated %s cache after a cache miss: target[%s], requestID[%s]", tokenName, k.String(), requestID)
-		return GroupDoHandledResult{requestID: requestID, token: fetchedToken}, nil
+		return GroupDoResult{requestID: requestID, token: fetchedToken}, nil
 	})
 
-	handled := r.(GroupDoHandledResult)
+	handled := r.(GroupDoResult)
 	log.Debugf("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, handled.requestID, handled.token)
 
 	if shared && handled.requestID != requestID { // if it is shared and not the actual performer:
