@@ -86,7 +86,8 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		res, err := d.requestTokenToZts(k, mROLE_TOKEN, requestID)
+		res, resErr := d.requestTokenToZts(k, mROLE_TOKEN, requestID)
+		err = resErr // assign error for defer
 		if err != nil {
 			return
 		}
@@ -162,7 +163,8 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		res, err := d.requestTokenToZts(k, mACCESS_TOKEN, requestID)
+		res, resErr := d.requestTokenToZts(k, mACCESS_TOKEN, requestID)
+		err = resErr // assign error for defer
 		if err != nil {
 			return
 		}
