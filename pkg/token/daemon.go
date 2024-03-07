@@ -282,22 +282,12 @@ func (d *daemon) updateTokenWithRetry(key CacheKey, tt mode) error {
 
 func (d *daemon) updateToken(key CacheKey, tt mode) error {
 	updateAccessToken := func(key CacheKey) error {
-		at, err := fetchAccessToken(d.ztsClient, key, d.saService)
-		if err != nil {
-			return err
-		}
-		d.accessTokenCache.Store(key, at)
-		log.Debugf("Successfully received token from Athenz ZTS server: accessTokens(%s, len=%d)", key, len(at.Raw()))
-		return nil
+		_, err := d.requestTokenToZts(key, mACCESS_TOKEN, "daemon_access_token_update")
+		return err
 	}
 	updateRoleToken := func(key CacheKey) error {
-		rt, err := fetchRoleToken(d.ztsClient, key)
-		if err != nil {
-			return err
-		}
-		d.roleTokenCache.Store(key, rt)
-		log.Debugf("Successfully received token from Athenz ZTS server: roleTokens(%s, len=%d)", key, len(rt.Raw()))
-		return nil
+		_, err := d.requestTokenToZts(key, mROLE_TOKEN, "daemon_access_token_update")
+		return err
 	}
 
 	switch tt {
