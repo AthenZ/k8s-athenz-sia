@@ -16,6 +16,7 @@ package token
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 	"unsafe"
@@ -40,6 +41,16 @@ type CacheKey struct {
 	MinExpiry         int
 	ProxyForPrincipal string
 	Role              string
+}
+
+// UniqueId returns a unique id of this token,
+// ensuring that the id stays unique with Athenz naming rules.
+// Athenz domain naming rule: "[a-zA-Z0-9_][a-zA-Z0-9_-]*")
+// Athenz role naming rule: "[a-zA-Z0-9_][a-zA-Z0-9_-]*"
+// and therefore delimiter "|" is used to separate domain and role for uniqueness.
+func (k CacheKey) UniqueId(tokenType string) string {
+	d := "|" // delimiter; using not allowed character for domain/role
+	return tokenType + d + k.Domain + d + k.Role + d + strconv.Itoa(k.MaxExpiry) + d + strconv.Itoa(k.MinExpiry) + d + k.ProxyForPrincipal
 }
 
 func (k CacheKey) String() string {
