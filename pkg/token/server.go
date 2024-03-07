@@ -82,18 +82,18 @@ func requestTokenToZts(d *daemon, k CacheKey, requestID string) (GroupDoResult, 
 		return GroupDoResult{requestID: requestID, token: fetchedToken}, nil
 	})
 
-	handled := r.(GroupDoResult)
-	log.Debugf("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, handled.requestID, handled.token)
+	result := r.(GroupDoResult)
+	log.Debugf("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, result.requestID, result.token)
 
-	if shared && handled.requestID != requestID { // if it is shared and not the actual performer:
+	if shared && result.requestID != requestID { // if it is shared and not the actual performer:
 		if err == nil {
-			log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), handled.requestID, requestID)
+			log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), result.requestID, requestID)
 		} else {
-			log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), handled.requestID, requestID, err)
+			log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), result.requestID, requestID, err)
 		}
 	}
 
-	return handled, err
+	return result, err
 }
 
 func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
