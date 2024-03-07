@@ -53,6 +53,7 @@ func (k CacheKey) UniqueId(tokenType string) string {
 	return tokenType + d + k.Domain + d + k.Role + d + strconv.Itoa(k.MaxExpiry) + d + strconv.Itoa(k.MinExpiry) + d + k.ProxyForPrincipal
 }
 
+// String returns CacheKey's information in a string format, usually for logging purpose.
 func (k CacheKey) String() string {
 	return fmt.Sprintf("{%s:role.%s,%s,%d,%d}", k.Domain, k.Role, k.ProxyForPrincipal, k.MinExpiry, k.MaxExpiry)
 }
