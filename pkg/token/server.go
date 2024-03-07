@@ -32,70 +32,6 @@ const (
 	ROLE_HEADER   = "X-Athenz-Role"
 )
 
-// GroupDoResult contains token and its requestID after singleFlight.group.Do()
-type GroupDoResult struct {
-	requestID string
-	token     Token
-}
-
-// requestTokenToZts sends a request to ZTS server to fetch either role token or access token.
-// for mode, it only accepts mROLE_TOKEN or mACCESS_TOKEN
-func requestTokenToZts(d *daemon, k CacheKey, m mode, requestID string) (GroupDoResult, error) {
-	tokenName := "" // tokenName is used for logger (role token or access token only)
-	isRoleTokenRequested := m == mROLE_TOKEN
-	isAccessTokenRequested := m == mACCESS_TOKEN
-
-	if isRoleTokenRequested {
-		tokenName = "role token"
-	} else if isAccessTokenRequested {
-		tokenName = "access token"
-	} else {
-		return GroupDoResult{requestID: requestID, token: nil}, fmt.Errorf("Invalid token type: %d", d.tokenType)
-	}
-
-	// TODO: Is this really for cache miss? I don't think so.
-	log.Debugf("Attempting to fetch %s due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
-
-	r, err, shared := d.group.Do(k.UniqueId(tokenName), func() (interface{}, error) {
-		// define variables before request to ZTS
-		var fetchedToken Token
-		var err error
-
-		if isRoleTokenRequested {
-			fetchedToken, err = fetchRoleToken(d.ztsClient, k)
-		} else { // isAccessTokenRequested
-			fetchedToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
-		}
-
-		if err != nil {
-			log.Debugf("Failed to fetch %s from Athenz ZTS server after a cache miss: target[%s], requestID[%s]", tokenName, k.String(), requestID)
-			return GroupDoResult{requestID: requestID, token: nil}, err
-		}
-
-		if isRoleTokenRequested {
-			d.roleTokenCache.Store(k, fetchedToken)
-		} else { // isAccessTokenRequested
-			d.accessTokenCache.Store(k, fetchedToken)
-		}
-
-		log.Infof("Successfully updated %s cache after a cache miss: target[%s], requestID[%s]", tokenName, k.String(), requestID)
-		return GroupDoResult{requestID: requestID, token: fetchedToken}, nil
-	})
-
-	result := r.(GroupDoResult)
-	log.Debugf("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, result.requestID, result.token)
-
-	if shared && result.requestID != requestID { // if it is shared and not the actual performer:
-		if err == nil {
-			log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), result.requestID, requestID)
-		} else {
-			log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), result.requestID, requestID, err)
-		}
-	}
-
-	return result, err
-}
-
 func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	requestID := r.Context().Value(contextKeyRequestID).(string)
 
@@ -150,7 +86,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		res, err := requestTokenToZts(d, k, mROLE_TOKEN, requestID)
+		res, err := d.requestTokenToZts(k, mROLE_TOKEN, requestID)
 		if err != nil {
 			return
 		}
@@ -226,7 +162,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		res, err := requestTokenToZts(d, k, mACCESS_TOKEN, requestID)
+		res, err := d.requestTokenToZts(k, mACCESS_TOKEN, requestID)
 		if err != nil {
 			return
 		}
