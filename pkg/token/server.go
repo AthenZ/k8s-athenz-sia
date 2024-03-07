@@ -30,8 +30,6 @@ import (
 const (
 	DOMAIN_HEADER = "X-Athenz-Domain"
 	ROLE_HEADER   = "X-Athenz-Role"
-	roleToken     = "role token"
-	accessToken   = "access token"
 )
 
 // GroupDoResult contains token and its requestID after singleFlight.group.Do()
@@ -41,7 +39,20 @@ type GroupDoResult struct {
 }
 
 // requestTokenToZts sends a request to ZTS server to fetch either role token or access token.
-func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID string) (GroupDoResult, error) {
+// It will return invalid token type for any others.
+func requestTokenToZts(d *daemon, k CacheKey, requestID string) (GroupDoResult, error) {
+	tokenName := "" // tokenName is used for logger (role token or access token only)
+	isRoleTokenRequested := d.tokenType&mROLE_TOKEN != 0
+	isAccessTokenRequested := d.tokenType&mACCESS_TOKEN != 0
+
+	if isRoleTokenRequested {
+		tokenName = "role token"
+	} else if isAccessTokenRequested {
+		tokenName = "access token"
+	} else {
+		return GroupDoResult{requestID: requestID, token: nil}, fmt.Errorf("Invalid token type: %d", d.tokenType)
+	}
+
 	// TODO: Is this really for cache miss? I don't think so.
 	log.Debugf("Attempting to fetch %s due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 
@@ -50,13 +61,10 @@ func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID string) (Grou
 		var fetchedToken Token
 		var err error
 
-		// on cache miss, fetch token from Athenz ZTS server
-		if tokenName == roleToken {
+		if isRoleTokenRequested {
 			fetchedToken, err = fetchRoleToken(d.ztsClient, k)
-		} else if tokenName == accessToken {
+		} else { // isAccessTokenRequested
 			fetchedToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
-		} else {
-			return GroupDoResult{}, fmt.Errorf("Invalid token name: %s", tokenName)
 		}
 
 		if err != nil {
@@ -64,10 +72,9 @@ func requestTokenToZts(d *daemon, k CacheKey, tokenName, requestID string) (Grou
 			return GroupDoResult{requestID: requestID, token: nil}, err
 		}
 
-		// update cache
-		if tokenName == roleToken {
+		if isRoleTokenRequested {
 			d.roleTokenCache.Store(k, fetchedToken)
-		} else {
+		} else { // isAccessTokenRequested
 			d.accessTokenCache.Store(k, fetchedToken)
 		}
 
@@ -143,7 +150,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		res, err := requestTokenToZts(d, k, roleToken, requestID)
+		res, err := requestTokenToZts(d, k, requestID)
 		if err != nil {
 			return
 		}
@@ -219,7 +226,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		res, err := requestTokenToZts(d, k, accessToken, requestID)
+		res, err := requestTokenToZts(d, k, requestID)
 		if err != nil {
 			return
 		}
