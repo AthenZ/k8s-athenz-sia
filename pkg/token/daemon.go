@@ -181,7 +181,7 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 	} else if isAccessTokenRequested {
 		tokenName = "access token"
 	} else {
-		return GroupDoResult{requestID: requestID, token: nil}, fmt.Errorf("Invalid token type: %d", d.tokenType)
+		return GroupDoResult{requestID: requestID, token: nil}, fmt.Errorf("Invalid mode: %d", m)
 	}
 
 	log.Debugf("Attempting to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
