@@ -213,7 +213,7 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 	})
 
 	result := r.(GroupDoResult)
-	log.Debugf("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, result.requestID, result.token)
+	log.Debugf("requestID: [%s] handledRequestId: [%s] target: [%s]", requestID, result.requestID, k.String())
 
 	if shared && result.requestID != requestID { // if it is shared and not the actual performer:
 		if err == nil {
