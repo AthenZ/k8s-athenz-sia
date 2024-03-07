@@ -12,11 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO: refactor this type together with other enum flags in config.go (MODE, TOKEN_TYPE, BACKUP)
+
 package token
 
 import "strings"
 
-// TODO: refactor this type together with other enum flags in config.go (MODE, TOKEN_TYPE, BACKUP)
+// mode contains the type of token(s) that the client is requesting
+// 0 (0x00) => no role token or access token
+// 1 (0x01) => access token
+// 2 (0x10) => role token
+// 3 (0x11) => access token + role token
 type mode int
 
 const (
