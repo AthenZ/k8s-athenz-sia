@@ -184,7 +184,7 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 		return GroupDoResult{requestID: requestID, token: nil}, fmt.Errorf("Invalid token type: %d", d.tokenType)
 	}
 
-	log.Debugf("Attempting to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+	log.Infof("Attempting to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 
 	r, err, shared := d.group.Do(k.UniqueId(tokenName), func() (interface{}, error) {
 		// define variables before request to ZTS
@@ -198,7 +198,8 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 		}
 
 		if err != nil {
-			log.Debugf("Failed to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+			log.Infof("Failed to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+			log.Infof("err: %s", err)
 			return GroupDoResult{requestID: requestID, token: nil}, err
 		}
 
@@ -213,13 +214,14 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 	})
 
 	result := r.(GroupDoResult)
-	log.Debugf("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, result.requestID, result.token)
+	log.Infof("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, result.requestID, result.token)
+	log.Infof("err: %s", err)
 
 	if shared && result.requestID != requestID { // if it is shared and not the actual performer:
 		if err == nil {
 			log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), result.requestID, requestID)
 		} else {
-			log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), result.requestID, requestID, err)
+			log.Infof("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), result.requestID, requestID, err)
 		}
 	}
 
