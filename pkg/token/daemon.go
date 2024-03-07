@@ -184,8 +184,7 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 		return GroupDoResult{requestID: requestID, token: nil}, fmt.Errorf("Invalid token type: %d", d.tokenType)
 	}
 
-	// TODO: Is this really for cache miss? I don't think so.
-	log.Debugf("Attempting to fetch %s due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+	log.Debugf("Attempting to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 
 	r, err, shared := d.group.Do(k.UniqueId(tokenName), func() (interface{}, error) {
 		// define variables before request to ZTS
@@ -199,7 +198,7 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 		}
 
 		if err != nil {
-			log.Debugf("Failed to fetch %s from Athenz ZTS server after a cache miss: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+			log.Debugf("Failed to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 			return GroupDoResult{requestID: requestID, token: nil}, err
 		}
 
@@ -209,7 +208,7 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 			d.accessTokenCache.Store(k, fetchedToken)
 		}
 
-		log.Infof("Successfully updated %s cache after a cache miss: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+		log.Infof("Successfully updated %s cache: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 		return GroupDoResult{requestID: requestID, token: fetchedToken}, nil
 	})
 
@@ -287,7 +286,7 @@ func (d *daemon) updateToken(key CacheKey, tt mode) error {
 		return err
 	}
 	updateRoleToken := func(key CacheKey) error {
-		_, err := d.requestTokenToZts(key, mROLE_TOKEN, "daemon_access_token_update")
+		_, err := d.requestTokenToZts(key, mROLE_TOKEN, "daemon_role_token_update")
 		return err
 	}
 
