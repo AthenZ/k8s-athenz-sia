@@ -165,8 +165,8 @@ func (d *daemon) updateTokenCaches() <-chan error {
 		go func(key CacheKey) {
 			defer wg.Done()
 			err := d.updateTokenWithRetry(key, mACCESS_TOKEN)
-			echan <- err
 			if err != nil {
+				echan <- err
 				atErrorCount.Add(1)
 			}
 		}(t)
@@ -177,8 +177,8 @@ func (d *daemon) updateTokenCaches() <-chan error {
 		go func(key CacheKey) {
 			defer wg.Done()
 			err := d.updateTokenWithRetry(key, mROLE_TOKEN)
-			echan <- err
 			if err != nil {
+				echan <- err
 				rtErrorCount.Add(1)
 			}
 		}(t)
@@ -260,11 +260,6 @@ func (d *daemon) writeFiles() error {
 		domain := t.Domain()
 		role := t.Role()
 		at := t.Raw()
-		if at == "" {
-			// skip placeholder token added during daemon creation
-			return nil
-		}
-
 		log.Infof("[New Access Token] Domain: %s, Role: %s", domain, role)
 		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
 		log.Debugf("Saving Access Token[%d bytes] at %s", len(at), outPath)
@@ -280,11 +275,6 @@ func (d *daemon) writeFiles() error {
 		domain := t.Domain()
 		role := t.Role()
 		rt := t.Raw()
-		if rt == "" {
-			// skip placeholder token added during daemon creation
-			return nil
-		}
-
 		log.Infof("[New Role Token] Domain: %s, Role: %s", domain, role)
 		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
 		log.Debugf("Saving Role Token[%d bytes] at %s", len(rt), outPath)
@@ -318,32 +308,19 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 		return err, nil
 	}
 
-	// initialize preset tokens
-	// mode=init, must output SOME preset tokens (allow SOME tokens to fail, and skip corresponding token files to output)
-	// mode=refresh, on retry error, ignore and continue token server startup
-	hasSuccess := false
+	// initialize
 	for err := range d.updateTokenCaches() {
-		if err != nil {
-			log.Errorf("Failed to fetch tokens after multiple retries: %s", err.Error())
-		} else {
-			hasSuccess = true
-		}
-	}
-	if idConfig.Init && !hasSuccess {
-		return fmt.Errorf("Unable to fetch ANY tokens for init mode"), nil
+		log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 	}
 	if err := d.writeFilesWithRetry(); err != nil {
 		log.Errorf("Failed to write token files after multiple retries: %s", err.Error())
-		if idConfig.Init {
-			return fmt.Errorf("Unable to write token files for init mode: %w", err), nil
-		}
 	}
-
-	// start token server daemon
 	if idConfig.Init {
 		log.Infof("Token server is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
 		return nil, nil
 	}
+
+	// start token server daemon
 	httpServer := &http.Server{
 		Addr:      idConfig.TokenServerAddr,
 		Handler:   newHandlerFunc(d, idConfig.TokenServerTimeout),
@@ -382,9 +359,7 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 			select {
 			case <-t.C:
 				for err := range d.updateTokenCaches() {
-					if err != nil {
-						log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
-					}
+					log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 				}
 				if err := d.writeFilesWithRetry(); err != nil {
 					log.Errorf("Failed to write token files after multiple retries: %s", err.Error())
