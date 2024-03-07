@@ -199,7 +199,7 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 
 		if err != nil {
 			log.Infof("Failed to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
-			log.Infof("err: %s", err)
+			log.Infof("single flight err: %s", err)
 			return GroupDoResult{requestID: requestID, token: nil}, err
 		}
 
@@ -215,7 +215,7 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 
 	result := r.(GroupDoResult)
 	log.Infof("requestID: [%s] handledRequestId: [%s] roleToken: [%s]", requestID, result.requestID, result.token)
-	log.Infof("err: %s", err)
+	log.Infof("res err: %s", err)
 
 	if shared && result.requestID != requestID { // if it is shared and not the actual performer:
 		if err == nil {
