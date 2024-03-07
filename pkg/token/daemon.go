@@ -219,7 +219,7 @@ func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupD
 		if err == nil {
 			log.Infof("Successfully updated role token cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", k.String(), result.requestID, requestID)
 		} else {
-			log.Debugf("Failed to fetch role token while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", k.String(), result.requestID, requestID, err)
+			log.Debugf("Failed to fetch %s while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", tokenName, k.String(), result.requestID, requestID, err)
 		}
 	}
 
