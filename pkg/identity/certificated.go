@@ -15,8 +15,10 @@
 package identity
 
 import (
+	"crypto/tls"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -328,6 +330,8 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		return err, nil
 	}
 
+	waitForServerStart(idConfig.TokenServerAddr, idConfig.TokenServerTLSCertPath != "" && idConfig.TokenServerTLSKeyPath != "")
+
 	metricsChan := make(chan struct{}, 1)
 	err, metricsSdChan := Metricsd(idConfig, metricsChan)
 	if err != nil {
@@ -336,6 +340,8 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		close(tokenChan)
 		return err, nil
 	}
+
+	waitForServerStart(idConfig.MetricsServerAddr, false)
 
 	healthcheckChan := make(chan struct{}, 1)
 	err, healthcheckSdChan := Healthcheckd(idConfig, healthcheckChan)
@@ -346,6 +352,8 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		close(tokenChan)
 		return err, nil
 	}
+
+	waitForServerStart(idConfig.HealthCheckAddr, false)
 
 	shutdownChan := make(chan struct{}, 1)
 	t := time.NewTicker(idConfig.Refresh)
@@ -387,4 +395,32 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	}()
 
 	return nil, shutdownChan
+}
+
+func waitForServerStart(serverAddr string, insecureSkipVerify bool) error {
+	var url string
+	tlsConfig := &tls.Config{}
+
+	if insecureSkipVerify {
+		tlsConfig.InsecureSkipVerify = true
+		url = "https://" + serverAddr
+	} else {
+		url = "http://" + serverAddr
+	}
+
+	tr := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+	client := &http.Client{Transport: tr}
+
+	for i := 0; i < 10; i++ {
+		resp, err := client.Get(url)
+		if err == nil {
+			resp.Body.Close()
+			log.Debugf("HTTP Server at %s started", url)
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("HTTP server at %s did not start within the expected time", url)
 }
