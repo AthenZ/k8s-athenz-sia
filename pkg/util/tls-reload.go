@@ -1,6 +1,16 @@
-// Copyright 2020, Verizon Media Inc.
-// Licensed under the terms of the 3-Clause BSD license. See LICENSE file in
-// github.com/yahoo/k8s-athenz-identity for terms.
+// Copyright 2023 LY Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package util
 
@@ -103,12 +113,34 @@ func (w *CertReloader) pollRefresh() error {
 	}
 }
 
+// UpdateCertificate update certificate and key in cert reloader.
+func (w *CertReloader) UpdateCertificate(certPEM []byte, keyPEM []byte) error {
+	w.l.Lock()
+	defer w.l.Unlock()
+
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return errors.Wrap(err, "unable to create tls.Certificate from provided PEM data")
+	}
+
+	w.cert = &cert
+	w.certPEM = certPEM
+	w.keyPEM = keyPEM
+	w.mtime = time.Now()
+
+	w.logger("certs updated at %v", w.mtime)
+
+	return nil
+}
+
 // ReloadConfig contains the config for cert reload.
 type ReloadConfig struct {
-	CertFile     string // the cert file
-	KeyFile      string // the key file
-	Logger       LogFn  // custom log function for errors, optional
-	PollInterval time.Duration
+	Init            bool
+	ProviderService string
+	CertFile        string // the cert file
+	KeyFile         string // the key file
+	Logger          LogFn  // custom log function for errors, optional
+	PollInterval    time.Duration
 }
 
 // NewCertReloader returns a CertReloader that reloads the (key, cert) pair whenever
@@ -129,8 +161,13 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 	}
 	// load once to ensure files are good.
 	if err := r.maybeReload(); err != nil {
+		if config.Init {
+			return r, err
+		}
 		return nil, err
 	}
-	go r.pollRefresh()
+	if config.ProviderService == "" {
+		go r.pollRefresh()
+	}
 	return r, nil
 }

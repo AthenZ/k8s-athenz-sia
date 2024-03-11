@@ -24,8 +24,8 @@ import (
 	"github.com/pkg/errors"
 
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
-	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 )
 
 var ErrHelp = flag.ErrHelp
@@ -243,10 +243,12 @@ func (idConfig *IdentityConfig) validateAndInit() (err error) {
 		pollInterval = util.DefaultPollInterval
 	}
 	idConfig.Reloader, err = util.NewCertReloader(util.ReloadConfig{
-		KeyFile:      idConfig.KeyFile,
-		CertFile:     idConfig.CertFile,
-		Logger:       log.Debugf,
-		PollInterval: pollInterval,
+		Init:            idConfig.Init,
+		ProviderService: idConfig.ProviderService,
+		KeyFile:         idConfig.KeyFile,
+		CertFile:        idConfig.CertFile,
+		Logger:          log.Debugf,
+		PollInterval:    pollInterval,
 	})
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.

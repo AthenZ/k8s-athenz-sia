@@ -25,11 +25,12 @@ import (
 	"strings"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
-func newZTSClient(keyPath, certPath, serverCAPath, endpoint string) (*zts.ZTSClient, error) {
+func newZTSClient(reloader *util.CertReloader, serverCAPath, endpoint string) (*zts.ZTSClient, error) {
 
 	// TODO: use tls.go in sidecar: https://github.com/AthenZ/authorization-proxy/blob/6378236262dc0fbda8c00bb2d4d6544bb6e7d9d7/service/tls.go#LL71C51-L71C51
 	tlsConfig := &tls.Config{
@@ -45,24 +46,13 @@ func newZTSClient(keyPath, certPath, serverCAPath, endpoint string) (*zts.ZTSCli
 		tlsConfig.RootCAs = certPool
 	}
 	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		log.Debugf("Attempting to load client x509 certificate from local file to fetch tokens: key[%s], cert[%s]...", keyPath, certPath)
-		certPEM, err := os.ReadFile(certPath)
+		cert, err := reloader.GetLatestCertificate()
 		if err != nil {
-			log.Warnf("Error while reading client x509 certificate from local file[%s]: %s", certPath, err.Error())
+			log.Warnf("Error while reading client x509 certificate from cert reloader: %s", err.Error())
 			return nil, err
 		}
-		keyPEM, err := os.ReadFile(keyPath)
-		if err != nil {
-			log.Warnf("Error while reading client x509 certificate key from local file[%s]: %s", keyPath, err.Error())
-			return nil, err
-		}
-		cert, err := tls.X509KeyPair(certPEM, keyPEM)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to client x509 certificate from local file to fetch tokens, err: %v", err)
-		}
-
-		log.Debugf("Successfully loaded client x509 certificate from local file to fetch tokens: key size[%d]bytes, certificate size[%d]bytes", len(keyPEM), len(certPEM))
-		return &cert, nil
+		log.Debugf("Successfully loaded client x509 certificate from cert reloader.")
+		return cert, nil
 	}
 
 	t := http.DefaultTransport.(*http.Transport).Clone()

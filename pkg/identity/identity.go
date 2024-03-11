@@ -38,7 +38,6 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
-	"github.com/AthenZ/athenz/libs/go/athenzutils"
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
@@ -212,12 +211,13 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 }
 
 // GetX509RoleCert makes ZTS API calls to generate an X.509 role certificate
-func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (rolecerts [](*RoleCertificate), err error) {
+func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), err error) {
 
-	cert, err := tls.X509KeyPair([]byte(id.X509CertificatePEM), keyPEM)
+	cert, err := h.config.Reloader.GetLatestCertificate()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load tls client key pair for PostRoleCertificateRequest, err: %v", err)
 	}
+
 	x509LeafCert, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
 		return nil, fmt.Errorf("Failed to parse identity certificate for PostRoleCertificateRequest, err: %v", err)
@@ -235,7 +235,7 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.TLSClientConfig = &tls.Config{
 		MinVersion:   tls.VersionTLS12,
-		Certificates: []tls.Certificate{cert},
+		Certificates: []tls.Certificate{*cert},
 	}
 	if h.config.ServerCACert != "" {
 		certPool := x509.NewCertPool()
@@ -255,9 +255,9 @@ func (h *identityHandler) GetX509RoleCert(id *InstanceIdentity, keyPEM []byte) (
 	// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
 	roleCertClient := zts.NewClient(h.config.Endpoint, t)
 
-	key, err := PrivateKeyFromPEMBytes(keyPEM)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to prepare csr, failed to read private key pem bytes for PostRoleCertificateRequest, err: %v", err)
+	key, ok := cert.PrivateKey.(crypto.Signer)
+	if !ok {
+		return nil, fmt.Errorf("Failed to load private key for PostRoleCertificateRequest, err: %v", err)
 	}
 
 	var intermediateCerts string
@@ -483,14 +483,4 @@ func extractServiceDetailsFromCert(cert *x509.Certificate) (string, string, erro
 		return "", "", fmt.Errorf("Failed to determine domain/service from certificate: CommonName[%s], URIs[%v]", cert.Subject.CommonName, cert.URIs)
 	}
 	return cn[:idx], cn[idx+1:], nil
-}
-
-// PrivateKeyFromPEMBytes returns a private key along with its type from its supplied
-// PEM representation.
-func PrivateKeyFromPEMBytes(privatePEMBytes []byte) (crypto.Signer, error) {
-	k, _, err := athenzutils.ExtractSignerInfo(privatePEMBytes)
-	if err != nil {
-		return nil, errors.Wrap(err, "PrivateKeyFromPEMBytes")
-	}
-	return k, nil
 }
