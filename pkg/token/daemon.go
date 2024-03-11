@@ -20,15 +20,12 @@ import (
 	"net/http"
 	"path/filepath"
 	"runtime/metrics"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
-	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	"github.com/cenkalti/backoff"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -65,19 +62,13 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 	tokenExpiryInSecond := int(idConfig.TokenExpiry.Seconds())
 	accessTokenCache := NewLockedTokenCache("accesstoken")
 	roleTokenCache := NewLockedTokenCache("roletoken")
-	targets := strings.Split(idConfig.TargetDomainRoles, ",")
-	if idConfig.TargetDomainRoles != "" || len(targets) != 1 {
-		for _, dr := range targets {
-			domain, role, err := athenz.SplitRoleName(dr)
-			if err != nil {
-				return nil, fmt.Errorf("Invalid TargetDomainRoles[%s]: %s", idConfig.TargetDomainRoles, err.Error())
-			}
-			if tt&mACCESS_TOKEN != 0 {
-				accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond}, &AccessToken{})
-			}
-			if tt&mROLE_TOKEN != 0 {
-				roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &RoleToken{})
-			}
+	for _, dr := range idConfig.TargetDomainRoles {
+		domain, role := dr.Domain, dr.Role
+		if tt&mACCESS_TOKEN != 0 {
+			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond}, &AccessToken{})
+		}
+		if tt&mROLE_TOKEN != 0 {
+			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &RoleToken{})
 		}
 	}
 
@@ -273,7 +264,7 @@ func (d *daemon) writeFiles() error {
 		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
 		log.Debugf("Saving Access Token[%d bytes] at %s", len(at), outPath)
 		if err := w.AddBytes(outPath, 0644, []byte(at)); err != nil {
-			return errors.Wrap(err, "unable to save access token")
+			return fmt.Errorf("unable to save access token: %w", err)
 		}
 		return nil
 	})
@@ -288,7 +279,7 @@ func (d *daemon) writeFiles() error {
 		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
 		log.Debugf("Saving Role Token[%d bytes] at %s", len(rt), outPath)
 		if err := w.AddBytes(outPath, 0644, []byte(rt)); err != nil {
-			return errors.Wrap(err, "unable to save role token")
+			return fmt.Errorf("unable to save role token: %w", err)
 		}
 		return nil
 	})
@@ -351,7 +342,7 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 			return httpServer.ListenAndServe()
 		}
 		if err := listenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Errorf("Failed to start token provider: %s", err.Error())
+			log.Fatalf("Failed to start token provider: %s", err.Error())
 		}
 		close(serverDone)
 	}()
@@ -380,6 +371,7 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 				defer cancel()
 				httpServer.SetKeepAlivesEnabled(false)
 				if err := httpServer.Shutdown(ctx); err != nil {
+					// graceful shutdown error should be fatal
 					log.Fatalf("Failed to shutdown token provider: %s", err.Error())
 				}
 				<-serverDone
