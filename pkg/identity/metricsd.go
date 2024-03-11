@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 
@@ -72,14 +71,9 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		KubeExcludeLabels:     []string{},
 	}
 
-	if idConfig.TargetDomainRoles != "" && idConfig.RoleCertDir != "" {
-		for _, domainrole := range strings.Split(idConfig.TargetDomainRoles, ",") {
-			targetDomain, targetRole, err := athenz.SplitRoleName(domainrole)
-			if err != nil {
-				log.Warnf("Failed to read element '%s' of given TARGET_DOMAIN_ROLES: %s, err: %s", domainrole, idConfig.TargetDomainRoles, err.Error())
-				continue
-			}
-			fileName := targetDomain + idConfig.RoleCertFilenameDelimiter + targetRole + ".cert.pem"
+	if len(idConfig.TargetDomainRoles) != 0 && idConfig.RoleCertDir != "" {
+		for _, dr := range idConfig.TargetDomainRoles {
+			fileName := dr.Domain + idConfig.RoleCertFilenameDelimiter + dr.Role + ".cert.pem"
 			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+fileName)
 		}
 	}
@@ -88,7 +82,7 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 	go func() {
 		err := exporter.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			log.Errorf("Failed to start metrics exporter: %s", err.Error())
+			log.Fatalf("Failed to start metrics exporter: %s", err.Error())
 		}
 		close(serverDone)
 	}()
@@ -102,7 +96,7 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		// context.Background() is used, no timeout
 		err := exporter.Shutdown()
 		if err != nil {
-			log.Fatalf("Failed to shutdown metrics exporter: %s", err.Error())
+			log.Errorf("Failed to shutdown metrics exporter: %s", err.Error())
 		}
 		<-serverDone
 	}()

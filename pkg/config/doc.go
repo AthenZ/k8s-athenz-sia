@@ -12,5 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package config defines all the configuration parameters. It reads configuration from environment variables and comamnd-line arguments.
+// Package config defines all the configuration parameters. It reads configuration from environment variables and command-line arguments.
 package config
