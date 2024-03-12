@@ -350,7 +350,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	}
 	// TODO: Plan to fix this later
 	if idConfig.MetricsServerAddr != "" {
-		err = waitForServerStart(":9794", false)
+		err = waitForServerStart(idConfig.MetricsServerAddr, false)
 		if err != nil {
 			log.Errorf("Error starting metrics exporter[%s]", err)
 			close(metricsChan)
