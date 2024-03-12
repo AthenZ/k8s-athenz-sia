@@ -94,7 +94,7 @@ func (w *CertReloader) maybeReload() error {
 	w.keyPEM = keyPEM
 	w.mtime = st.ModTime()
 	w.l.Unlock()
-	w.logger("certs reloaded at %v", time.Now())
+	w.logger("certs reloaded from local file: key[%s], cert[%s] at %v", w.keyFile, w.certFile, time.Now())
 	return nil
 }
 
@@ -105,7 +105,7 @@ func (w *CertReloader) pollRefresh() error {
 		select {
 		case <-poll.C:
 			if err := w.maybeReload(); err != nil {
-				w.logger("cert reload error: %v\n", err)
+				w.logger("cert reload error from local file: key[%s], cert[%s]: %v\n", w.keyFile, w.certFile, err)
 			}
 		case <-w.stop:
 			return nil
@@ -161,11 +161,13 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 	}
 	// load once to ensure files are good.
 	if err := r.maybeReload(); err != nil {
+		// In init mode, return initialized CertReloader and error to confirm non-existence of files.
 		if config.Init {
 			return r, err
 		}
 		return nil, err
 	}
+	// If SIA is not issuing certificates, use pollRefresh function to periodically read certificate files and update cert reloader.
 	if config.ProviderService == "" {
 		go r.pollRefresh()
 	}

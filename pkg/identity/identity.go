@@ -36,7 +36,6 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
-	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 

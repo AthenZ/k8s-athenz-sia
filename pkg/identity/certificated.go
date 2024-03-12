@@ -158,7 +158,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	}
 
 	roleCertProvisioningRequest := func() (err error, roleCerts [](*RoleCertificate), roleKeyPEM []byte) {
-		if idConfig.TargetDomainRoles == "" || idConfig.RoleCertDir == "" {
+		if len(idConfig.TargetDomainRoles) == 0 || idConfig.RoleCertDir == "" {
 			return nil, nil, nil
 		}
 
@@ -201,28 +201,21 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 				log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
 			}
 		} else if idConfig.KeyFile != "" && idConfig.CertFile != "" {
-			log.Debugf("Attempting to load x509 certificate from local file: key[%s], cert[%s]...", idConfig.KeyFile, idConfig.CertFile)
-
-			localFileCertPEM, err := os.ReadFile(idConfig.CertFile)
+			log.Debugln("Attempting to load x509 certificate from cert reloader...")
+			localFileKeyPEM, localFileCertPEM, err := idConfig.Reloader.GetLatestKeyAndCert()
 			if err != nil {
-				log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idConfig.CertFile, err.Error())
+				log.Warnf("Error while reading x509 certificate key from cert reloader: %s", err.Error())
+				return err
 			}
-			localFileKeyPEM, err = os.ReadFile(idConfig.KeyFile)
-			if err != nil {
-				log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idConfig.KeyFile, err.Error())
-			}
-
 			localFileIdentity, err = InstanceIdentityFromPEMBytes(localFileCertPEM)
 			if err != nil {
-				log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
+				log.Warnf("Error while parsing x509 certificate from cert reloader: %s", err.Error())
 			}
-
 			if localFileIdentity == nil || len(localFileKeyPEM) == 0 {
-				log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(localFileCertPEM), len(localFileKeyPEM))
+				log.Errorf("Failed to load x509 certificate from cert reloader to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(localFileCertPEM), len(localFileKeyPEM))
 			} else {
 				identity = localFileIdentity
 				keyPEM = localFileKeyPEM
-				log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(localFileCertPEM), len(localFileKeyPEM))
 			}
 		} else {
 			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idConfig.ProviderService, idConfig.KeyFile, idConfig.CertFile)
@@ -243,6 +236,11 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 					identity = k8sSecretBackupIdentity
 					keyPEM = k8sSecretBackupKeyPEM
 					log.Infof("Successfully loaded x509 certificate from kubernetes secret")
+
+					err := idConfig.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+					if err != nil {
+						log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+					}
 				}
 			} else {
 				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret[%s]", idConfig.CertSecret)
@@ -261,6 +259,10 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			} else {
 				identity = forceInitIdentity
 				keyPEM = forceInitKeyPEM
+				err := idConfig.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+				if err != nil {
+					log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+				}
 			}
 		}
 
