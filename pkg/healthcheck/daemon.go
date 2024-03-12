@@ -12,71 +12,101 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
+package healthcheck
 
 import (
 	"context"
 	"fmt"
 	"net/http"
 	"runtime"
+	"sync"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
-func Healthcheckd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
-	if stopChan == nil {
-		panic(fmt.Errorf("Healthcheckd: stopChan cannot be empty"))
-	}
+type hcService struct {
+	shutdownChan chan struct{}
+	shutdownWg   sync.WaitGroup
 
-	if idConfig.Init {
-		log.Infof("Health check server is disabled for init mode: address[%s]", idConfig.HealthCheckAddr)
-		return nil, nil
-	}
-
-	if idConfig.HealthCheckAddr == "" {
-		log.Infof("Health check server is disabled with empty options: address[%s]", idConfig.HealthCheckAddr)
-		return nil, nil
-	}
-
-	healthCheckServer := &http.Server{
-		Addr:    idConfig.HealthCheckAddr,
-		Handler: createHealthCheckServiceMux(idConfig.HealthCheckEndpoint),
-	}
-
-	serverDone := make(chan struct{}, 1)
-	go func() {
-		log.Infof("Starting health check server[%s]", idConfig.HealthCheckAddr)
-		if err := healthCheckServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start health check server: %s", err.Error())
-		}
-		close(serverDone)
-	}()
-
-	shutdownChan := make(chan struct{}, 1)
-	go func() {
-		defer close(shutdownChan)
-
-		<-stopChan
-		log.Info("Initiating shutdown of health check daemon ...")
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel() // force shutdown health check server without delay
-		healthCheckServer.SetKeepAlivesEnabled(false)
-		if err := healthCheckServer.Shutdown(ctx); err != nil && err != context.Canceled {
-			log.Errorf("Failed to shutdown health check server: %s", err.Error())
-		}
-		<-serverDone
-	}()
-
-	return nil, shutdownChan
+	idCfg           *config.IdentityConfig
+	hcServer        *http.Server
+	hcServerRunning bool
 }
 
-// createHealthCheckServiceMux return a *http.ServeMux object
-// The function will register the health check server handler for given pattern, and return
-func createHealthCheckServiceMux(pattern string) *http.ServeMux {
+func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemon) {
+	if ctx.Err() != nil {
+		log.Info("Skipped health check initiation")
+		return nil, nil
+	}
+
+	hs := &hcService{
+		shutdownChan: make(chan struct{}, 1),
+		idCfg:        idCfg,
+	}
+
+	// check initialization skip
+	if idCfg.Init {
+		log.Infof("Health check server is disabled for init mode: address[%s]", idCfg.HealthCheckAddr)
+		return nil, hs
+	}
+	if idCfg.HealthCheckAddr == "" {
+		log.Infof("Health check server is disabled with empty options: address[%s]", idCfg.HealthCheckAddr)
+		return nil, hs
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc(pattern, handleHealthCheckRequest)
-	return mux
+	mux.HandleFunc(idCfg.HealthCheckEndpoint, handleHealthCheckRequest)
+	hs.hcServer = &http.Server{
+		Addr:    idCfg.HealthCheckAddr,
+		Handler: mux,
+	}
+
+	return nil, hs
+}
+
+// Start starts the health check server
+func (hs *hcService) Start(ctx context.Context) error {
+	if ctx.Err() != nil {
+		log.Info("Skipped health check start")
+		return nil
+	}
+
+	if hs.hcServer != nil {
+		log.Infof("Starting health check server[%s]", hs.idCfg.HealthCheckAddr)
+		hs.shutdownWg.Add(1)
+		go func() {
+			defer hs.shutdownWg.Done()
+			if err := hs.hcServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("Failed to start health check server: %s", err.Error())
+			}
+		}()
+	}
+
+	// TODO: check server running status
+	hs.hcServerRunning = true
+
+	return nil
+}
+
+func (hs *hcService) Shutdown() {
+	log.Info("Initiating shutdown of health check daemon ...")
+	close(hs.shutdownChan)
+
+	if hs.hcServer != nil && hs.hcServerRunning {
+		forcedCtx, cancel := context.WithCancel(context.Background())
+		cancel() // force shutdown health check server without delay
+		hs.hcServer.SetKeepAlivesEnabled(false)
+		err := hs.hcServer.Shutdown(forcedCtx)
+		if err != nil && err != context.Canceled {
+			log.Errorf("Failed to shutdown health check server: %s", err.Error())
+		}
+		log.Info("Stopped health check server")
+	}
+
+	// wait for graceful shutdown
+	hs.shutdownWg.Wait()
 }
 
 // handleHealthCheckRequest is a handler function for and health check request, which always a HTTP Status OK (200) result

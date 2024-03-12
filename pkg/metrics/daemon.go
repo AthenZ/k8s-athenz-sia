@@ -12,49 +12,65 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
+package metrics
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 
 	// using git submodule to import internal package (special package in golang)
 	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
-	internal "github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics/internal"
 )
 
-func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
-	if stopChan == nil {
-		panic(fmt.Errorf("Metricsd: stopChan cannot be empty"))
-	}
+type metricsService struct {
+	shutdownChan chan struct{}
+	shutdownWg   sync.WaitGroup
 
-	if idConfig.Init {
-		log.Infof("Metrics exporter is disabled for init mode: address[%s]", idConfig.MetricsServerAddr)
+	idCfg           *config.IdentityConfig
+	exporter        *internal.Exporter
+	exporterRunning bool
+}
+
+func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemon) {
+	if ctx.Err() != nil {
+		log.Info("Skipped metrics exporter initiation")
 		return nil, nil
 	}
 
-	if idConfig.MetricsServerAddr == "" {
-		log.Infof("Metrics exporter is disabled with empty options: address[%s]", idConfig.MetricsServerAddr)
-		return nil, nil
+	ms := &metricsService{
+		shutdownChan: make(chan struct{}, 1),
+		idCfg:        idCfg,
 	}
 
-	log.Infof("Starting metrics exporter[%s]", idConfig.MetricsServerAddr)
+	// check initialization skip
+	if idCfg.Init {
+		log.Infof("Metrics exporter is disabled for init mode: address[%s]", idCfg.MetricsServerAddr)
+		return nil, ms
+	}
+	if idCfg.MetricsServerAddr == "" {
+		log.Infof("Metrics exporter is disabled with empty options: address[%s]", idCfg.MetricsServerAddr)
+		return nil, ms
+	}
 
 	// https://github.com/enix/x509-certificate-exporter
 	// https://github.com/enix/x509-certificate-exporter/blob/main/cmd/x509-certificate-exporter/main.go
 	// https://github.com/enix/x509-certificate-exporter/blob/beb88b34b490add4015c8b380d975eb9cb340d44/internal/exporter.go#L26
 	exporter := internal.Exporter{
-		ListenAddress: idConfig.MetricsServerAddr,
+		ListenAddress: idCfg.MetricsServerAddr,
 		SystemdSocket: false,
 		ConfigFile:    "",
 		Files: []string{
-			idConfig.CertFile,
-			idConfig.CaCertFile,
+			idCfg.CertFile,
+			idCfg.CaCertFile,
 		},
 		Directories:           []string{},
 		YAMLs:                 []string{},
@@ -71,35 +87,55 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		KubeExcludeLabels:     []string{},
 	}
 
-	if len(idConfig.TargetDomainRoles) != 0 && idConfig.RoleCertDir != "" {
-		for _, dr := range idConfig.TargetDomainRoles {
-			fileName := dr.Domain + idConfig.RoleCertFilenameDelimiter + dr.Role + ".cert.pem"
-			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+fileName)
+	if len(idCfg.TargetDomainRoles) != 0 && idCfg.RoleCertDir != "" {
+		for _, dr := range idCfg.TargetDomainRoles {
+			fileName := dr.Domain + idCfg.RoleCertFilenameDelimiter + dr.Role + ".cert.pem"
+			exporter.Files = append(exporter.Files, strings.TrimSuffix(idCfg.RoleCertDir, "/")+"/"+fileName)
 		}
 	}
 
-	serverDone := make(chan struct{}, 1)
-	go func() {
-		err := exporter.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start metrics exporter: %s", err.Error())
-		}
-		close(serverDone)
-	}()
+	ms.exporter = &exporter
+	return nil, ms
+}
 
-	shutdownChan := make(chan struct{}, 1)
-	go func() {
-		defer close(shutdownChan)
+// Start starts the metrics exporter
+func (ms *metricsService) Start(ctx context.Context) error {
+	if ctx.Err() != nil {
+		log.Info("Skipped metrics exporter start")
+		return nil
+	}
 
-		<-stopChan
-		log.Info("Initiating shutdown of metrics exporter daemon ...")
-		// context.Background() is used, no timeout
-		err := exporter.Shutdown()
+	if ms.exporter != nil {
+		log.Infof("Starting metrics exporter[%s]", ms.idCfg.MetricsServerAddr)
+		ms.shutdownWg.Add(1)
+		go func() {
+			defer ms.shutdownWg.Done()
+			if err := ms.exporter.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("Failed to start metrics exporter: %s", err.Error())
+			}
+		}()
+	}
+
+	// TODO: check server running status
+	ms.exporterRunning = true
+
+	return fmt.Errorf("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
+
+	return nil
+}
+
+func (ms *metricsService) Shutdown() {
+	log.Info("Initiating shutdown of metrics exporter daemon ...")
+	close(ms.shutdownChan)
+
+	if ms.exporter != nil && ms.exporterRunning {
+		err := ms.exporter.Shutdown() // context.Background() is used, no timeout
 		if err != nil {
 			log.Errorf("Failed to shutdown metrics exporter: %s", err.Error())
 		}
-		<-serverDone
-	}()
+		log.Info("Stopped metrics exporter server")
+	}
 
-	return nil, shutdownChan
+	// wait for graceful shutdown
+	ms.shutdownWg.Wait()
 }

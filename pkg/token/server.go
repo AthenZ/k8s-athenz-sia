@@ -37,7 +37,7 @@ var (
 	ClientError = fmt.Errorf("Client error") // error should be fixed by the client-side, log as warning, response 4xx status code
 )
 
-func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
+func postRoleToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	requestID := r.Context().Value(contextKeyRequestID).(string)
 
 	var err error
@@ -89,20 +89,20 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		k.MaxExpiry = *rtRequest.MaxExpiry
 	}
 	if k.MinExpiry == 0 {
-		k.MinExpiry = d.tokenExpiryInSecond
+		k.MinExpiry = ts.tokenExpiryInSecond
 	}
 
 	// cache lookup (token TTL must >= 1 minute)
-	rToken := d.roleTokenCache.Load(k)
+	rToken := ts.roleTokenCache.Load(k)
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
 		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
 		// on cache miss, fetch token from Athenz ZTS server
-		rToken, err = fetchRoleToken(d.ztsClient, k)
+		rToken, err = fetchRoleToken(ts.ztsClient, k)
 		if err != nil {
 			return
 		}
 		// update cache
-		d.roleTokenCache.Store(k, rToken)
+		ts.roleTokenCache.Store(k, rToken)
 		log.Infof("Successfully updated role token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
 	}
 
@@ -123,7 +123,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
+func postAccessToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	requestID := r.Context().Value(contextKeyRequestID).(string)
 
 	var err error
@@ -172,20 +172,20 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		k.MaxExpiry = *atRequest.Expiry
 	}
 	if k.MaxExpiry == 0 {
-		k.MaxExpiry = d.tokenExpiryInSecond
+		k.MaxExpiry = ts.tokenExpiryInSecond
 	}
 
 	// cache lookup (token TTL must >= 1 minute)
-	aToken := d.accessTokenCache.Load(k)
+	aToken := ts.accessTokenCache.Load(k)
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
 		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
 		// on cache miss, fetch token from Athenz ZTS server
-		aToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
+		aToken, err = fetchAccessToken(ts.ztsClient, k, ts.saService)
 		if err != nil {
 			return
 		}
 		// update cache
-		d.accessTokenCache.Store(k, aToken)
+		ts.accessTokenCache.Store(k, aToken)
 		log.Infof("Successfully updated access token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
 	}
 
@@ -211,7 +211,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
+func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 	// main handler is responsible to monitor whether the request context is cancelled
 	mainHandler := func(w http.ResponseWriter, r *http.Request) {
 		requestID := r.Context().Value(contextKeyRequestID).(string)
@@ -227,20 +227,20 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 			}
 		}()
 
-		if d.tokenRESTAPI {
+		if ts.tokenRESTAPI {
 			// sidecar API (server requests' Body is always non-nil)
-			if d.tokenType&mROLE_TOKEN != 0 && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
-				postRoleToken(d, w, r)
+			if ts.tokenType&mROLE_TOKEN != 0 && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
+				postRoleToken(ts, w, r)
 				return
 			}
 
-			if d.tokenType&mACCESS_TOKEN != 0 && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
-				postAccessToken(d, w, r)
+			if ts.tokenType&mACCESS_TOKEN != 0 && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
+				postAccessToken(ts, w, r)
 				return
 			}
 		}
 
-		if !d.useTokenServer {
+		if !ts.useTokenServer {
 			w.WriteHeader(http.StatusNotFound)
 			io.WriteString(w, string("404 page not found"))
 			return
@@ -255,15 +255,15 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 		if domain == "" || role == "" {
 			errMsg = fmt.Sprintf("http headers not set: %s[%s] %s[%s].", DOMAIN_HEADER, domain, ROLE_HEADER, role)
 		} else {
-			k := CacheKey{Domain: domain, Role: role, MinExpiry: d.tokenExpiryInSecond}
-			if d.tokenType&mACCESS_TOKEN != 0 {
-				aToken = d.accessTokenCache.Load(k)
+			k := CacheKey{Domain: domain, Role: role, MinExpiry: ts.tokenExpiryInSecond}
+			if ts.tokenType&mACCESS_TOKEN != 0 {
+				aToken = ts.accessTokenCache.Load(k)
 				if aToken == nil {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 				}
 			}
-			if d.tokenType&mROLE_TOKEN != 0 {
-				rToken = d.roleTokenCache.Load(k)
+			if ts.tokenType&mROLE_TOKEN != 0 {
+				rToken = ts.roleTokenCache.Load(k)
 				if rToken == nil {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 				}
@@ -297,7 +297,7 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 		}
 		if rToken != nil {
 			rt := rToken.Raw()
-			w.Header().Set(d.roleAuthHeader, rt)
+			w.Header().Set(ts.roleAuthHeader, rt)
 			resJSON["roletoken"] = rt
 		}
 		response, err := json.Marshal(resJSON)
@@ -307,7 +307,7 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 			return
 		}
 
-		log.Debugf("Returning %d for domain[%s], role[%s]", d.tokenType, domain, role)
+		log.Debugf("Returning %d for domain[%s], role[%s]", ts.tokenType, domain, role)
 		io.WriteString(w, string(response))
 	}
 

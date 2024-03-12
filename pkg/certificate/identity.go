@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
+package certificate
 
 import (
 	"crypto"
@@ -64,7 +64,7 @@ type identityHandler struct {
 	client       zts.ZTSClient
 	domain       string
 	service      string
-	instanceid   string
+	instanceID   string
 	csrOptions   *util.CSROptions
 	secretClient *k8s.SecretsClient
 }
@@ -105,9 +105,9 @@ func InitIdentityHandler(config *config.IdentityConfig) (*identityHandler, error
 		return nil, err
 	}
 
-	var secretclient *k8s.SecretsClient
+	var secretClient *k8s.SecretsClient
 	if config.CertSecret != "" {
-		secretclient, err = k8s.NewSecretClient(config.CertSecret, config.Namespace)
+		secretClient, err = k8s.NewSecretClient(config.CertSecret, config.Namespace)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to initialize kubernetes secret client, err: %v", err)
 		}
@@ -118,9 +118,9 @@ func InitIdentityHandler(config *config.IdentityConfig) (*identityHandler, error
 		client:       client,
 		domain:       domain,
 		service:      service,
-		instanceid:   config.PodUID,
+		instanceID:   config.PodUID,
 		csrOptions:   csrOptions,
-		secretClient: secretclient,
+		secretClient: secretClient,
 	}, nil
 }
 
@@ -335,7 +335,7 @@ func (h *identityHandler) Service() string {
 
 // InstanceID returns the Instance ID for the cloud
 func (h *identityHandler) InstanceID() string {
-	return h.instanceid
+	return h.instanceID
 }
 
 // PrepareIdentityCsrOptions prepares csrOptions for an X.509 certificate

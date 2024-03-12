@@ -87,9 +87,9 @@ func (c *SecretsClient) GetIdentitySecret() (secret *corev1.Secret, isNotFound b
 	// - And/or cast to StatusError and use its properties like e.g. ErrStatus.Message
 	// See: https://github.com/kubernetes/client-go/blob/v0.23.5/examples/out-of-cluster-client-configuration/main.go#L75-L85
 	if errors.IsNotFound(err) {
-		return nil, true, fmt.Errorf("secret [%s] in namespace [%s] not found\n", c.name, c.namespace)
+		return nil, true, fmt.Errorf("secret [%s] in namespace [%s] not found", c.name, c.namespace)
 	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
-		err = fmt.Errorf("Error getting secret [%s] in namespace [%s]: %v\n", c.name, c.namespace, statusError.ErrStatus.Message)
+		err = fmt.Errorf("Error getting secret [%s] in namespace [%s]: %s", c.name, c.namespace, statusError.ErrStatus.Message)
 		return nil, false, err
 	}
 
