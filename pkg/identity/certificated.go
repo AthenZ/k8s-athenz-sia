@@ -186,12 +186,12 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	}
 
 	// getExponentialBackoff will return a backoff config with first retry delay of 5s, and backoff retry
-	// until REFRESH_INTERVAL / 4
-	getExponentialBackoff := func() *backoff.ExponentialBackOff {
+	// until maxElapsedTime
+	getExponentialBackoff := func(maxElapsedTime time.Duration) *backoff.ExponentialBackOff {
 		b := backoff.NewExponentialBackOff()
 		b.InitialInterval = 5 * time.Second
 		b.Multiplier = 2
-		b.MaxElapsedTime = idConfig.Refresh / 4
+		b.MaxElapsedTime = maxElapsedTime
 		return b
 	}
 
@@ -311,7 +311,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		time.Sleep(sleep)
 	}
 
-	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
+	err = backoff.RetryNotify(run, getExponentialBackoff(config.DEFAULT_MAXELAPSEDTIME_ON_INIT), notifyOnErr)
 	if err != nil {
 		// mode=init, must output preset certificates
 		if idConfig.Init {
@@ -330,7 +330,12 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		return err, nil
 	}
 
-	waitForServerStart(idConfig.TokenServerAddr, idConfig.TokenServerTLSCertPath != "" && idConfig.TokenServerTLSKeyPath != "")
+	err = waitForServerStart(idConfig.TokenServerAddr, idConfig.TokenServerTLSCertPath != "" && idConfig.TokenServerTLSKeyPath != "")
+	if err != nil {
+		log.Errorf("Error starting token provider[%s]", err)
+		close(tokenChan)
+		return err, nil
+	}
 
 	metricsChan := make(chan struct{}, 1)
 	err, metricsSdChan := Metricsd(idConfig, metricsChan)
@@ -341,7 +346,13 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		return err, nil
 	}
 
-	waitForServerStart(idConfig.MetricsServerAddr, false)
+	err = waitForServerStart(idConfig.MetricsServerAddr, false)
+	if err != nil {
+		log.Errorf("Error starting metrics exporter[%s]", err)
+		close(metricsChan)
+		close(tokenChan)
+		return err, nil
+	}
 
 	healthcheckChan := make(chan struct{}, 1)
 	err, healthcheckSdChan := Healthcheckd(idConfig, healthcheckChan)
@@ -353,7 +364,14 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		return err, nil
 	}
 
-	waitForServerStart(idConfig.HealthCheckAddr, false)
+	err = waitForServerStart(idConfig.HealthCheckAddr, false)
+	if err != nil {
+		log.Errorf("Error starting health check server[%s]", err)
+		close(healthcheckChan)
+		close(metricsChan)
+		close(tokenChan)
+		return err, nil
+	}
 
 	shutdownChan := make(chan struct{}, 1)
 	t := time.NewTicker(idConfig.Refresh)
@@ -367,7 +385,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 
 			select {
 			case <-t.C:
-				err := backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
+				err := backoff.RetryNotify(run, getExponentialBackoff(idConfig.Refresh/4), notifyOnErr)
 				if err != nil {
 					log.Errorf("Failed to refresh x509 certificate after multiple retries: %s", err.Error())
 				}
@@ -413,14 +431,26 @@ func waitForServerStart(serverAddr string, insecureSkipVerify bool) error {
 	}
 	client := &http.Client{Transport: tr}
 
-	for i := 0; i < 10; i++ {
+	get := func() error {
 		resp, err := client.Get(url)
 		if err == nil {
 			resp.Body.Close()
-			log.Debugf("HTTP Server at %s started", url)
-			return nil
+			log.Debugf("HTTP Server started at %s", url)
 		}
-		time.Sleep(100 * time.Millisecond)
+		return err
 	}
-	return fmt.Errorf("HTTP server at %s did not start within the expected time", url)
+
+	getExponentialBackoff := func() *backoff.ExponentialBackOff {
+		b := backoff.NewExponentialBackOff()
+		b.InitialInterval = 5 * time.Second
+		b.Multiplier = 2
+		b.MaxElapsedTime = config.DEFAULT_MAXELAPSEDTIME_ON_INIT
+		return b
+	}
+
+	notifyOnErr := func(err error, backoffDelay time.Duration) {
+		log.Errorf("Failed to start HTTP server: %s. Retrying in %s", err.Error(), backoffDelay)
+	}
+
+	return backoff.RetryNotify(get, getExponentialBackoff(), notifyOnErr)
 }
