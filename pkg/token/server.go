@@ -91,19 +91,17 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	if k.MinExpiry == 0 {
 		k.MinExpiry = d.tokenExpiryInSecond
 	}
-
 	// cache lookup (token TTL must >= 1 minute)
 	rToken := d.roleTokenCache.Load(k)
+	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
+	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
-		// on cache miss, fetch token from Athenz ZTS server
-		rToken, err = fetchRoleToken(d.ztsClient, k)
+		res, resErr := d.requestTokenToZts(k, mROLE_TOKEN, requestID)
+		err = resErr // assign error for defer
 		if err != nil {
 			return
 		}
-		// update cache
-		d.roleTokenCache.Store(k, rToken)
-		log.Infof("Successfully updated role token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
+		rToken = res.token
 	}
 
 	// check context cancelled
@@ -177,16 +175,15 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 
 	// cache lookup (token TTL must >= 1 minute)
 	aToken := d.accessTokenCache.Load(k)
+	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
+	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
-		// on cache miss, fetch token from Athenz ZTS server
-		aToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
+		res, resErr := d.requestTokenToZts(k, mACCESS_TOKEN, requestID)
+		err = resErr // assign error for defer
 		if err != nil {
 			return
 		}
-		// update cache
-		d.accessTokenCache.Store(k, aToken)
-		log.Infof("Successfully updated access token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
+		aToken = res.token
 	}
 
 	// check context cancelled

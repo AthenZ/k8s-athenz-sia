@@ -28,6 +28,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
@@ -36,6 +37,7 @@ import (
 )
 
 type daemon struct {
+	group            singleflight.Group
 	accessTokenCache TokenCache
 	roleTokenCache   TokenCache
 
@@ -151,6 +153,70 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 	}, nil
 }
 
+// GroupDoResult contains token and its requestID after singleFlight.group.Do()
+type GroupDoResult struct {
+	requestID string
+	token     Token
+}
+
+// requestTokenToZts sends a request to ZTS server to fetch either role token or access token.
+// for mode, it only accepts mROLE_TOKEN or mACCESS_TOKEN
+// it also stores in cache for you after successful fetch.
+func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupDoResult, error) {
+	tokenName := "" // tokenName is used for logger (role token or access token only)
+	isRoleTokenRequested := m == mROLE_TOKEN
+	isAccessTokenRequested := m == mACCESS_TOKEN
+
+	if isRoleTokenRequested {
+		tokenName = "role token"
+	} else if isAccessTokenRequested {
+		tokenName = "access token"
+	} else {
+		return GroupDoResult{requestID: requestID, token: nil}, fmt.Errorf("Invalid mode: %d", m)
+	}
+
+	log.Debugf("Attempting to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+
+	r, err, shared := d.group.Do(k.UniqueId(tokenName), func() (interface{}, error) {
+		// define variables before request to ZTS
+		var fetchedToken Token
+		var err error
+
+		if isRoleTokenRequested {
+			fetchedToken, err = fetchRoleToken(d.ztsClient, k)
+		} else { // isAccessTokenRequested
+			fetchedToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
+		}
+
+		if err != nil {
+			log.Debugf("Failed to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+			return GroupDoResult{requestID: requestID, token: nil}, err
+		}
+
+		if isRoleTokenRequested {
+			d.roleTokenCache.Store(k, fetchedToken)
+		} else { // isAccessTokenRequested
+			d.accessTokenCache.Store(k, fetchedToken)
+		}
+
+		log.Infof("Successfully updated %s cache: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+		return GroupDoResult{requestID: requestID, token: fetchedToken}, nil
+	})
+
+	result := r.(GroupDoResult)
+	log.Debugf("requestID: [%s] handledRequestId: [%s] target: [%s]", requestID, result.requestID, k.String())
+
+	if shared && result.requestID != requestID { // if it is shared and not the actual performer:
+		if err == nil {
+			log.Infof("Successfully updated %s cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", tokenName, k.String(), result.requestID, requestID)
+		} else {
+			log.Debugf("Failed to fetch %s while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", tokenName, k.String(), result.requestID, requestID, err)
+		}
+	}
+
+	return result, err
+}
+
 func (d *daemon) updateTokenCaches() <-chan error {
 	var atErrorCount, rtErrorCount atomic.Int64
 	atTargets := d.accessTokenCache.Keys()
@@ -207,22 +273,12 @@ func (d *daemon) updateTokenWithRetry(key CacheKey, tt mode) error {
 
 func (d *daemon) updateToken(key CacheKey, tt mode) error {
 	updateAccessToken := func(key CacheKey) error {
-		at, err := fetchAccessToken(d.ztsClient, key, d.saService)
-		if err != nil {
-			return err
-		}
-		d.accessTokenCache.Store(key, at)
-		log.Debugf("Successfully received token from Athenz ZTS server: accessTokens(%s, len=%d)", key, len(at.Raw()))
-		return nil
+		_, err := d.requestTokenToZts(key, mACCESS_TOKEN, "daemon_access_token_update")
+		return err
 	}
 	updateRoleToken := func(key CacheKey) error {
-		rt, err := fetchRoleToken(d.ztsClient, key)
-		if err != nil {
-			return err
-		}
-		d.roleTokenCache.Store(key, rt)
-		log.Debugf("Successfully received token from Athenz ZTS server: roleTokens(%s, len=%d)", key, len(rt.Raw()))
-		return nil
+		_, err := d.requestTokenToZts(key, mROLE_TOKEN, "daemon_role_token_update")
+		return err
 	}
 
 	switch tt {
