@@ -330,11 +330,14 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		return err, nil
 	}
 
-	err = waitForServerStart(idConfig.TokenServerAddr, idConfig.TokenServerTLSCertPath != "" && idConfig.TokenServerTLSKeyPath != "")
-	if err != nil {
-		log.Errorf("Error starting token provider[%s]", err)
-		close(tokenChan)
-		return err, nil
+	// TODO: Plan to fix this later
+	if idConfig.TokenServerAddr != "" {
+		err = waitForServerStart(idConfig.TokenServerAddr, idConfig.TokenServerTLSCertPath != "" && idConfig.TokenServerTLSKeyPath != "")
+		if err != nil {
+			log.Errorf("Error starting token provider[%s]", err)
+			close(tokenChan)
+			return err, nil
+		}
 	}
 
 	metricsChan := make(chan struct{}, 1)
@@ -345,13 +348,15 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		close(tokenChan)
 		return err, nil
 	}
-
-	err = waitForServerStart(idConfig.MetricsServerAddr, false)
-	if err != nil {
-		log.Errorf("Error starting metrics exporter[%s]", err)
-		close(metricsChan)
-		close(tokenChan)
-		return err, nil
+	// TODO: Plan to fix this later
+	if idConfig.MetricsServerAddr != "" {
+		err = waitForServerStart(":9794", false)
+		if err != nil {
+			log.Errorf("Error starting metrics exporter[%s]", err)
+			close(metricsChan)
+			close(tokenChan)
+			return err, nil
+		}
 	}
 
 	healthcheckChan := make(chan struct{}, 1)
@@ -363,14 +368,16 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		close(tokenChan)
 		return err, nil
 	}
-
-	err = waitForServerStart(idConfig.HealthCheckAddr, false)
-	if err != nil {
-		log.Errorf("Error starting health check server[%s]", err)
-		close(healthcheckChan)
-		close(metricsChan)
-		close(tokenChan)
-		return err, nil
+	// TODO: Plan to fix this later
+	if idConfig.HealthCheckAddr != "" {
+		err = waitForServerStart(idConfig.HealthCheckAddr, false)
+		if err != nil {
+			log.Errorf("Error starting health check server[%s]", err)
+			close(healthcheckChan)
+			close(metricsChan)
+			close(tokenChan)
+			return err, nil
+		}
 	}
 
 	shutdownChan := make(chan struct{}, 1)
@@ -435,7 +442,7 @@ func waitForServerStart(serverAddr string, insecureSkipVerify bool) error {
 		resp, err := client.Get(url)
 		if err == nil {
 			resp.Body.Close()
-			log.Debugf("HTTP Server started at %s", url)
+			log.Debugf("Server started at %s", url)
 		}
 		return err
 	}
@@ -449,7 +456,7 @@ func waitForServerStart(serverAddr string, insecureSkipVerify bool) error {
 	}
 
 	notifyOnErr := func(err error, backoffDelay time.Duration) {
-		log.Errorf("Failed to start HTTP server: %s. Retrying in %s", err.Error(), backoffDelay)
+		log.Errorf("Unable to confirm the server startup: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
 
 	return backoff.RetryNotify(get, getExponentialBackoff(), notifyOnErr)
