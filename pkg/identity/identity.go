@@ -30,8 +30,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/k8s"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -351,10 +349,6 @@ func PrepareIdentityCsrOptions(cfg *config.IdentityConfig, domain, service strin
 
 	domainDNSPart := extutil.DomainToDNSPart(domain)
 
-	ip := net.ParseIP(cfg.PodIP)
-	if ip == nil {
-		return nil, errors.New("pod IP for identity csr is nil")
-	}
 	spiffeURI, err := extutil.ServiceSpiffeURI(domain, service)
 	if err != nil {
 		return nil, err
@@ -378,7 +372,7 @@ func PrepareIdentityCsrOptions(cfg *config.IdentityConfig, domain, service strin
 		Subject: subject,
 		SANs: util.SubjectAlternateNames{
 			DNSNames:    sans,
-			IPAddresses: []net.IP{ip},
+			IPAddresses: []net.IP{cfg.PodIP},
 			URIs:        []url.URL{*spiffeURI},
 		},
 	}, nil
@@ -389,23 +383,16 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 
 	var roleCsrOptions []util.CSROptions
 
-	if cfg.TargetDomainRoles == "" || cfg.RoleCertDir == "" {
+	if len(cfg.TargetDomainRoles) == 0 || cfg.RoleCertDir == "" {
 		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", cfg.TargetDomainRoles, cfg.RoleCertDir)
 		return nil, nil
 	}
 
-	for _, domainrole := range strings.Split(cfg.TargetDomainRoles, ",") {
-		targetDomain, targetRole, err := athenz.SplitRoleName(domainrole)
-		if err != nil {
-			return nil, err
-		}
+	for _, dr := range cfg.TargetDomainRoles {
+		targetDomain, targetRole := dr.Domain, dr.Role
 
 		domainDNSPart := extutil.DomainToDNSPart(domain)
 
-		ip := net.ParseIP(cfg.PodIP)
-		if ip == nil {
-			return nil, errors.New("pod IP for role csr is nil")
-		}
 		spiffeURI, err := extutil.RoleSpiffeURI(targetDomain, targetRole)
 		if err != nil {
 			return nil, err
@@ -427,7 +414,7 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 			Subject: subject,
 			SANs: util.SubjectAlternateNames{
 				DNSNames:    sans,
-				IPAddresses: []net.IP{ip},
+				IPAddresses: []net.IP{cfg.PodIP},
 				URIs: []url.URL{
 					*spiffeURI,
 				},
