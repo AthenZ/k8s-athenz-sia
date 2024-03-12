@@ -20,17 +20,15 @@ import (
 	"net/http"
 	"path/filepath"
 	"runtime/metrics"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
-	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
 	"github.com/cenkalti/backoff"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
@@ -39,6 +37,7 @@ import (
 )
 
 type daemon struct {
+	group            singleflight.Group
 	accessTokenCache TokenCache
 	roleTokenCache   TokenCache
 
@@ -65,19 +64,13 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 	tokenExpiryInSecond := int(idConfig.TokenExpiry.Seconds())
 	accessTokenCache := NewLockedTokenCache("accesstoken")
 	roleTokenCache := NewLockedTokenCache("roletoken")
-	targets := strings.Split(idConfig.TargetDomainRoles, ",")
-	if idConfig.TargetDomainRoles != "" || len(targets) != 1 {
-		for _, dr := range targets {
-			domain, role, err := athenz.SplitRoleName(dr)
-			if err != nil {
-				return nil, fmt.Errorf("Invalid TargetDomainRoles[%s]: %s", idConfig.TargetDomainRoles, err.Error())
-			}
-			if tt&mACCESS_TOKEN != 0 {
-				accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond}, &AccessToken{})
-			}
-			if tt&mROLE_TOKEN != 0 {
-				roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &RoleToken{})
-			}
+	for _, dr := range idConfig.TargetDomainRoles {
+		domain, role := dr.Domain, dr.Role
+		if tt&mACCESS_TOKEN != 0 {
+			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond}, &AccessToken{})
+		}
+		if tt&mROLE_TOKEN != 0 {
+			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &RoleToken{})
 		}
 	}
 
@@ -160,6 +153,70 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 	}, nil
 }
 
+// GroupDoResult contains token and its requestID after singleFlight.group.Do()
+type GroupDoResult struct {
+	requestID string
+	token     Token
+}
+
+// requestTokenToZts sends a request to ZTS server to fetch either role token or access token.
+// for mode, it only accepts mROLE_TOKEN or mACCESS_TOKEN
+// it also stores in cache for you after successful fetch.
+func (d *daemon) requestTokenToZts(k CacheKey, m mode, requestID string) (GroupDoResult, error) {
+	tokenName := "" // tokenName is used for logger (role token or access token only)
+	isRoleTokenRequested := m == mROLE_TOKEN
+	isAccessTokenRequested := m == mACCESS_TOKEN
+
+	if isRoleTokenRequested {
+		tokenName = "role token"
+	} else if isAccessTokenRequested {
+		tokenName = "access token"
+	} else {
+		return GroupDoResult{requestID: requestID, token: nil}, fmt.Errorf("Invalid mode: %d", m)
+	}
+
+	log.Debugf("Attempting to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+
+	r, err, shared := d.group.Do(k.UniqueId(tokenName), func() (interface{}, error) {
+		// define variables before request to ZTS
+		var fetchedToken Token
+		var err error
+
+		if isRoleTokenRequested {
+			fetchedToken, err = fetchRoleToken(d.ztsClient, k)
+		} else { // isAccessTokenRequested
+			fetchedToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
+		}
+
+		if err != nil {
+			log.Debugf("Failed to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+			return GroupDoResult{requestID: requestID, token: nil}, err
+		}
+
+		if isRoleTokenRequested {
+			d.roleTokenCache.Store(k, fetchedToken)
+		} else { // isAccessTokenRequested
+			d.accessTokenCache.Store(k, fetchedToken)
+		}
+
+		log.Infof("Successfully updated %s cache: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+		return GroupDoResult{requestID: requestID, token: fetchedToken}, nil
+	})
+
+	result := r.(GroupDoResult)
+	log.Debugf("requestID: [%s] handledRequestId: [%s] target: [%s]", requestID, result.requestID, k.String())
+
+	if shared && result.requestID != requestID { // if it is shared and not the actual performer:
+		if err == nil {
+			log.Infof("Successfully updated %s cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", tokenName, k.String(), result.requestID, requestID)
+		} else {
+			log.Debugf("Failed to fetch %s while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", tokenName, k.String(), result.requestID, requestID, err)
+		}
+	}
+
+	return result, err
+}
+
 func (d *daemon) updateTokenCaches() <-chan error {
 	var atErrorCount, rtErrorCount atomic.Int64
 	atTargets := d.accessTokenCache.Keys()
@@ -216,22 +273,12 @@ func (d *daemon) updateTokenWithRetry(key CacheKey, tt mode) error {
 
 func (d *daemon) updateToken(key CacheKey, tt mode) error {
 	updateAccessToken := func(key CacheKey) error {
-		at, err := fetchAccessToken(d.ztsClient, key, d.saService)
-		if err != nil {
-			return err
-		}
-		d.accessTokenCache.Store(key, at)
-		log.Debugf("Successfully received token from Athenz ZTS server: accessTokens(%s, len=%d)", key, len(at.Raw()))
-		return nil
+		_, err := d.requestTokenToZts(key, mACCESS_TOKEN, "daemon_access_token_update")
+		return err
 	}
 	updateRoleToken := func(key CacheKey) error {
-		rt, err := fetchRoleToken(d.ztsClient, key)
-		if err != nil {
-			return err
-		}
-		d.roleTokenCache.Store(key, rt)
-		log.Debugf("Successfully received token from Athenz ZTS server: roleTokens(%s, len=%d)", key, len(rt.Raw()))
-		return nil
+		_, err := d.requestTokenToZts(key, mROLE_TOKEN, "daemon_role_token_update")
+		return err
 	}
 
 	switch tt {
@@ -273,7 +320,7 @@ func (d *daemon) writeFiles() error {
 		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
 		log.Debugf("Saving Access Token[%d bytes] at %s", len(at), outPath)
 		if err := w.AddBytes(outPath, 0644, []byte(at)); err != nil {
-			return errors.Wrap(err, "unable to save access token")
+			return fmt.Errorf("unable to save access token: %w", err)
 		}
 		return nil
 	})
@@ -288,7 +335,7 @@ func (d *daemon) writeFiles() error {
 		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
 		log.Debugf("Saving Role Token[%d bytes] at %s", len(rt), outPath)
 		if err := w.AddBytes(outPath, 0644, []byte(rt)); err != nil {
-			return errors.Wrap(err, "unable to save role token")
+			return fmt.Errorf("unable to save role token: %w", err)
 		}
 		return nil
 	})
@@ -351,7 +398,7 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 			return httpServer.ListenAndServe()
 		}
 		if err := listenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Errorf("Failed to start token provider: %s", err.Error())
+			log.Fatalf("Failed to start token provider: %s", err.Error())
 		}
 		close(serverDone)
 	}()
@@ -380,6 +427,7 @@ func Tokend(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <
 				defer cancel()
 				httpServer.SetKeepAlivesEnabled(false)
 				if err := httpServer.Shutdown(ctx); err != nil {
+					// graceful shutdown error should be fatal
 					log.Fatalf("Failed to shutdown token provider: %s", err.Error())
 				}
 				<-serverDone
