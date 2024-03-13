@@ -123,7 +123,7 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 		return nil, err
 	}
 
-	ztsClient, err := newZTSClient(idConfig.KeyFile, idConfig.CertFile, idConfig.ServerCACert, idConfig.Endpoint)
+	ztsClient, err := newZTSClient(idConfig.Reloader, idConfig.ServerCACert, idConfig.Endpoint)
 	if err != nil {
 		return nil, err
 	}
