@@ -361,12 +361,12 @@ func (cs *certService) Shutdown() {
 	}
 }
 
-// newExponentialBackOff returns a backoff config with first retry delay of 5s
-func newExponentialBackOff(ctx context.Context, maxElapsedTime time.Duration) *backoff.ExponentialBackOff {
+// newExponentialBackOff returns a backoff config with first retry delay of 5s. Allow cancel by context.
+func newExponentialBackOff(ctx context.Context, maxElapsedTime time.Duration) backoff.BackOff {
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = 5 * time.Second
 	b.Multiplier = 2
 	b.MaxElapsedTime = maxElapsedTime
-	backoff.WithContext(b, ctx)
-	return b
+
+	return backoff.WithContext(b, ctx)
 }

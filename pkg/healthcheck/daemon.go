@@ -81,6 +81,7 @@ func (hs *hcService) Start(ctx context.Context) error {
 			if err := hs.hcServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				log.Fatalf("Failed to start health check server: %s", err.Error())
 			}
+			log.Info("Stopped health check server")
 		}()
 	}
 
@@ -102,7 +103,6 @@ func (hs *hcService) Shutdown() {
 		if err != nil && err != context.Canceled {
 			log.Errorf("Failed to shutdown health check server: %s", err.Error())
 		}
-		log.Info("Stopped health check server")
 	}
 
 	// wait for graceful shutdown

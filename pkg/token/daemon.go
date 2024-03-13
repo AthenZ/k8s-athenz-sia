@@ -187,6 +187,7 @@ func (ts *tokenService) Start(ctx context.Context) error {
 			if err := listenAndServe(); err != nil && err != http.ErrServerClosed {
 				log.Fatalf("Failed to start token provider: %s", err.Error())
 			}
+			log.Info("Stopped token server")
 		}()
 	}
 
@@ -254,7 +255,6 @@ func (ts *tokenService) Shutdown() {
 			// graceful shutdown error or timeout should be fatal
 			log.Errorf("Failed to shutdown token provider: %s", err.Error())
 		}
-		log.Info("Stopped token server")
 	}
 
 	// wait for graceful shutdown
@@ -313,7 +313,6 @@ func (ts *tokenService) updateTokenWithRetry(ctx context.Context, maxElapsedTime
 	b.InitialInterval = 5 * time.Second
 	b.Multiplier = 2
 	b.MaxElapsedTime = maxElapsedTime
-	backoff.WithContext(b, ctx)
 
 	operation := func() error {
 		return ts.updateToken(key, tt)
@@ -321,7 +320,7 @@ func (ts *tokenService) updateTokenWithRetry(ctx context.Context, maxElapsedTime
 	notifyOnErr := func(err error, backoffDelay time.Duration) {
 		log.Errorf("Failed to refresh tokens: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
-	return backoff.RetryNotify(operation, b, notifyOnErr)
+	return backoff.RetryNotify(operation, backoff.WithContext(b, ctx), notifyOnErr)
 }
 
 func (d *tokenService) updateToken(key CacheKey, tt mode) error {
@@ -360,9 +359,8 @@ func (ts *tokenService) writeFilesWithRetry(ctx context.Context, maxElapsedTime 
 	b.InitialInterval = 5 * time.Second
 	b.Multiplier = 2
 	b.MaxElapsedTime = maxElapsedTime
-	backoff.WithContext(b, ctx)
 
-	return backoff.RetryNotify(ts.writeFiles, b, func(err error, backoffDelay time.Duration) {
+	return backoff.RetryNotify(ts.writeFiles, backoff.WithContext(b, ctx), func(err error, backoffDelay time.Duration) {
 		log.Errorf("Failed to write token files: %s. Retrying in %s", err.Error(), backoffDelay)
 	})
 }
