@@ -106,14 +106,16 @@ func fetchAccessToken(ztsClient *zts.ZTSClient, t CacheKey, saService string) (*
 
 func fetchRoleToken(ztsClient *zts.ZTSClient, t CacheKey) (*RoleToken, error) {
 	var minExpiry, maxExpiry *int32
-	if t.MinExpiry != 0 {
+	if t.MinExpiry > 0 {
 		e := int32(t.MinExpiry)
 		minExpiry = &e
 	}
-	if t.MaxExpiry != 0 {
-		e := int32(t.MaxExpiry)
-		maxExpiry = &e
-	}
+	// To prevent the Role Token's expiration from being shorter than the ZTS server's default value,
+	// we will ignore the maxExpiry setting value in the request body.
+	// if t.MaxExpiry > 0 {
+	// 	e := int32(t.MaxExpiry)
+	// 	maxExpiry = &e
+	// }
 	roletokenResponse, err := ztsClient.GetRoleToken(zts.DomainName(t.Domain), zts.EntityList(t.Role), minExpiry, maxExpiry, zts.EntityName(t.ProxyForPrincipal))
 	if err != nil || roletokenResponse.Token == "" {
 		return nil, fmt.Errorf("GetRoleToken failed for target [%s], err: %v", t.String(), err)
