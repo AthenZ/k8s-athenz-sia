@@ -165,7 +165,7 @@ func main() {
 	certService.Shutdown()
 
 	if errors.Is(context.Cause(runCtx), causeByStartFailed) {
-		log.Fatalf("Shutdown failed by caused: %s", context.Cause(runCtx).Error())
+		log.Fatalf("Start failed by caused: %s", context.Cause(runCtx).Error())
 	}
 	log.Infoln("Shutdown completed!")
 }
