@@ -94,16 +94,15 @@ func postRoleToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 
 	// cache lookup (token TTL must >= 1 minute)
 	rToken := ts.roleTokenCache.Load(k)
+	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
+	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
-		// on cache miss, fetch token from Athenz ZTS server
-		rToken, err = fetchRoleToken(ts.ztsClient, k)
+		res, resErr := ts.requestTokenToZts(k, mROLE_TOKEN, requestID)
+		err = resErr // assign error for defer
 		if err != nil {
 			return
 		}
-		// update cache
-		ts.roleTokenCache.Store(k, rToken)
-		log.Infof("Successfully updated role token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
+		rToken = res.token
 	}
 
 	// check context cancelled
@@ -177,16 +176,15 @@ func postAccessToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 
 	// cache lookup (token TTL must >= 1 minute)
 	aToken := ts.accessTokenCache.Load(k)
+	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
+	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
-		// on cache miss, fetch token from Athenz ZTS server
-		aToken, err = fetchAccessToken(ts.ztsClient, k, ts.saService)
+		res, resErr := ts.requestTokenToZts(k, mACCESS_TOKEN, requestID)
+		err = resErr // assign error for defer
 		if err != nil {
 			return
 		}
-		// update cache
-		ts.accessTokenCache.Store(k, aToken)
-		log.Infof("Successfully updated access token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
+		aToken = res.token
 	}
 
 	// check context cancelled
