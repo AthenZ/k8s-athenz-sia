@@ -173,7 +173,7 @@ func (ts *tokenService) Start(ctx context.Context) error {
 
 	// starts the token server
 	if ts.tokenServer != nil {
-		log.Infof("Starting token provider[%s]", ts.tokenServer.Addr)
+		log.Infof("Starting token provider server[%s]", ts.tokenServer.Addr)
 		ts.shutdownWg.Add(1)
 		go func() {
 			defer ts.shutdownWg.Done()
@@ -185,10 +185,16 @@ func (ts *tokenService) Start(ctx context.Context) error {
 				return ts.tokenServer.ListenAndServe()
 			}
 			if err := listenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("Failed to start token provider: %s", err.Error())
+				log.Fatalf("Failed to start token provider server: %s", err.Error())
 			}
-			log.Info("Stopped token server")
+			log.Info("Stopped token provider server")
 		}()
+
+		if err := daemon.WaitForServerReady(ts.tokenServer.Addr, ts.tokenServer.TLSConfig != nil); err != nil {
+			log.Errorf("Failed to confirm token provider server ready: %s", err.Error())
+			return err
+		}
+		ts.tokenServerRunning = true
 	}
 
 	// refreshes tokens periodically
@@ -236,9 +242,6 @@ func (ts *tokenService) Start(ctx context.Context) error {
 		}
 	}()
 
-	// TODO: check server running status
-	ts.tokenServerRunning = true
-
 	return nil
 }
 
@@ -247,13 +250,15 @@ func (ts *tokenService) Shutdown() {
 	close(ts.shutdownChan)
 
 	if ts.tokenServer != nil && ts.tokenServerRunning {
+		log.Infof("Delaying token provider server shutdown for %s to shutdown gracefully ...", ts.shutdownDelay.String())
 		time.Sleep(ts.shutdownDelay)
+
 		ctx, cancel := context.WithTimeout(context.Background(), ts.shutdownTimeout)
 		defer cancel()
 		ts.tokenServer.SetKeepAlivesEnabled(false)
 		if err := ts.tokenServer.Shutdown(ctx); err != nil {
 			// graceful shutdown error or timeout should be fatal
-			log.Errorf("Failed to shutdown token provider: %s", err.Error())
+			log.Errorf("Failed to shutdown token provider server: %s", err.Error())
 		}
 	}
 
@@ -377,6 +382,11 @@ func (d *tokenService) writeFiles() error {
 		domain := t.Domain()
 		role := t.Role()
 		at := t.Raw()
+		if at == "" {
+			// skip placeholder token added during daemon creation
+			return nil
+		}
+
 		log.Infof("[New Access Token] Domain: %s, Role: %s", domain, role)
 		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
 		log.Debugf("Saving Access Token[%d bytes] at %s", len(at), outPath)
@@ -392,6 +402,11 @@ func (d *tokenService) writeFiles() error {
 		domain := t.Domain()
 		role := t.Role()
 		rt := t.Raw()
+		if rt == "" {
+			// skip placeholder token added during daemon creation
+			return nil
+		}
+
 		log.Infof("[New Role Token] Domain: %s, Role: %s", domain, role)
 		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
 		log.Debugf("Saving Role Token[%d bytes] at %s", len(rt), outPath)

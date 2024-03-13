@@ -16,7 +16,6 @@ package metrics
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -106,21 +105,22 @@ func (ms *metricsService) Start(ctx context.Context) error {
 	}
 
 	if ms.exporter != nil {
-		log.Infof("Starting metrics exporter[%s]", ms.idCfg.MetricsServerAddr)
+		log.Infof("Starting metrics exporter server[%s]", ms.idCfg.MetricsServerAddr)
 		ms.shutdownWg.Add(1)
 		go func() {
 			defer ms.shutdownWg.Done()
 			if err := ms.exporter.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("Failed to start metrics exporter: %s", err.Error())
+				log.Fatalf("Failed to start metrics exporter server: %s", err.Error())
 			}
 			log.Info("Stopped metrics exporter server")
 		}()
+
+		if err := daemon.WaitForServerReady(ms.exporter.ListenAddress, false); err != nil {
+			log.Errorf("Failed to confirm metrics exporter server ready: %s", err.Error())
+			return err
+		}
+		ms.exporterRunning = true
 	}
-
-	// TODO: check server running status
-	ms.exporterRunning = true
-
-	return fmt.Errorf("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
 
 	return nil
 }
@@ -133,7 +133,7 @@ func (ms *metricsService) Shutdown() {
 		err := ms.exporter.Shutdown() // context.Background() is used, no timeout
 		// P.S. Make sure to use the httpChecker to ensure ListenAndServe() is finished before Shutdown() is called. If ListenAndServe() does not finish creating the server object before Shutdown() is called, the internal server field will be nil and Shutdown() be a no-op. ListenAndServe() will block and cause deadlock.
 		if err != nil {
-			log.Errorf("Failed to shutdown metrics exporter: %s", err.Error())
+			log.Errorf("Failed to shutdown metrics exporter server: %s", err.Error())
 		}
 	}
 
