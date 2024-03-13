@@ -82,13 +82,15 @@ func postRoleToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	if rtRequest.ProxyForPrincipal != nil {
 		k.ProxyForPrincipal = *rtRequest.ProxyForPrincipal
 	}
-	if rtRequest.MinExpiry != nil {
+	if rtRequest.MinExpiry != nil && *rtRequest.MinExpiry > 0 {
 		k.MinExpiry = *rtRequest.MinExpiry
 	}
-	if rtRequest.MaxExpiry != nil {
-		k.MaxExpiry = *rtRequest.MaxExpiry
-	}
-	if k.MinExpiry == 0 {
+	// To prevent the Role Token's expiration from being shorter than the ZTS server's default value,
+	// we will ignore the maxExpiry setting value in the request body.
+	// if rtRequest.MaxExpiry != nil && *rtRequest.MaxExpiry > 0{
+	// 	k.MaxExpiry = *rtRequest.MaxExpiry
+	// }
+	if k.MinExpiry == 0 && ts.tokenExpiryInSecond > 0 {
 		k.MinExpiry = ts.tokenExpiryInSecond
 	}
 
@@ -167,10 +169,10 @@ func postAccessToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	if atRequest.ProxyForPrincipal != nil {
 		k.ProxyForPrincipal = *atRequest.ProxyForPrincipal
 	}
-	if atRequest.Expiry != nil {
+	if atRequest.Expiry != nil && *atRequest.Expiry > 0 {
 		k.MaxExpiry = *atRequest.Expiry
 	}
-	if k.MaxExpiry == 0 {
+	if k.MaxExpiry == 0 && ts.tokenExpiryInSecond > 0 {
 		k.MaxExpiry = ts.tokenExpiryInSecond
 	}
 
