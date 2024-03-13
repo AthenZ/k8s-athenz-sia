@@ -39,7 +39,7 @@ type certService struct {
 	run     func() error
 }
 
-func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemon) {
+func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
 	if ctx.Err() != nil {
 		log.Info("Skipped certificate provider initiation")
 		return nil, nil
@@ -56,7 +56,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 	handler, err := InitIdentityHandler(idCfg)
 	if err != nil {
 		log.Errorf("Failed to initialize client for certificates: %s", err.Error())
-		return err, nil
+		return nil, err
 	}
 
 	// identity & keyPEM will be STORED to the local file system:
@@ -291,18 +291,18 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 		// mode=init, must output preset certificates
 		if idCfg.Init {
 			log.Errorf("Failed to get initial certificates after multiple retries for init mode: %s", err.Error())
-			return err, nil
+			return nil, err
 		}
 		// mode=refresh, on retry error, ignore and continue server startup
 		log.Errorf("Failed to get initial certificates after multiple retries for refresh mode: %s, will try to continue startup process...", err.Error())
 	}
 
-	return nil, &certService{
+	return &certService{
 		shutdownChan: make(chan struct{}, 1),
 		idCfg:        idCfg,
 		handler:      handler,
 		run:          run,
-	}
+	}, nil
 }
 
 // Start refreshes certificates periodically

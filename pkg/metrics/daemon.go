@@ -39,7 +39,7 @@ type metricsService struct {
 	exporterRunning bool
 }
 
-func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemon) {
+func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
 	if ctx.Err() != nil {
 		log.Info("Skipped metrics exporter initiation")
 		return nil, nil
@@ -53,11 +53,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 	// check initialization skip
 	if idCfg.Init {
 		log.Infof("Metrics exporter is disabled for init mode: address[%s]", idCfg.MetricsServerAddr)
-		return nil, ms
+		return ms, nil
 	}
 	if idCfg.MetricsServerAddr == "" {
 		log.Infof("Metrics exporter is disabled with empty options: address[%s]", idCfg.MetricsServerAddr)
-		return nil, ms
+		return ms, nil
 	}
 
 	// https://github.com/enix/x509-certificate-exporter
@@ -94,7 +94,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 	}
 
 	ms.exporter = &exporter
-	return nil, ms
+	return ms, nil
 }
 
 // Start starts the metrics exporter

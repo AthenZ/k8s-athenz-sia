@@ -111,19 +111,19 @@ func main() {
 	}()
 
 	// initiate background services
-	err, certService := certificate.New(initCtx, idCfg)
+	certService, err := certificate.New(initCtx, idCfg)
 	if err != nil {
 		log.Fatalf("Error initiating certificate provider: %s", err.Error())
 	}
-	err, tokenService := token.New(initCtx, idCfg)
+	tokenService, err := token.New(initCtx, idCfg)
 	if err != nil {
 		log.Fatalf("Error initiating token provider: %s", err.Error())
 	}
-	err, metricsService := metrics.New(initCtx, idCfg)
+	metricsService, err := metrics.New(initCtx, idCfg)
 	if err != nil {
 		log.Fatalf("Error initiating metrics exporter: %s", err.Error())
 	}
-	err, hcService := healthcheck.New(initCtx, idCfg)
+	hcService, err := healthcheck.New(initCtx, idCfg)
 	if err != nil {
 		log.Fatalf("Error initiating health check: %s", err.Error())
 	}

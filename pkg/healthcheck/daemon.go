@@ -35,7 +35,7 @@ type hcService struct {
 	hcServerRunning bool
 }
 
-func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemon) {
+func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
 	if ctx.Err() != nil {
 		log.Info("Skipped health check initiation")
 		return nil, nil
@@ -49,11 +49,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 	// check initialization skip
 	if idCfg.Init {
 		log.Infof("Health check server is disabled for init mode: address[%s]", idCfg.HealthCheckAddr)
-		return nil, hs
+		return hs, nil
 	}
 	if idCfg.HealthCheckAddr == "" {
 		log.Infof("Health check server is disabled with empty options: address[%s]", idCfg.HealthCheckAddr)
-		return nil, hs
+		return hs, nil
 	}
 
 	mux := http.NewServeMux()
@@ -63,7 +63,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 		Handler: mux,
 	}
 
-	return nil, hs
+	return hs, nil
 }
 
 // Start starts the health check server

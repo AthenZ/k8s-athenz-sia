@@ -66,7 +66,7 @@ type tokenService struct {
 	shutdownTimeout time.Duration
 }
 
-func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemon) {
+func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
 	if ctx.Err() != nil {
 		log.Info("Skipped token provider initiation")
 		return nil, nil
@@ -80,7 +80,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 	tt := newType(idCfg.TokenType)
 	if idCfg.TokenServerAddr == "" || tt == 0 {
 		log.Infof("Token server is disabled due to insufficient options: address[%s], roles[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TargetDomainRoles, idCfg.TokenType)
-		return nil, ts
+		return ts, nil
 	}
 
 	// initialize token cache with placeholder
@@ -100,7 +100,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 	// TODO: take care of merge conflict
 	ztsClient, err := newZTSClient(idCfg.KeyFile, idCfg.CertFile, idCfg.ServerCACert, idCfg.Endpoint)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	saService := extutil.ServiceAccountToService(idCfg.ServiceAccount)
@@ -112,10 +112,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 
 	// register prometheus metrics
 	if err := prometheus.Register(accessTokenCache); err != nil {
-		return err, nil
+		return nil, err
 	}
 	if err := prometheus.Register(roleTokenCache); err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	// setup token service
@@ -148,7 +148,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 	// create token server
 	if idCfg.Init {
 		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServerAddr)
-		return nil, ts
+		return ts, nil
 	}
 	tokenServer := &http.Server{
 		Addr:      idCfg.TokenServerAddr,
@@ -158,12 +158,12 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 	if idCfg.TokenServerTLSCertPath != "" && idCfg.TokenServerTLSKeyPath != "" {
 		tokenServer.TLSConfig, err = NewTLSConfig(idCfg.TokenServerTLSCAPath, idCfg.TokenServerTLSCertPath, idCfg.TokenServerTLSKeyPath)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
 	}
 	ts.tokenServer = tokenServer
 
-	return nil, ts
+	return ts, nil
 }
 
 // Start starts the token server, refreshes tokens periodically and reports memory usage periodically
