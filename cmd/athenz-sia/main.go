@@ -130,7 +130,7 @@ func main() {
 
 	// mode=init, end the process
 	if initCtx.Err() != nil {
-		log.Infof("Init stopped by cause: %s ...", context.Cause(initCtx).Error())
+		log.Infof("Init stopped by cause: %s", context.Cause(initCtx).Error())
 		return
 	}
 	if idCfg.Init {
