@@ -283,7 +283,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 	}
 
 	// initialize with retry
-	ebo := newExponentialBackOff(ctx, idCfg.Refresh/4)
+	ebo := newExponentialBackOff(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT)
 	err = backoff.RetryNotify(run, ebo, func(err error, backoffDelay time.Duration) {
 		log.Errorf("Failed to get initial certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 	})

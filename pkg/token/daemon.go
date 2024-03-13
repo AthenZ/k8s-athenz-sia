@@ -133,12 +133,12 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (error, daemon.Daemo
 
 	// initialize tokens on mode=refresh or TOKEN_DIR is set
 	if !idCfg.Init || idCfg.TokenDir != "" {
-		errs := ts.updateTokenCaches(ctx, idCfg.TokenRefresh/4)
+		errs := ts.updateTokenCaches(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT)
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
 		for _, err := range errs {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 		}
-		if err := ts.writeFilesWithRetry(ctx, idCfg.TokenRefresh/4); err != nil {
+		if err := ts.writeFilesWithRetry(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT); err != nil {
 			log.Errorf("Failed to write token files after multiple retries: %s", err.Error())
 		}
 	}
