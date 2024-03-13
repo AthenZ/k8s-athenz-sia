@@ -36,6 +36,11 @@ func newZTSClient(reloader *util.CertReloader, serverCAPath, endpoint string) (*
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
+
+	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		return reloader.GetLatestCertificate()
+	}
+
 	if serverCAPath != "" {
 		certPool := x509.NewCertPool()
 		caCert, err := os.ReadFile(serverCAPath)
@@ -44,15 +49,6 @@ func newZTSClient(reloader *util.CertReloader, serverCAPath, endpoint string) (*
 		}
 		certPool.AppendCertsFromPEM(caCert)
 		tlsConfig.RootCAs = certPool
-	}
-	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		cert, err := reloader.GetLatestCertificate()
-		if err != nil {
-			log.Warnf("Error while reading client x509 certificate from cert reloader: %s", err.Error())
-			return nil, err
-		}
-		log.Debugf("Successfully loaded client x509 certificate from cert reloader.")
-		return cert, nil
 	}
 
 	t := http.DefaultTransport.(*http.Transport).Clone()

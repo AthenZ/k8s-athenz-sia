@@ -36,6 +36,7 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
+	"github.com/AthenZ/athenz/libs/go/athenzutils"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
@@ -208,37 +209,45 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 }
 
 // GetX509RoleCert makes ZTS API calls to generate an X.509 role certificate
-func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), err error) {
+func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), roleKeyPEM []byte, err error) {
 
-	cert, err := h.config.Reloader.GetLatestCertificate()
+	keyPEM, certPEM, err := h.config.Reloader.GetLatestKeyAndCert()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to load tls client key pair for PostRoleCertificateRequest, err: %v", err)
+		return nil, nil, fmt.Errorf("Failed to load tls client key pair from cert reloader for PostRoleCertificateRequest, err: %v", err)
+	}
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Failed to load tls client key pair for PostRoleCertificateRequest, err: %v", err)
 	}
 
 	x509LeafCert, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse identity certificate for PostRoleCertificateRequest, err: %v", err)
+		return nil, nil, fmt.Errorf("Failed to parse identity certificate from cert reloader for PostRoleCertificateRequest, err: %v", err)
 	}
 	domain, service, err := extractServiceDetailsFromCert(x509LeafCert)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	roleCsrOptions, err := PrepareRoleCsrOptions(h.config, domain, service)
 	if err != nil || roleCsrOptions == nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.TLSClientConfig = &tls.Config{
-		MinVersion:   tls.VersionTLS12,
-		Certificates: []tls.Certificate{*cert},
+		MinVersion: tls.VersionTLS12,
 	}
+
+	t.TLSClientConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		return &cert, nil
+	}
+
 	if h.config.ServerCACert != "" {
 		certPool := x509.NewCertPool()
 		caCert, err := os.ReadFile(h.config.ServerCACert)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to load tls client ca certificate for PostRoleCertificateRequest, err: %v", err)
+			return nil, nil, fmt.Errorf("Failed to load tls client ca certificate for PostRoleCertificateRequest, err: %v", err)
 		}
 		certPool.AppendCertsFromPEM(caCert)
 		t.TLSClientConfig.RootCAs = certPool
@@ -252,16 +261,16 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), err
 	// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
 	roleCertClient := zts.NewClient(h.config.Endpoint, t)
 
-	key, ok := cert.PrivateKey.(crypto.Signer)
-	if !ok {
-		return nil, fmt.Errorf("Failed to load private key for PostRoleCertificateRequest, err: %v", err)
+	key, err := PrivateKeyFromPEMBytes(keyPEM)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Failed to prepare csr, failed to read private key pem bytes for PostRoleCertificateRequest, err: %v", err)
 	}
 
 	var intermediateCerts string
 	if h.config.IntermediateCertBundle != "" {
 		intermediateCertBundle, err := roleCertClient.GetCertificateAuthorityBundle(zts.SimpleName(h.config.IntermediateCertBundle))
 		if err != nil || intermediateCertBundle == nil || intermediateCertBundle.Certs == "" {
-			return nil, fmt.Errorf("GetCertificateAuthorityBundle failed for role certificate, err: %v", err)
+			return nil, nil, fmt.Errorf("GetCertificateAuthorityBundle failed for role certificate, err: %v", err)
 		}
 		intermediateCerts = intermediateCertBundle.Certs
 	}
@@ -270,11 +279,11 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), err
 		dr := strings.Split(csrOption.Subject.CommonName, ":role.")
 		roleCsrPEM, err := util.GenerateCSR(key, csrOption)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to prepare csr, failed to generate csr for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
+			return nil, nil, fmt.Errorf("Failed to prepare csr, failed to generate csr for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
 		}
 		x509LeafCert, err := x509.ParseCertificate(cert.Certificate[0])
 		if err != nil {
-			return nil, fmt.Errorf("Failed to prepare csr, failed to parse certificate for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
+			return nil, nil, fmt.Errorf("Failed to prepare csr, failed to parse certificate for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
 		}
 		roleRequest := &zts.RoleCertificateRequest{
 			Csr:        string(roleCsrPEM),
@@ -283,11 +292,11 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), err
 
 		roleCert, err := roleCertClient.PostRoleCertificateRequestExt(roleRequest)
 		if err != nil {
-			return nil, fmt.Errorf("PostRoleCertificateRequest failed for principal[%s.%s] to get Role Subject CommonName[%s], err: %v", domain, service, csrOption.Subject.CommonName, err)
+			return nil, nil, fmt.Errorf("PostRoleCertificateRequest failed for principal[%s.%s] to get Role Subject CommonName[%s], err: %v", domain, service, csrOption.Subject.CommonName, err)
 		}
 		x509RoleCert, err := util.CertificateFromPEMBytes([]byte(roleCert.X509Certificate))
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse x509 certificate for PostRoleCertificateRequest response, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
+			return nil, nil, fmt.Errorf("Failed to parse x509 certificate for PostRoleCertificateRequest response, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
 		}
 		rolecerts = append(rolecerts, &RoleCertificate{
 			Domain:          dr[0],
@@ -303,7 +312,7 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), err
 
 	}
 
-	return rolecerts, err
+	return rolecerts, keyPEM, nil
 }
 
 // DeleteX509CertRecord makes ZTS API calls to delete the X.509 certificate record
@@ -469,4 +478,14 @@ func extractServiceDetailsFromCert(cert *x509.Certificate) (string, string, erro
 		return "", "", fmt.Errorf("Failed to determine domain/service from certificate: CommonName[%s], URIs[%v]", cert.Subject.CommonName, cert.URIs)
 	}
 	return cn[:idx], cn[idx+1:], nil
+}
+
+// PrivateKeyFromPEMBytes returns a private key along with its type from its supplied
+// PEM representation.
+func PrivateKeyFromPEMBytes(privatePEMBytes []byte) (crypto.Signer, error) {
+	k, _, err := athenzutils.ExtractSignerInfo(privatePEMBytes)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid private key bytes: %w", err)
+	}
+	return k, nil
 }
