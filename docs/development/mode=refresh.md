@@ -146,7 +146,7 @@ Process 5378 has exited with status 0
 ```
 
 
-### 002
+### 001
 ```text
 Type 'dlv help' for list of commands.
 WARNING[2024-03-14T12:26:01+09:00] Rotating KEY_FILE[./.local/private.key] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file. 
