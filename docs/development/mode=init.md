@@ -253,15 +253,15 @@ Process 5378 has exited with status 1
 
 ```text
 ...
-INFO[2024-03-14T01:16:50+09:00] Token cache updated. accesstoken:success[1],error[1]; roletoken:success[1],error[1] 
-ERROR[2024-03-14T01:16:50+09:00] Failed to refresh tokens after multiple retries: GetRoleToken failed for target [{user.wfan.provider:role.retry,,0,0}], err: 403 getroletoken: principal user.wfan.instance.mac is not included in the requested role(s) in domain user.wfan.provider 
-ERROR[2024-03-14T01:16:50+09:00] Failed to refresh tokens after multiple retries: PostAccessTokenRequest failed for target [{user.wfan.provider:role.retry,,0,0}], err: 403 postaccesstokenrequest: principal user.wfan.instance.mac is not included in the requested role(s) in domain user.wfan.provider 
-INFO[2024-03-14T01:16:50+09:00] [New Access Token] Domain: user.wfan.provider, Role: dummy-role 
-INFO[2024-03-14T01:16:50+09:00] [New Role Token] Domain: user.wfan.provider, Role: dummy-role 
-INFO[2024-03-14T01:16:50+09:00] Token server is disabled for init mode: address[:8880] 
-INFO[2024-03-14T01:16:50+09:00] Metrics exporter is disabled for init mode: address[:9999] 
-INFO[2024-03-14T01:16:50+09:00] Health check server is disabled for init mode: address[:9998] 
-INFO[2024-03-14T01:16:50+09:00] Init completed!                              
+INFO[2024-03-14T01:16:50+09:00] Token cache updated. accesstoken:success[1],error[1]; roletoken:success[1],error[1]
+ERROR[2024-03-14T01:16:50+09:00] Failed to refresh tokens after multiple retries: GetRoleToken failed for target [{user.wfan.provider:role.retry,,0,0}], err: 403 getroletoken: principal user.wfan.instance.mac is not included in the requested role(s) in domain user.wfan.provider
+ERROR[2024-03-14T01:16:50+09:00] Failed to refresh tokens after multiple retries: PostAccessTokenRequest failed for target [{user.wfan.provider:role.retry,,0,0}], err: 403 postaccesstokenrequest: principal user.wfan.instance.mac is not included in the requested role(s) in domain user.wfan.provider
+INFO[2024-03-14T01:16:50+09:00] [New Access Token] Domain: user.wfan.provider, Role: dummy-role
+INFO[2024-03-14T01:16:50+09:00] [New Role Token] Domain: user.wfan.provider, Role: dummy-role
+INFO[2024-03-14T01:16:50+09:00] Token server is disabled for init mode: address[:8880]
+INFO[2024-03-14T01:16:50+09:00] Metrics exporter is disabled for init mode: address[:9999]
+INFO[2024-03-14T01:16:50+09:00] Health check server is disabled for init mode: address[:9998]
+INFO[2024-03-14T01:16:50+09:00] Init completed!
 Process 5378 has exited with status 0
 ```
 
@@ -269,9 +269,9 @@ Process 5378 has exited with status 0
 
 ```text
 ...
-INFO[2024-03-14T01:20:10+09:00] [New Access Token] Domain: user.wfan.provider, Role: dummy-role 
-INFO[2024-03-14T01:20:10+09:00] [New Role Token] Domain: user.wfan.provider, Role: dummy-role 
-FATAL[2024-03-14T01:20:10+09:00] Error initiating token provider: test error  
+INFO[2024-03-14T01:20:10+09:00] [New Access Token] Domain: user.wfan.provider, Role: dummy-role
+INFO[2024-03-14T01:20:10+09:00] [New Role Token] Domain: user.wfan.provider, Role: dummy-role
+FATAL[2024-03-14T01:20:10+09:00] Error initiating token provider: test error
 Process 23905 has exited with status 1
 ```
 
@@ -279,8 +279,8 @@ Process 23905 has exited with status 1
 
 ```text
 ...
-INFO[2024-03-14T01:21:27+09:00] Token server is disabled for init mode: address[:8880] 
-FATAL[2024-03-14T01:21:27+09:00] Error initiating metrics exporter: test error 
+INFO[2024-03-14T01:21:27+09:00] Token server is disabled for init mode: address[:8880]
+FATAL[2024-03-14T01:21:27+09:00] Error initiating metrics exporter: test error
 Process 24533 has exited with status 1
 ```
 
@@ -288,9 +288,9 @@ Process 24533 has exited with status 1
 
 ```text
 ...
-INFO[2024-03-14T01:23:13+09:00] Token server is disabled for init mode: address[:8880] 
-INFO[2024-03-14T01:23:13+09:00] Metrics exporter is disabled for init mode: address[:9999] 
-FATAL[2024-03-14T01:23:13+09:00] Error initiating health check: test error   
+INFO[2024-03-14T01:23:13+09:00] Token server is disabled for init mode: address[:8880]
+INFO[2024-03-14T01:23:13+09:00] Metrics exporter is disabled for init mode: address[:9999]
+FATAL[2024-03-14T01:23:13+09:00] Error initiating health check: test error
 Process 25220 has exited with status 1
 ```
 </details>
