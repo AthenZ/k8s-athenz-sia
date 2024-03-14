@@ -97,8 +97,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		}
 	}
 
-	// TODO: take care of merge conflict
-	ztsClient, err := newZTSClient(idCfg.KeyFile, idCfg.CertFile, idCfg.ServerCACert, idCfg.Endpoint)
+	ztsClient, err := newZTSClient(idCfg.Reloader, idCfg.ServerCACert, idCfg.Endpoint)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,16 @@
-// Copyright 2020, Verizon Media Inc.
-// Licensed under the terms of the 3-Clause BSD license. See LICENSE file in
-// github.com/yahoo/k8s-athenz-identity for terms.
+// Copyright 2023 LY Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package util
 
@@ -84,7 +94,7 @@ func (w *CertReloader) maybeReload() error {
 	w.keyPEM = keyPEM
 	w.mtime = st.ModTime()
 	w.l.Unlock()
-	w.logger("certs reloaded at %v", time.Now())
+	w.logger("certs reloaded from local file: key[%s], cert[%s] at %v", w.keyFile, w.certFile, time.Now())
 	return nil
 }
 
@@ -95,7 +105,7 @@ func (w *CertReloader) pollRefresh() error {
 		select {
 		case <-poll.C:
 			if err := w.maybeReload(); err != nil {
-				w.logger("cert reload error: %v\n", err)
+				w.logger("cert reload error from local file: key[%s], cert[%s]: %v\n", w.keyFile, w.certFile, err)
 			}
 		case <-w.stop:
 			return nil
@@ -103,12 +113,34 @@ func (w *CertReloader) pollRefresh() error {
 	}
 }
 
+// UpdateCertificate update certificate and key in cert reloader.
+func (w *CertReloader) UpdateCertificate(certPEM []byte, keyPEM []byte) error {
+	w.l.Lock()
+	defer w.l.Unlock()
+
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return errors.Wrap(err, "unable to create tls.Certificate from provided PEM data")
+	}
+
+	w.cert = &cert
+	w.certPEM = certPEM
+	w.keyPEM = keyPEM
+	w.mtime = time.Now()
+
+	w.logger("certs updated at %v", w.mtime)
+
+	return nil
+}
+
 // ReloadConfig contains the config for cert reload.
 type ReloadConfig struct {
-	CertFile     string // the cert file
-	KeyFile      string // the key file
-	Logger       LogFn  // custom log function for errors, optional
-	PollInterval time.Duration
+	Init            bool
+	ProviderService string
+	CertFile        string // the cert file
+	KeyFile         string // the key file
+	Logger          LogFn  // custom log function for errors, optional
+	PollInterval    time.Duration
 }
 
 // NewCertReloader returns a CertReloader that reloads the (key, cert) pair whenever
@@ -129,8 +161,15 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 	}
 	// load once to ensure files are good.
 	if err := r.maybeReload(); err != nil {
+		// In init mode, return initialized CertReloader and error to confirm non-existence of files.
+		if config.Init {
+			return r, err
+		}
 		return nil, err
 	}
-	go r.pollRefresh()
+	// If SIA is not issuing certificates, use pollRefresh function to periodically read certificate files and update cert reloader.
+	if config.ProviderService == "" {
+		go r.pollRefresh()
+	}
 	return r, nil
 }

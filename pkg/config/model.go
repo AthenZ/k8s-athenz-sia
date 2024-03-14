@@ -19,7 +19,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
 // IdentityConfig from cmd line args

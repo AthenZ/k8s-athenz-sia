@@ -168,22 +168,13 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	roleCertProvisioningRequest := func() (err error, roleCerts [](*RoleCertificate), roleKeyPEM []byte) {
-		var roleIdentity *InstanceIdentity
-
 		if len(idCfg.TargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
-			return nil, nil, nil
-		}
-
-		roleIdentity = identity
-		roleKeyPEM = keyPEM
-
-		if roleIdentity == nil || len(roleKeyPEM) == 0 {
 			return nil, nil, nil
 		}
 
 		log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idCfg.TargetDomainRoles)
 
-		roleCerts, err = handler.GetX509RoleCert(roleIdentity, roleKeyPEM)
+		roleCerts, roleKeyPEM, err = handler.GetX509RoleCert()
 		if err != nil {
 			log.Warnf("Error while requesting x509 role certificate to identity provider: %s", err.Error())
 			return err, nil, nil
@@ -201,29 +192,26 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 			if err != nil {
 				log.Errorf("Failed to retrieve x509 certificate from identity provider: %s", err.Error())
 			}
+			err = idCfg.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+			if err != nil {
+				log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+			}
 		} else if idCfg.KeyFile != "" && idCfg.CertFile != "" {
-			log.Debugf("Attempting to load x509 certificate from local file: key[%s], cert[%s]...", idCfg.KeyFile, idCfg.CertFile)
-
-			localFileCertPEM, err := os.ReadFile(idCfg.CertFile)
+			log.Debug("Attempting to load x509 certificate from cert reloader...")
+			localFileKeyPEM, localFileCertPEM, err := idCfg.Reloader.GetLatestKeyAndCert()
 			if err != nil {
-				log.Warnf("Error while reading x509 certificate from local file[%s]: %s", idCfg.CertFile, err.Error())
+				log.Warnf("Error while reading x509 certificate key from cert reloader: %s", err.Error())
+				return err
 			}
-			localFileKeyPEM, err = os.ReadFile(idCfg.KeyFile)
-			if err != nil {
-				log.Warnf("Error while reading x509 certificate key from local file[%s]: %s", idCfg.KeyFile, err.Error())
-			}
-
 			localFileIdentity, err = InstanceIdentityFromPEMBytes(localFileCertPEM)
 			if err != nil {
-				log.Warnf("Error while parsing x509 certificate from local file: %s", err.Error())
+				log.Warnf("Error while parsing x509 certificate from cert reloader: %s", err.Error())
 			}
-
 			if localFileIdentity == nil || len(localFileKeyPEM) == 0 {
-				log.Errorf("Failed to load x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(localFileCertPEM), len(localFileKeyPEM))
+				log.Errorf("Failed to load x509 certificate from cert reloader to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(localFileCertPEM), len(localFileKeyPEM))
 			} else {
 				identity = localFileIdentity
 				keyPEM = localFileKeyPEM
-				log.Debugf("Successfully loaded x509 certificate from local file to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(localFileCertPEM), len(localFileKeyPEM))
 			}
 		} else {
 			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idCfg.ProviderService, idCfg.KeyFile, idCfg.CertFile)
@@ -244,6 +232,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					identity = k8sSecretBackupIdentity
 					keyPEM = k8sSecretBackupKeyPEM
 					log.Infof("Successfully loaded x509 certificate from kubernetes secret")
+
+					err = idCfg.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+					if err != nil {
+						log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+					}
 				}
 			} else {
 				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret[%s]", idCfg.CertSecret)
@@ -262,6 +255,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 			} else {
 				identity = forceInitIdentity
 				keyPEM = forceInitKeyPEM
+				err = idCfg.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+				if err != nil {
+					log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+				}
 			}
 		}
 
