@@ -16,6 +16,7 @@ package token
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -172,6 +173,10 @@ func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	// prepare k8s env if exists
+	k8sNamespace := os.Getenv("NAMESPACE")
+	k8sPodName := os.Getenv("POD_NAME")
+
 	for k, t := range c.cache {
 		// skip placeholder token added during daemon creation
 		if t.Raw() == "" {
@@ -191,6 +196,16 @@ func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
 		if k.MaxExpiry != 0 {
 			labelKeys = append(labelKeys, "max_expiry")
 			labelValues = append(labelValues, fmt.Sprintf("%d", k.MaxExpiry))
+		}
+		// only appends when it is k8s env. sia in non-k8s won't have these metrics key
+		if k8sNamespace != "" {
+			labelKeys = append(labelKeys, "k8s_namespace")
+			labelValues = append(labelValues, k8sNamespace)
+		}
+		// only appends when it is k8s env. sia in non-k8s won't have these metrics key
+		if k8sPodName != "" {
+			labelKeys = append(labelKeys, "k8s_pod")
+			labelValues = append(labelValues, k8sPodName)
 		}
 		metric, err := prometheus.NewConstMetric(
 			prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, prometheus.Labels{
