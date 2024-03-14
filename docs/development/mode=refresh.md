@@ -6,8 +6,9 @@
 
 ```mermaid
 sequenceDiagram
-    main-->>+OS: listen for signal
-    Note right of main: refer to mode=init sequences
+    main->>+OS: listen for signal
+    OS-->>-main: on signal, cancel initCtx
+    Note right of main: ...refer to mode=init sequences
 
     critical runCtx
     main->>+certificate: Start(runCtx)
@@ -85,24 +86,26 @@ sequenceDiagram
 
 
 
-| case ID | event                | trigger time                                         | certificate | token     | metrics   | healthcheck | ALL `Shutdown()` | exit code |
-| ------- | -------------------- | ---------------------------------------------------- | ----------- | --------- | --------- | ----------- | ---------------- | --------- |
-| 000     | SIGINT (normal case) | before `is runCtxcancelled?`                         | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
-| 001     | SIGINT               | before `certificate Start(runCtx)`                   |             |           |           |             |                  |           |
-| 002     | SIGINT               | before `token Start(runCtx)`                         |             |           |           |             |                  |           |
-| 003     | SIGINT               | before `metrics Start(runCtx)`                       |             |           |           |             |                  |           |
-| 004     | SIGINT               | before `healthcheck Start(runCtx)`                   |             |           |           |             |                  |           |
-| 005     | SIGINT               | before `cert refresh timer goroutine`                |             |           |           |             |                  |           |
-| 006     | SIGINT               | before `token server goroutine`                      |             |           |           |             |                  |           |
-| 007     | SIGINT               | before `token refresh timer goroutine`               |             |           |           |             |                  |           |
-| 008     | SIGINT               | before `memory reporter goroutine`                   |             |           |           |             |                  |           |
-| 009     | SIGINT               | before `metrics server goroutine`                    |             |           |           |             |                  |           |
-| 010     | SIGINT               | before `healthcheck server goroutine`                |             |           |           |             |                  |           |
+| case ID | event                | trigger time                                                 | certificate | token     | metrics   | healthcheck | ALL `Shutdown()` | exit code |
+| ------- | -------------------- | ------------------------------------------------------------ | ----------- | --------- | --------- | ----------- | ---------------- | --------- |
+| 000     | SIGINT (normal case) | before `is runCtxcancelled?`                                 | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
+| 001     | SIGINT               | before `certificate Start(runCtx)`                           |             |           |           |             |                  |           |
+| 002     | SIGINT               | before `token Start(runCtx)`                                 |             |           |           |             |                  |           |
+| 003     | SIGINT               | before `metrics Start(runCtx)`                               |             |           |           |             |                  |           |
+| 004     | SIGINT               | before `healthcheck Start(runCtx)`                           |             |           |           |             |                  |           |
+| 005     | SIGINT               | before `cert refresh timer goroutine`                        |             |           |           |             |                  |           |
+| 006     | SIGINT               | before `token server goroutine`                              |             |           |           |             |                  |           |
+| 007     | SIGINT               | before `token refresh timer goroutine`                       |             |           |           |             |                  |           |
+| 008     | SIGINT               | before `memory reporter goroutine`                           |             |           |           |             |                  |           |
+| 009     | SIGINT               | before `metrics server goroutine`                            |             |           |           |             |                  |           |
+| 010     | SIGINT               | before `healthcheck server goroutine`                        |             |           |           |             |                  |           |
 | 011     | error                | in `certificate Start(runCtx)`                               | ❌ error     | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 1         |
 | 012     | error                | in `token Start(runCtx)`                                     | ✅ success   | ❌ error   | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 1         |
 | 013     | error                | in `metrics Start(runCtx)`                                   | ✅ success   | ✅ success | ❌ error   | ⏭️ skipped   | ✅ success        | 1         |
 | 014     | error                | in `healthcheck Start(runCtx)`                               | ✅ success   | ✅ success | ✅ success | ❌ error     | ✅ success        | 1         |
 | 015     | error + SIGINT       | error in `metrics Start(runCtx)`, SIGINT during `Shutdown()` | ✅ success   | ✅ success | ❌ error   | ⏭️ skipped   | ✅ success        | 1         |
+| 016     | SIGINT               | during `certificate refresh retry`                           |             |           |           |             |                  |           |
+| 017     | SIGINT               | during `token refresh retry`                                 |             |           |           |             |                  |           |
 
 
 ## Logs

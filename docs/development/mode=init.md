@@ -24,6 +24,7 @@
 ```mermaid
 sequenceDiagram
     main->>+OS: listen for signal
+    OS-->>-main: on signal, cancel initCtx
 
     critical initCtx
     main->>+certificate: New(initCtx)
