@@ -148,10 +148,7 @@ Process 5378 has exited with status 0
 
 ### 001
 ```text
-Type 'dlv help' for list of commands.
-WARNING[2024-03-14T12:26:01+09:00] Rotating KEY_FILE[./.local/private.key] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file. 
-INFO[2024-03-14T12:26:01+09:00] Starting [__debug_bin3930365166] with version [], built on [] 
-INFO[2024-03-14T12:26:01+09:00] Booting up with args: [/Users/mlajkim/oss_workspace/oss_2_k8s_athenz_sia/cmd/athenz-sia/__debug_bin3930365166], config: &{Init:false Endpoint:https://apj.zts.athenz.yahoo.co.jp:4443/zts/v1 ProviderService: DNSSuffix:athenz.yahoo.co.jp Refresh:24h0m0s DelayJitterSeconds:0 KeyFile:./.local/private.key CertFile:./.local/user-mlajkim-test-service.crt CaCertFile:./.local/ca.crt IntermediateCertBundle: Backup:read+write CertSecret: Namespace: AthenzDomain: AthenzPrefix: AthenzSuffix: ServiceAccount: SaTokenFile: PodIP:127.0.0.1 PodUID: Reloader:0x140000c4d20 ServerCACert: TargetDomainRoles:[user.wfan.provider:role.dummy-role] RoleCertDir:./.local/ RoleCertFilenameDelimiter:_ RoleCertKeyFileOutput:false RoleAuthHeader:Athenz-Role-Auth TokenType:roletoken+accesstoken TokenRefresh:30m0s TokenExpiry:0s TokenServerAddr::8880 TokenServerRESTAPI:true TokenServerTimeout:10s TokenServerTLSCAPath: TokenServerTLSCertPath: TokenServerTLSKeyPath: TokenDir:./.local/ MetricsServerAddr::9999 HealthCheckAddr::9998 HealthCheckEndpoint:/healthz DeleteInstanceID:false UseTokenServer:true ShutdownTimeout:1m0s ShutdownDelay:0s LogDir: LogLevel:INFO rawMode:refresh rawPodIP:127.0.0.1 rawTargetDomainRoles:user.wfan.provider:role.dummy-role rawRefresh:24h rawDelayJitterSeconds:0 rawRoleCertKeyFileOutput:false rawTokenRefresh:30m0s rawTokenExpiry:0s rawTokenServerRESTAPI:true rawTokenServerTimeout:10s rawDeleteInstanceID:false rawUseTokenServer:true rawShutdownTimeout:60s rawShutdownDelay:0s} 
+...
 INFO[2024-03-14T12:26:01+09:00] Certificate provisioning is disabled with empty options: provider service[] 
 INFO[2024-03-14T12:26:01+09:00] Attempting to get x509 role certs from identity provider: targets[[user.wfan.provider:role.dummy-role]]... 
 INFO[2024-03-14T12:26:02+09:00] Successfully received x509 role certs from identity provider 
@@ -175,16 +172,16 @@ INFO[2024-03-14T12:26:03+09:00] Initiating shutdown of token provider daemon ...
 INFO[2024-03-14T12:26:03+09:00] Initiating shutdown of certificate provider daemon ... 
 INFO[2024-03-14T12:26:03+09:00] Shutdown completed!                          
 Process 85518 has exited with status 0
-Detaching
 ```
 
 ### 002
 ```
+...
 INFO[2024-03-14T13:10:59+09:00] Certificate provisioning is disabled with empty options: provider service[] 
 INFO[2024-03-14T13:10:59+09:00] Attempting to get x509 role certs from identity provider: targets[[user.wfan.provider:role.dummy-role]]... 
 INFO[2024-03-14T13:11:00+09:00] Successfully received x509 role certs from identity provider 
 INFO[2024-03-14T13:11:00+09:00] [New Role Certificate] Subject: CN=user.wfan.provider:role.dummy-role,OU=Athenz,O=,ST=,C=US, Issuer: CN=YPKI Signed Athenz CA,OU=Athenz,O=Athenz,ST=Tokyo,C=JP, NotBefore: 2024-03-14 04:10:59 +0000 UTC, NotAfter: 2054-03-07 03:11:59 +0000 UTC, SerialNumber: 1710389459998, DNSNames: [test.user-jekim.athenz.yahoo.co.jp] 
-INFO[2024-03-14T13:11:00+09:00] Create ZTS client to fetch tokens: https://apj.zts.athenz.yahoo.co.jp:4443/zts/v1, &{idleMu:{state:0 sema:0} closeIdle:false idleConn:map[] idleConnWait:map[] idleLRU:{ll:<nil> m:map[]} reqMu:{state:0 sema:0} reqCanceler:map[] altMu:{state:0 sema:0} altProto:{v:<nil>} connsPerHostMu:{state:0 sema:0} connsPerHost:map[] connsPerHostWait:map[] Proxy:0x103106290 OnProxyConnectResponse:<nil> DialContext:0x103129b70 Dial:<nil> DialTLSContext:<nil> DialTLS:<nil> TLSClientConfig:0x14000217d40 TLSHandshakeTimeout:10s DisableKeepAlives:false DisableCompression:false MaxIdleConns:100 MaxIdleConnsPerHost:0 MaxConnsPerHost:0 IdleConnTimeout:1m30s ResponseHeaderTimeout:0s ExpectContinueTimeout:1s TLSNextProto:map[] ProxyConnectHeader:map[] GetProxyConnectHeader:<nil> MaxResponseHeaderBytes:0 WriteBufferSize:0 ReadBufferSize:0 nextProtoOnce:{done:0 m:{state:0 sema:0}} h2transport:<nil> tlsNextProtoWasNil:false ForceAttemptHTTP2:true} 
+INFO[2024-03-14T13:11:00+09:00] Create ZTS client to fetch tokens: ...
 INFO[2024-03-14T13:11:00+09:00] Attempting to fetch tokens from Athenz ZTS server: access token targets[[{user.wfan.provider:role.dummy-role,,0,0}]], role token targets[[{user.wfan.provider:role.dummy-role,,0,0}]]... 
 INFO[2024-03-14T13:11:00+09:00] Successfully updated role token cache: target[{user.wfan.provider:role.dummy-role,,0,0}], requestID[daemon_role_token_update] 
 INFO[2024-03-14T13:11:00+09:00] Successfully updated access token cache: target[{user.wfan.provider:role.dummy-role,,0,0}], requestID[daemon_access_token_update] 
@@ -204,17 +201,17 @@ INFO[2024-03-14T13:11:01+09:00] Initiating shutdown of certificate provider daem
 INFO[2024-03-14T13:11:01+09:00] Stopped certificate provider daemon          
 INFO[2024-03-14T13:11:01+09:00] Shutdown completed!                          
 Process 18149 has exited with status 0
-Detaching
 ```
 
 ### 003
 
 ```text
+...
 INFO[2024-03-14T13:12:19+09:00] Certificate provisioning is disabled with empty options: provider service[] 
 INFO[2024-03-14T13:12:19+09:00] Attempting to get x509 role certs from identity provider: targets[[user.wfan.provider:role.dummy-role]]... 
 INFO[2024-03-14T13:12:20+09:00] Successfully received x509 role certs from identity provider 
 INFO[2024-03-14T13:12:20+09:00] [New Role Certificate] Subject: CN=user.wfan.provider:role.dummy-role,OU=Athenz,O=,ST=,C=US, Issuer: CN=YPKI Signed Athenz CA,OU=Athenz,O=Athenz,ST=Tokyo,C=JP, NotBefore: 2024-03-14 04:12:20 +0000 UTC, NotAfter: 2054-03-07 03:12:20 +0000 UTC, SerialNumber: 1710389540114, DNSNames: [test.user-jekim.athenz.yahoo.co.jp] 
-INFO[2024-03-14T13:12:20+09:00] Create ZTS client to fetch tokens: https://apj.zts.athenz.yahoo.co.jp:4443/zts/v1, &{idleMu:{state:0 sema:0} closeIdle:false idleConn:map[] idleConnWait:map[] idleLRU:{ll:<nil> m:map[]} reqMu:{state:0 sema:0} reqCanceler:map[] altMu:{state:0 sema:0} altProto:{v:<nil>} connsPerHostMu:{state:0 sema:0} connsPerHost:map[] connsPerHostWait:map[] Proxy:0x101232290 OnProxyConnectResponse:<nil> DialContext:0x101255b70 Dial:<nil> DialTLSContext:<nil> DialTLS:<nil> TLSClientConfig:0x14000583520 TLSHandshakeTimeout:10s DisableKeepAlives:false DisableCompression:false MaxIdleConns:100 MaxIdleConnsPerHost:0 MaxConnsPerHost:0 IdleConnTimeout:1m30s ResponseHeaderTimeout:0s ExpectContinueTimeout:1s TLSNextProto:map[] ProxyConnectHeader:map[] GetProxyConnectHeader:<nil> MaxResponseHeaderBytes:0 WriteBufferSize:0 ReadBufferSize:0 nextProtoOnce:{done:0 m:{state:0 sema:0}} h2transport:<nil> tlsNextProtoWasNil:false ForceAttemptHTTP2:true} 
+INFO[2024-03-14T13:12:20+09:00] Create ZTS client to fetch tokens: ...
 INFO[2024-03-14T13:12:20+09:00] Attempting to fetch tokens from Athenz ZTS server: access token targets[[{user.wfan.provider:role.dummy-role,,0,0}]], role token targets[[{user.wfan.provider:role.dummy-role,,0,0}]]... 
 INFO[2024-03-14T13:12:20+09:00] Successfully updated role token cache: target[{user.wfan.provider:role.dummy-role,,0,0}], requestID[daemon_role_token_update] 
 INFO[2024-03-14T13:12:20+09:00] Successfully updated access token cache: target[{user.wfan.provider:role.dummy-role,,0,0}], requestID[daemon_access_token_update] 
@@ -242,23 +239,17 @@ INFO[2024-03-14T13:12:21+09:00] Initiating shutdown of certificate provider daem
 INFO[2024-03-14T13:12:21+09:00] Stopped certificate provider daemon          
 INFO[2024-03-14T13:12:21+09:00] Shutdown completed!                          
 Process 18841 has exited with status 0
-Detaching
 ```
 
 
 ### 004
 ```text
-Starting: /Users/jekim/go/bin/dlv dap --listen=127.0.0.1:52357 --log-dest=3 from /Users/jekim/oss_workspace/oss_2_k8s_athenz_sia/cmd/athenz-sia
-DAP server listening at: 127.0.0.1:52357
-Type 'dlv help' for list of commands.
-WARNING[2024-03-14T13:13:21+09:00] Rotating KEY_FILE[./.local/private.key] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file. 
-INFO[2024-03-14T13:13:21+09:00] Starting [__debug_bin2695967014] with version [], built on [] 
-INFO[2024-03-14T13:13:21+09:00] Booting up with args: [/Users/jekim/oss_workspace/oss_2_k8s_athenz_sia/cmd/athenz-sia/__debug_bin2695967014], config: &{Init:false Endpoint:https://apj.zts.athenz.yahoo.co.jp:4443/zts/v1 ProviderService: DNSSuffix:athenz.yahoo.co.jp Refresh:24h0m0s DelayJitterSeconds:0 KeyFile:./.local/private.key CertFile:./.local/user-jekim-test-service.crt CaCertFile:./.local/ca.crt IntermediateCertBundle: Backup:read+write CertSecret: Namespace: AthenzDomain: AthenzPrefix: AthenzSuffix: ServiceAccount: SaTokenFile: PodIP:127.0.0.1 PodUID: Reloader:0x14000321900 ServerCACert: TargetDomainRoles:[user.wfan.provider:role.dummy-role] RoleCertDir:./.local/ RoleCertFilenameDelimiter:_ RoleCertKeyFileOutput:false RoleAuthHeader:Athenz-Role-Auth TokenType:roletoken+accesstoken TokenRefresh:30m0s TokenExpiry:0s TokenServerAddr::8880 TokenServerRESTAPI:true TokenServerTimeout:10s TokenServerTLSCAPath: TokenServerTLSCertPath: TokenServerTLSKeyPath: TokenDir:./.local/ MetricsServerAddr::9999 HealthCheckAddr::9998 HealthCheckEndpoint:/healthz DeleteInstanceID:false UseTokenServer:true ShutdownTimeout:1m0s ShutdownDelay:0s LogDir: LogLevel:INFO rawMode:refresh rawPodIP:127.0.0.1 rawTargetDomainRoles:user.wfan.provider:role.dummy-role rawRefresh:24h rawDelayJitterSeconds:0 rawRoleCertKeyFileOutput:false rawTokenRefresh:30m0s rawTokenExpiry:0s rawTokenServerRESTAPI:true rawTokenServerTimeout:10s rawDeleteInstanceID:false rawUseTokenServer:true rawShutdownTimeout:60s rawShutdownDelay:0s} 
+...
 INFO[2024-03-14T13:13:21+09:00] Certificate provisioning is disabled with empty options: provider service[] 
 INFO[2024-03-14T13:13:21+09:00] Attempting to get x509 role certs from identity provider: targets[[user.wfan.provider:role.dummy-role]]... 
 INFO[2024-03-14T13:13:21+09:00] Successfully received x509 role certs from identity provider 
 INFO[2024-03-14T13:13:21+09:00] [New Role Certificate] Subject: CN=user.wfan.provider:role.dummy-role,OU=Athenz,O=,ST=,C=US, Issuer: CN=YPKI Signed Athenz CA,OU=Athenz,O=Athenz,ST=Tokyo,C=JP, NotBefore: 2024-03-14 04:13:21 +0000 UTC, NotAfter: 2054-03-07 03:12:21 +0000 UTC, SerialNumber: 1710389601573, DNSNames: [test.user-jekim.athenz.yahoo.co.jp] 
-INFO[2024-03-14T13:13:21+09:00] Create ZTS client to fetch tokens: https://apj.zts.athenz.yahoo.co.jp:4443/zts/v1, &{idleMu:{state:0 sema:0} closeIdle:false idleConn:map[] idleConnWait:map[] idleLRU:{ll:<nil> m:map[]} reqMu:{state:0 sema:0} reqCanceler:map[] altMu:{state:0 sema:0} altProto:{v:<nil>} connsPerHostMu:{state:0 sema:0} connsPerHost:map[] connsPerHostWait:map[] Proxy:0x102ada290 OnProxyConnectResponse:<nil> DialContext:0x102afdb70 Dial:<nil> DialTLSContext:<nil> DialTLS:<nil> TLSClientConfig:0x14000603520 TLSHandshakeTimeout:10s DisableKeepAlives:false DisableCompression:false MaxIdleConns:100 MaxIdleConnsPerHost:0 MaxConnsPerHost:0 IdleConnTimeout:1m30s ResponseHeaderTimeout:0s ExpectContinueTimeout:1s TLSNextProto:map[] ProxyConnectHeader:map[] GetProxyConnectHeader:<nil> MaxResponseHeaderBytes:0 WriteBufferSize:0 ReadBufferSize:0 nextProtoOnce:{done:0 m:{state:0 sema:0}} h2transport:<nil> tlsNextProtoWasNil:false ForceAttemptHTTP2:true} 
+INFO[2024-03-14T13:13:21+09:00] Create ZTS client to fetch tokens: ...
 INFO[2024-03-14T13:13:21+09:00] Attempting to fetch tokens from Athenz ZTS server: access token targets[[{user.wfan.provider:role.dummy-role,,0,0}]], role token targets[[{user.wfan.provider:role.dummy-role,,0,0}]]... 
 INFO[2024-03-14T13:13:21+09:00] Successfully updated role token cache: target[{user.wfan.provider:role.dummy-role,,0,0}], requestID[daemon_role_token_update] 
 INFO[2024-03-14T13:13:21+09:00] Successfully updated access token cache: target[{user.wfan.provider:role.dummy-role,,0,0}], requestID[daemon_access_token_update] 
@@ -295,6 +286,5 @@ INFO[2024-03-14T13:13:32+09:00] Initiating shutdown of certificate provider daem
 INFO[2024-03-14T13:13:32+09:00] Stopped certificate provider daemon          
 INFO[2024-03-14T13:13:32+09:00] Shutdown completed!                          
 Process 19980 has exited with status 0
-Detaching
 ```
 </details>
