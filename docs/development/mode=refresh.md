@@ -77,12 +77,13 @@ sequenceDiagram
 
 ## Expectation
 
+- on error or signal, for system integration, should finish the whole code block instead of stopping immediately
 - goroutine should ONLY be created in `Start()`
   - `Shutdown()` should notify ALL the goroutines to stop, and wait until ALL goroutines stopped gracefully using WaitGroup
+- to confirm server is ready, so that the server can be shutdown gracefully. `WaitForServerReady()` should ONLY be *success* OR *retry until error* (max. 3 mins) instead of allowing cancellation
+- ALL `Shutdown()` should always be executed to shutdown gracefully
 
-- to confirm server is ready, so that the server can be shutdown gracefully. `WaitForServerReady()` should ONLY be *success* OR *retry until error* instead of allowing cancellation 
-- for system integration, should finish the whole code block instead of stopping immediately on error or signal
-- 
+
 
 | case ID | event                | trigger time                                         | certificate | token     | metrics   | healthcheck | ALL `Shutdown()` | exit code |
 | ------- | -------------------- | ---------------------------------------------------- | ----------- | --------- | --------- | ----------- | ---------------- | --------- |

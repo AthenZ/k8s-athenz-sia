@@ -71,8 +71,8 @@ sequenceDiagram
 
 
 
+- on error or signal, for system integration, should finish the whole code block instead of stopping immediately
 - retry can be cancelled immediately by context
-- for system integration, should finish the whole code block instead of stopping immediately on error or signal
 - 🌟 implies specification NOT fixed
 
 
