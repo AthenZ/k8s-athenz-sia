@@ -138,35 +138,38 @@ func main() {
 		return
 	}
 
-	// start background services, should process the sequences in order and graceful shutdown if any start failed
 	// !!! BELOW case 01: mode=refresh, simulate graceful shutdown BELOW !!! //
-	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-	time.Sleep(1 * time.Second)
-	// !!! ABOVE case ^^: mode=refresh, simulate graceful shutdown ABOVE !!! //
+	// syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+	// time.Sleep(1 * time.Second)
+
+	// start background services, should process the sequences in order and graceful shutdown if any start failed
 	if err := certService.Start(runCtx); err != nil {
 		log.Errorf("Error starting certificate provider: %s", err.Error())
 		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
 	}
+
 	// !!! BELOW case 02: mode=refresh, simulate graceful shutdown BELOW !!! //
 	// syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 	// time.Sleep(1 * time.Second)
-	// !!! ABOVE case ^^: mode=refresh, simulate graceful shutdown ABOVE !!! //
+
 	if err := tokenService.Start(runCtx); err != nil {
 		log.Errorf("Error starting token provider: %s", err.Error())
 		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
 	}
+
 	// !!! BELOW case 03: mode=refresh, simulate graceful shutdown BELOW !!! //
 	// syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 	// time.Sleep(1 * time.Second)
-	// !!! ABOVE case ^^: mode=refresh, simulate graceful shutdown ABOVE !!! //
+
 	if err := metricsService.Start(runCtx); err != nil {
 		log.Errorf("Error starting metrics exporter: %s", err.Error())
 		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
 	}
+
 	// !!! BELOW case 04: mode=refresh, simulate graceful shutdown BELOW !!! //
 	// syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 	// time.Sleep(1 * time.Second)
-	// !!! ABOVE case ^^: mode=refresh, simulate graceful shutdown ABOVE !!! //
+
 	if err := hcService.Start(runCtx); err != nil {
 		log.Errorf("Error starting health check: %s", err.Error())
 		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
