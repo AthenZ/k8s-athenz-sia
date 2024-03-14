@@ -149,7 +149,7 @@ Process 5378 has exited with status 0
 ### 001
 ```text
 ...
-INFO[2024-03-14T12:26:01+09:00] Certificate provisioning is disabled with empty options: provider service[]
+INFO[2024-03-14T12:26:01+09:00] Certificate provisioning is disabled with empty options: provider service[] 🔴
 ...
 INFO[2024-03-14T12:26:02+09:00] Received signal: interrupt
 INFO[2024-03-14T12:26:03+09:00] Skipped certificate provider start
@@ -168,9 +168,9 @@ Process 85518 has exited with status 0
 ### 002
 ```
 ...
-INFO[2024-03-14T13:10:59+09:00] Certificate provisioning is disabled with empty options: provider service[]
+INFO[2024-03-14T13:10:59+09:00] Certificate provisioning is disabled with empty options: provider service[] 🔴
 ...
-INFO[2024-03-14T13:11:00+09:00] Will refresh key[./.local/private.key], cert[./.local/user-jekim-test-service.crt] and certificates for roles[[user.wfan.provider:role.dummy-role]] with provider[], backup[read+write] and secret[] after 24h0m0s
+INFO[2024-03-14T13:11:00+09:00] Will refresh key[./.local/private.key], cert[./.local/user-jekim-test-service.crt]... 🟠
 INFO[2024-03-14T13:11:00+09:00] Received signal: interrupt
 INFO[2024-03-14T13:11:01+09:00] Skipped token provider start
 INFO[2024-03-14T13:11:01+09:00] Skipped metrics exporter start
@@ -189,9 +189,9 @@ Process 18149 has exited with status 0
 
 ```text
 ...
-INFO[2024-03-14T13:12:19+09:00] Certificate provisioning is disabled with empty options: provider service[]
+INFO[2024-03-14T13:12:19+09:00] Certificate provisioning is disabled with empty options: provider service[] 🔴
 ...
-INFO[2024-03-14T13:12:20+09:00] Will refresh key[./.local/private.key], cert[./.local/user-jekim-test-service.crt]...
+INFO[2024-03-14T13:12:20+09:00] Will refresh key[./.local/private.key], cert[./.local/user-jekim-test-service.crt]... 🟠
 ...
 INFO[2024-03-14T13:12:20+09:00] Received signal: interrupt
 INFO[2024-03-14T13:12:21+09:00] Skipped metrics exporter start
@@ -214,11 +214,11 @@ Process 18841 has exited with status 0
 ### 004
 ```text
 ...
-INFO[2024-03-14T13:13:21+09:00] Certificate provisioning is disabled with empty options: provider service[]
+INFO[2024-03-14T13:13:21+09:00] Certificate provisioning is disabled with empty options: provider service[] 🔴
 ...
-INFO[2024-03-14T13:13:21+09:00] Will refresh key[./.local/private.key], cert[./.local/user-jekim-test-service.crt]...
+INFO[2024-03-14T13:13:21+09:00] Will refresh key[./.local/private.key], cert[./.local/user-jekim-test-service.crt]... 🟠
 ...
-INFO[2024-03-14T13:13:28+09:00] Starting metrics exporter server[:9999]
+INFO[2024-03-14T13:13:28+09:00] Starting metrics exporter server[:9999] 🟡
 ...
 INFO[2024-03-14T13:13:31+09:00] Received signal: interrupt
 INFO[2024-03-14T13:13:32+09:00] Skipped health check start
