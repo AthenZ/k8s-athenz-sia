@@ -56,6 +56,7 @@ func WaitForServerReady(serverAddr string, insecureSkipVerify bool) error {
 		return b
 	}
 
+	time.Sleep(1 * time.Millisecond) // pause current goroutine to allow goroutines with http.Server.ListenAndServe() to run
 	return backoff.RetryNotify(get, getExponentialBackoff(), func(err error, backoffDelay time.Duration) {
 		log.Warnf("Unable to confirm the server ready: %s. Retrying in %s", err.Error(), backoffDelay)
 	})

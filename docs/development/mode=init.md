@@ -92,9 +92,10 @@ sequenceDiagram
 | 009 🌟   | SIGINT       | during `token fetch retry`       | ✅ success    | ✅ success (partially) | ⏭️ skipped    | ⏭️ skipped    | 0         |
 | 010     | retry error  | in  `certificate New()`          | ❌ error      | NOT executed          | NOT executed | NOT executed | 1         |
 | 011 🌟   | retry error  | in  `token New()`                | ✅ success    | ✅ success (partially) | ✅ success    | ✅ success    | 0         |
-| 012     | error        | in  `token New()`                | ✅ success    | ❌ error               | NOT executed | NOT executed | 1         |
-| 013     | error        | in  `metrics New()`              | ✅ success    | ✅ success             | ❌ error      | NOT executed | 1         |
-| 014     | error        | in  `healthcheck New()`          | ✅ success    | ✅ success             | ✅ success    | ❌ error      | 1         |
+| 012     | error        | in `certificate New()`           | ❌ error      | NOT executed          | NOT executed | NOT executed | 1         |
+| 013     | error        | in  `token New()`                | ✅ success    | ❌ error               | NOT executed | NOT executed | 1         |
+| 014     | error        | in  `metrics New()`              | ✅ success    | ✅ success             | ❌ error      | NOT executed | 1         |
+| 015     | error        | in  `healthcheck New()`          | ✅ success    | ✅ success             | ✅ success    | ❌ error      | 1         |
 
 ## Logs
 
@@ -270,13 +271,22 @@ Process 5378 has exited with status 0
 
 ```text
 ...
+INFO[2024-03-15T15:38:15+09:00] [New Role Certificate] Subject: CN=user.wfan.provider:role.dummy-role,OU=Athenz,O=,ST=,C=US, Issuer: CN=YPKI Signed Athenz CA,OU=Athenz,O=Yahoo Japan Corporation,ST=Tokyo,C=JP, NotBefore: 2024-03-15 06:38:15 +0000 UTC, NotAfter: 2054-02-06 02:13:15 +0000 UTC, SerialNumber: 1710484695930, DNSNames: [mac.user-wfan-instance.athenz.yahoo.co.jp]
+FATAL[2024-03-15T15:38:15+09:00] Error initiating certificate provider: test error
+Process 23905 has exited with status 1
+```
+
+### 013
+
+```text
+...
 INFO[2024-03-14T01:20:10+09:00] [New Access Token] Domain: user.wfan.provider, Role: dummy-role
 INFO[2024-03-14T01:20:10+09:00] [New Role Token] Domain: user.wfan.provider, Role: dummy-role
 FATAL[2024-03-14T01:20:10+09:00] Error initiating token provider: test error
 Process 23905 has exited with status 1
 ```
 
-### 013
+### 014
 
 ```text
 ...
@@ -285,7 +295,7 @@ FATAL[2024-03-14T01:21:27+09:00] Error initiating metrics exporter: test error
 Process 24533 has exited with status 1
 ```
 
-### 014
+### 015
 
 ```text
 ...
