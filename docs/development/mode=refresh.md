@@ -89,23 +89,26 @@ sequenceDiagram
 | case ID | event                | trigger time                                                 | certificate | token     | metrics   | healthcheck | ALL `Shutdown()` | exit code |
 | ------- | -------------------- | ------------------------------------------------------------ | ----------- | --------- | --------- | ----------- | ---------------- | --------- |
 | 000     | SIGINT (normal case) | before `is runCtxcancelled?`                                 | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
-| 001     | SIGINT               | before `certificate Start(runCtx)`                           |             |           |           |             |                  |           |
-| 002     | SIGINT               | before `token Start(runCtx)`                                 |             |           |           |             |                  |           |
-| 003     | SIGINT               | before `metrics Start(runCtx)`                               |             |           |           |             |                  |           |
-| 004     | SIGINT               | before `healthcheck Start(runCtx)`                           |             |           |           |             |                  |           |
-| 005     | SIGINT               | before `cert refresh timer goroutine`                        |             |           |           |             |                  |           |
-| 006     | SIGINT               | before `token server goroutine`                              |             |           |           |             |                  |           |
-| 007     | SIGINT               | before `token refresh timer goroutine`                       |             |           |           |             |                  |           |
-| 008     | SIGINT               | before `memory reporter goroutine`                           |             |           |           |             |                  |           |
-| 009     | SIGINT               | before `metrics server goroutine`                            |             |           |           |             |                  |           |
-| 010     | SIGINT               | before `healthcheck server goroutine`                        |             |           |           |             |                  |           |
+| 001     | SIGINT               | before `certificate Start(runCtx)`                           | ⏭️ skipped   | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 002     | SIGINT               | before `token Start(runCtx)`                                 | ✅ success   | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 003     | SIGINT               | before `metrics Start(runCtx)`                               | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 004     | SIGINT               | before `healthcheck Start(runCtx)`                           | ✅ success   | ✅ success | ✅ success | ⏭️ skipped   | ✅ success        | 0         |
+| 005     | SIGINT               | before `cert refresh timer goroutine`                        | ✅ success   | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 006     | SIGINT               | before `token server goroutine`                              | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 007     | SIGINT               | before `token refresh timer goroutine`                       | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 008     | SIGINT               | before `memory reporter goroutine`                           | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 009     | SIGINT               | before `metrics server goroutine`                            | ✅ success   | ✅ success | ✅ success | ⏭️ skipped   | ✅ success        | 0         |
+| 010     | SIGINT               | before `healthcheck server goroutine`                        | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
 | 011     | error                | in `certificate Start(runCtx)`                               | ❌ error     | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 1         |
 | 012     | error                | in `token Start(runCtx)`                                     | ✅ success   | ❌ error   | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 1         |
 | 013     | error                | in `metrics Start(runCtx)`                                   | ✅ success   | ✅ success | ❌ error   | ⏭️ skipped   | ✅ success        | 1         |
 | 014     | error                | in `healthcheck Start(runCtx)`                               | ✅ success   | ✅ success | ✅ success | ❌ error     | ✅ success        | 1         |
 | 015     | error + SIGINT       | error in `metrics Start(runCtx)`, SIGINT during `Shutdown()` | ✅ success   | ✅ success | ❌ error   | ⏭️ skipped   | ✅ success        | 1         |
-| 016     | SIGINT               | during `certificate refresh retry`                           |             |           |           |             |                  |           |
-| 017     | SIGINT               | during `token refresh retry`                                 |             |           |           |             |                  |           |
+| 016     | retry error          | after `ALL Start()`, during `certificate refresh retry`      | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | NO exit   |
+| 017     | retry error          | after `ALL Start()`, during `token refresh retry`            | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | NO exit   |
+| 018     | SIGINT               | after `ALL Start()`, during `certificate refresh retry`      | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
+| 019     | SIGINT               | after `ALL Start()`, during `token refresh retry`            | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
+
 
 
 ## Logs
