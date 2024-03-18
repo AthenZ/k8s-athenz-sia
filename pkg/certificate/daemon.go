@@ -319,13 +319,19 @@ func (cs *certService) Start(ctx context.Context) error {
 			log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 		}
 		for {
-			log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] after %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.Backup, cs.idCfg.CertSecret, cs.idCfg.Refresh)
+			log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.Backup, cs.idCfg.CertSecret, cs.idCfg.Refresh)
 
 			select {
 			case <-cs.shutdownChan:
 				log.Info("Stopped certificate provider daemon")
 				return
 			case <-t.C:
+				// skip refresh if context is done but Shutdown() is not called
+				if ctx.Err() != nil {
+					log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.Backup, cs.idCfg.CertSecret)
+					continue
+				}
+
 				// backoff retry until REFRESH_INTERVAL / 4 OR context is done
 				err := backoff.RetryNotify(cs.run, newExponentialBackOff(ctx, cs.idCfg.Refresh/4), notifyOnErr)
 				if err != nil {

@@ -206,13 +206,19 @@ func (ts *tokenService) Start(ctx context.Context) error {
 		defer ts.shutdownWg.Done()
 
 		for {
-			log.Infof("Will refresh tokens after %s", ts.tokenRefresh.String())
+			log.Infof("Will refresh cached tokens within %s", ts.tokenRefresh.String())
 
 			select {
 			case <-ts.shutdownChan:
 				log.Info("Stopped token provider daemon")
 				return
 			case <-t.C:
+				// skip refresh if context is done but Shutdown() is not called
+				if ctx.Err() != nil {
+					log.Infof("Skipped to refresh cached tokens within %s", ts.tokenRefresh.String())
+					continue
+				}
+
 				// backoff retry until TOKEN_REFRESH_INTERVAL / 4 OR context is done
 				for _, err := range ts.updateTokenCaches(ctx, ts.tokenRefresh/4) {
 					log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
@@ -238,6 +244,10 @@ func (ts *tokenService) Start(ctx context.Context) error {
 				log.Info("Stopped memory reporter daemon")
 				return
 			case <-reportTicker.C:
+				// skip report if context is done but Shutdown() is not called
+				if ctx.Err() != nil {
+					continue
+				}
 				ts.reportMemory()
 			}
 		}
