@@ -32,6 +32,7 @@ import (
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/k8s"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/version"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 
@@ -96,6 +97,8 @@ func InitIdentityHandler(config *config.IdentityConfig) (*identityHandler, error
 	}
 
 	client := zts.NewClient(config.Endpoint, t)
+	// Add User-Agent header to ZTS client for fetching x509 certificate
+	client.AddCredentials("User-Agent", fmt.Sprintf("%s/%s", version.APP_NAME, version.VERSION))
 
 	domain := extutil.NamespaceToDomain(config.Namespace, config.AthenzPrefix, config.AthenzDomain, config.AthenzSuffix)
 	service := extutil.ServiceAccountToService(config.ServiceAccount)
@@ -260,6 +263,8 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 	// The intermediate certificates may be different between each ZTS.
 	// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
 	roleCertClient := zts.NewClient(h.config.Endpoint, t)
+	// Add User-Agent header to ZTS client for fetching x509 role certificates
+	roleCertClient.AddCredentials("User-Agent", fmt.Sprintf("%s/%s", version.APP_NAME, version.VERSION))
 
 	key, err := PrivateKeyFromPEMBytes(keyPEM)
 	if err != nil {
