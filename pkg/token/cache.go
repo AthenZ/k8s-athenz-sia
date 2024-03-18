@@ -16,13 +16,13 @@ package token
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"unsafe"
 
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -76,13 +76,21 @@ type LockedTokenCache struct {
 
 	// tokenType is the type of token stored in the cache.
 	tokenType string
+
+	// namespace is the k8s namespace where the SIA is running.
+	namespace string
+
+	// podName is the k8s pod name where the SIA is running.
+	podName string
 }
 
-func NewLockedTokenCache(tokenType string) *LockedTokenCache {
+func NewLockedTokenCache(tokenType string, idConfig *config.IdentityConfig) *LockedTokenCache {
 	return &LockedTokenCache{
 		cache:       make(map[CacheKey]Token),
 		memoryUsage: 0,
 		tokenType:   tokenType,
+		namespace:   idConfig.Namespace,
+		podName:     idConfig.PodName,
 	}
 }
 
@@ -173,10 +181,6 @@ func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	// prepare k8s env if exists
-	k8sNamespace := os.Getenv("NAMESPACE")
-	k8sPodName := os.Getenv("POD_NAME")
-
 	for k, t := range c.cache {
 		// skip placeholder token added during daemon creation
 		if t.Raw() == "" {
@@ -197,15 +201,15 @@ func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
 			labelKeys = append(labelKeys, "max_expiry")
 			labelValues = append(labelValues, fmt.Sprintf("%d", k.MaxExpiry))
 		}
-		// only appends when it is k8s env. sia in non-k8s won't have these metrics key
-		if k8sNamespace != "" {
+		// only appends k8s_namespace as key if c.namespace exists
+		if c.namespace != "" {
 			labelKeys = append(labelKeys, "k8s_namespace")
-			labelValues = append(labelValues, k8sNamespace)
+			labelValues = append(labelValues, c.namespace)
 		}
-		// only appends when it is k8s env. sia in non-k8s won't have these metrics key
-		if k8sPodName != "" {
+		// only appends k8s_pod as key if c.podName exists
+		if c.podName != "" {
 			labelKeys = append(labelKeys, "k8s_pod")
-			labelValues = append(labelValues, k8sPodName)
+			labelValues = append(labelValues, c.podName)
 		}
 		metric, err := prometheus.NewConstMetric(
 			prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, prometheus.Labels{
