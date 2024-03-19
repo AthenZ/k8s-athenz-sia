@@ -22,6 +22,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -75,13 +76,21 @@ type LockedTokenCache struct {
 
 	// tokenType is the type of token stored in the cache.
 	tokenType string
+
+	// namespace is the k8s namespace where the SIA is running.
+	namespace string
+
+	// podName is the k8s pod name where the SIA is running.
+	podName string
 }
 
-func NewLockedTokenCache(tokenType string) *LockedTokenCache {
+func NewLockedTokenCache(tokenType string, idConfig *config.IdentityConfig) *LockedTokenCache {
 	return &LockedTokenCache{
 		cache:       make(map[CacheKey]Token),
 		memoryUsage: 0,
 		tokenType:   tokenType,
+		namespace:   idConfig.Namespace,
+		podName:     idConfig.PodName,
 	}
 }
 
@@ -227,6 +236,16 @@ func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
 		if k.MaxExpiry != 0 {
 			labelKeys = append(labelKeys, "max_expiry")
 			labelValues = append(labelValues, fmt.Sprintf("%d", k.MaxExpiry))
+		}
+		// only appends k8s_namespace as key if c.namespace exists
+		if c.namespace != "" {
+			labelKeys = append(labelKeys, "k8s_namespace")
+			labelValues = append(labelValues, c.namespace)
+		}
+		// only appends k8s_pod as key if c.podName exists
+		if c.podName != "" {
+			labelKeys = append(labelKeys, "k8s_pod")
+			labelValues = append(labelValues, c.podName)
 		}
 		metric, err := prometheus.NewConstMetric(
 			prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, constLabels),

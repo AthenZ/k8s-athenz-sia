@@ -88,6 +88,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		SaTokenFile:               "",
 		PodIP:                     net.ParseIP("127.0.0.1"),
 		PodUID:                    "",
+		PodName:                   "",
 		Reloader:                  nil,
 		ServerCACert:              "",
 		TargetDomainRoles:         []DomainRole{},

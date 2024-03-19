@@ -30,23 +30,19 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/healthcheck"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/token"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/version"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
 const serviceName = "athenz-sia"
 
-var (
-	VERSION    string
-	BUILD_DATE string
-)
-
 // printVersion returns the version and the built date of the executable itself
 func printVersion() {
-	if VERSION == "" || BUILD_DATE == "" {
+	if version.VERSION == "" || version.BUILD_DATE == "" {
 		fmt.Printf("(development version)\n")
 	} else {
-		fmt.Printf("Version: %s\n", VERSION)
-		fmt.Printf("Build Date: %s\n", BUILD_DATE)
+		fmt.Printf("Version: %s\n", version.VERSION)
+		fmt.Printf("Build Date: %s\n", version.BUILD_DATE)
 		fmt.Println("===== Default Values =====")
 		fmt.Printf("Athenz Endpoint: %s\n", config.DEFAULT_ENDPOINT)
 		fmt.Printf("Certificate SANs DNS Suffix: %s\n", config.DEFAULT_DNS_SUFFIX)
@@ -66,7 +62,7 @@ func main() {
 
 	// one-time logger for loading user config
 	log.InitLogger("", "INFO", true)
-	idCfg, err := config.LoadConfig(filepath.Base(os.Args[0]), os.Args[1:])
+	idCfg, err := config.LoadConfig(version.APP_NAME, os.Args[1:])
 	if err != nil {
 		switch err {
 		case config.ErrHelp:
@@ -80,7 +76,7 @@ func main() {
 
 	// re-init logger from user config
 	log.InitLogger(filepath.Join(idCfg.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idCfg.LogLevel)), idCfg.LogLevel, true)
-	log.Infof("Starting [%s] with version [%s], built on [%s]", filepath.Base(os.Args[0]), VERSION, BUILD_DATE)
+	log.Infof("Starting [%s] with version [%s], built on [%s]", version.APP_NAME, version.VERSION, version.BUILD_DATE)
 	log.Infof("Booting up with args: %v, config: %+v", os.Args, idCfg)
 
 	// delay boot with jitter
@@ -91,7 +87,7 @@ func main() {
 	}
 
 	// register metrics
-	metrics.RegisterBuildInfo(filepath.Base(os.Args[0]), VERSION, BUILD_DATE)
+	metrics.RegisterBuildInfo(filepath.Base(os.Args[0]), version.VERSION, version.BUILD_DATE)
 
 	// variables
 	causeBySignal := fmt.Errorf("received signal")

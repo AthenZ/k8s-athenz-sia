@@ -86,6 +86,7 @@ func (idConfig *IdentityConfig) loadFromENV() error {
 	loadEnv("SA_TOKEN_FILE", &idConfig.SaTokenFile)
 	loadEnv("POD_IP", &idConfig.rawPodIP)
 	loadEnv("POD_UID", &idConfig.PodUID)
+	loadEnv("POD_NAME", &idConfig.PodName)
 	loadEnv("SERVER_CA_CERT", &idConfig.ServerCACert)
 	loadEnv("TARGET_DOMAIN_ROLES", &idConfig.rawTargetDomainRoles)
 	loadEnv("ROLECERT_DIR", &idConfig.RoleCertDir)
