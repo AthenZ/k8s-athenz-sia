@@ -215,7 +215,7 @@ func (ts *tokenService) Start(ctx context.Context) error {
 			case <-t.C:
 				// skip refresh if context is done but Shutdown() is not called
 				if ctx.Err() != nil {
-					log.Infof("Skipped to refresh cached tokens within %s", ts.tokenRefresh.String())
+					log.Info("Skipped to refresh cached tokens")
 					continue
 				}
 
