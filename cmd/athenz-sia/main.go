@@ -62,7 +62,7 @@ func main() {
 
 	// one-time logger for loading user config
 	log.InitLogger("", "INFO", true)
-	idCfg, err := config.LoadConfig(version.APP_NAME, os.Args[1:])
+	idConfig, err := config.LoadConfig(version.APP_NAME, os.Args[1:])
 	if err != nil {
 		switch err {
 		case config.ErrHelp:
@@ -75,14 +75,14 @@ func main() {
 	}
 
 	// re-init logger from user config
-	log.InitLogger(filepath.Join(idCfg.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idCfg.LogLevel)), idCfg.LogLevel, true)
+	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
 	log.Infof("Starting [%s] with version [%s], built on [%s]", version.APP_NAME, version.VERSION, version.BUILD_DATE)
-	log.Infof("Booting up with args: %v, config: %+v", os.Args, idCfg)
+	log.Infof("Booting up with args: %v, config: %+v", os.Args, idConfig)
 
 	// delay boot with jitter
-	if idCfg.DelayJitterSeconds != 0 {
-		sleep := time.Duration(rand.Int63n(idCfg.DelayJitterSeconds)) * time.Second
-		log.Infof("Delaying boot with jitter [%s] randomized from [%s]...", sleep, time.Duration(idCfg.DelayJitterSeconds)*time.Second)
+	if idConfig.DelayJitterSeconds != 0 {
+		sleep := time.Duration(rand.Int63n(idConfig.DelayJitterSeconds)) * time.Second
+		log.Infof("Delaying boot with jitter [%s] randomized from [%s]...", sleep, time.Duration(idConfig.DelayJitterSeconds)*time.Second)
 		time.Sleep(sleep)
 	}
 
@@ -107,19 +107,19 @@ func main() {
 	}()
 
 	// initiate background services
-	certService, err := certificate.New(initCtx, idCfg)
+	certService, err := certificate.New(initCtx, idConfig)
 	if err != nil {
 		log.Fatalf("Error initiating certificate provider: %s", err.Error())
 	}
-	tokenService, err := token.New(initCtx, idCfg)
+	tokenService, err := token.New(initCtx, idConfig)
 	if err != nil {
 		log.Fatalf("Error initiating token provider: %s", err.Error())
 	}
-	metricsService, err := metrics.New(initCtx, idCfg)
+	metricsService, err := metrics.New(initCtx, idConfig)
 	if err != nil {
 		log.Fatalf("Error initiating metrics exporter: %s", err.Error())
 	}
-	hcService, err := healthcheck.New(initCtx, idCfg)
+	hcService, err := healthcheck.New(initCtx, idConfig)
 	if err != nil {
 		log.Fatalf("Error initiating health check: %s", err.Error())
 	}
@@ -129,7 +129,7 @@ func main() {
 		log.Infof("Init stopped by cause: %s", context.Cause(initCtx).Error())
 		return
 	}
-	if idCfg.Init {
+	if idConfig.Init {
 		log.Infoln("Init completed!")
 		return
 	}

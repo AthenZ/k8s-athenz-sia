@@ -21,7 +21,7 @@ import (
 )
 
 // NewDaemonFunc defines the New() function. New() creates and initializes the daemon synchronously. New should stop processing gracefully when the context is cancelled.
-type NewDaemonFunc func(ctx context.Context, idCfg *config.IdentityConfig) (Daemon, error)
+type NewDaemonFunc func(ctx context.Context, idConfig *config.IdentityConfig) (Daemon, error)
 
 type Daemon interface {
 	// Start starts the daemon and creates required background go routines synchronously

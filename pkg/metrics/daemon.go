@@ -34,12 +34,12 @@ type metricsService struct {
 	shutdownChan chan struct{}
 	shutdownWg   sync.WaitGroup
 
-	idCfg           *config.IdentityConfig
+	idConfig        *config.IdentityConfig
 	exporter        *internal.Exporter
 	exporterRunning bool
 }
 
-func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
+func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, error) {
 	if ctx.Err() != nil {
 		log.Info("Skipped metrics exporter initiation")
 		return nil, nil
@@ -47,16 +47,16 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	ms := &metricsService{
 		shutdownChan: make(chan struct{}, 1),
-		idCfg:        idCfg,
+		idConfig:     idConfig,
 	}
 
 	// check initialization skip
-	if idCfg.Init {
-		log.Infof("Metrics exporter is disabled for init mode: address[%s]", idCfg.MetricsServerAddr)
+	if idConfig.Init {
+		log.Infof("Metrics exporter is disabled for init mode: address[%s]", idConfig.MetricsServerAddr)
 		return ms, nil
 	}
-	if idCfg.MetricsServerAddr == "" {
-		log.Infof("Metrics exporter is disabled with empty options: address[%s]", idCfg.MetricsServerAddr)
+	if idConfig.MetricsServerAddr == "" {
+		log.Infof("Metrics exporter is disabled with empty options: address[%s]", idConfig.MetricsServerAddr)
 		return ms, nil
 	}
 
@@ -64,12 +64,12 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// https://github.com/enix/x509-certificate-exporter/blob/main/cmd/x509-certificate-exporter/main.go
 	// https://github.com/enix/x509-certificate-exporter/blob/beb88b34b490add4015c8b380d975eb9cb340d44/internal/exporter.go#L26
 	exporter := internal.Exporter{
-		ListenAddress: idCfg.MetricsServerAddr,
+		ListenAddress: idConfig.MetricsServerAddr,
 		SystemdSocket: false,
 		ConfigFile:    "",
 		Files: []string{
-			idCfg.CertFile,
-			idCfg.CaCertFile,
+			idConfig.CertFile,
+			idConfig.CaCertFile,
 		},
 		Directories:           []string{},
 		YAMLs:                 []string{},
@@ -86,10 +86,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		KubeExcludeLabels:     []string{},
 	}
 
-	if len(idCfg.TargetDomainRoles) != 0 && idCfg.RoleCertDir != "" {
-		for _, dr := range idCfg.TargetDomainRoles {
-			fileName := dr.Domain + idCfg.RoleCertFilenameDelimiter + dr.Role + ".cert.pem"
-			exporter.Files = append(exporter.Files, strings.TrimSuffix(idCfg.RoleCertDir, "/")+"/"+fileName)
+	if len(idConfig.TargetDomainRoles) != 0 && idConfig.RoleCertDir != "" {
+		for _, dr := range idConfig.TargetDomainRoles {
+			fileName := dr.Domain + idConfig.RoleCertFilenameDelimiter + dr.Role + ".cert.pem"
+			exporter.Files = append(exporter.Files, strings.TrimSuffix(idConfig.RoleCertDir, "/")+"/"+fileName)
 		}
 	}
 
@@ -105,7 +105,7 @@ func (ms *metricsService) Start(ctx context.Context) error {
 	}
 
 	if ms.exporter != nil {
-		log.Infof("Starting metrics exporter server[%s]", ms.idCfg.MetricsServerAddr)
+		log.Infof("Starting metrics exporter server[%s]", ms.idConfig.MetricsServerAddr)
 		ms.shutdownWg.Add(1)
 		go func() {
 			defer ms.shutdownWg.Done()
