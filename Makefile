@@ -9,14 +9,14 @@
 
 LDFLAGS :=
 ifneq ($(ATHENZ_SIA_VERSION),)
-LDFLAGS_ARGS += -X 'main.VERSION=$(ATHENZ_SIA_VERSION)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/v3/pkg/version.VERSION=$(ATHENZ_SIA_VERSION)'
 else
-LDFLAGS_ARGS += -X 'main.VERSION=$(shell git rev-parse --short HEAD)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/v3/pkg/version.VERSION=$(shell git rev-parse --short HEAD)'
 endif
 ifneq ($(ATHENZ_SIA_BUILD_DATE),)
-LDFLAGS_ARGS += -X 'main.BUILD_DATE=$(ATHENZ_SIA_BUILD_DATE)'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/v3/pkg/version.BUILD_DATE=$(ATHENZ_SIA_BUILD_DATE)'
 else
-LDFLAGS_ARGS += -X 'main.BUILD_DATE=$(shell date '+%Y-%m-%dT%H:%M:%S%Z%z')'
+LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/v3/pkg/version.BUILD_DATE=$(shell date '+%Y-%m-%dT%H:%M:%S%Z%z')'
 endif
 ifneq ($(ATHENZ_SIA_DEFAULT_ENDPOINT),)
 LDFLAGS_ARGS += -X 'github.com/AthenZ/k8s-athenz-sia/v3/pkg/config.DEFAULT_ENDPOINT=$(ATHENZ_SIA_DEFAULT_ENDPOINT)'

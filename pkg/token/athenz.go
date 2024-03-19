@@ -26,6 +26,7 @@ import (
 
 	"github.com/AthenZ/athenz/clients/go/zts"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/version"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	jwt "github.com/golang-jwt/jwt/v5"
 )
@@ -62,6 +63,8 @@ func newZTSClient(reloader *util.CertReloader, serverCAPath, endpoint string) (*
 	// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
 	log.Infof("Create ZTS client to fetch tokens: %s, %+v", endpoint, t)
 	ztsClient := zts.NewClient(endpoint, t)
+	// Add User-Agent header to ZTS client for fetching tokens
+	ztsClient.AddCredentials("User-Agent", fmt.Sprintf("%s/%s", version.APP_NAME, version.VERSION))
 	return &ztsClient, nil
 }
 
