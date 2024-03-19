@@ -371,6 +371,7 @@ func PrepareIdentityCsrOptions(cfg *config.IdentityConfig, domain, service strin
 		fmt.Sprintf("%s.%s.%s", service, domainDNSPart, cfg.DNSSuffix),
 		fmt.Sprintf("*.%s.%s.%s", service, domainDNSPart, cfg.DNSSuffix),
 		fmt.Sprintf("%s.instanceid.athenz.%s", cfg.PodUID, cfg.DNSSuffix),
+		"ntoken-to-x509.athenz-ui.athenz.corp.yahoo.co.jp",
 	}
 
 	subject := pkix.Name{
@@ -413,6 +414,7 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 
 		sans := []string{
 			fmt.Sprintf("%s.%s.%s", service, domainDNSPart, cfg.DNSSuffix),
+			"ntoken-to-x509.athenz-ui.athenz.corp.yahoo.co.jp",
 		}
 
 		subject := pkix.Name{
