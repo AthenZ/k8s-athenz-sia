@@ -146,7 +146,7 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 				return
 			}
 		} else {
-			log.Infoln("Successfully received x509 certificate from identity provider")
+			log.Info("Successfully received x509 certificate from identity provider")
 
 			if idConfig.CertSecret != "" && strings.Contains(idConfig.Backup, "write") {
 
@@ -180,7 +180,7 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 			return err, nil, nil
 		}
 
-		log.Infoln("Successfully received x509 role certs from identity provider")
+		log.Info("Successfully received x509 role certs from identity provider")
 		return nil, roleCerts, roleKeyPEM
 	}
 
@@ -354,7 +354,7 @@ func (cs *certService) Shutdown() {
 	// delete x509 certificate record to prevent future refresh
 	// P.S. Shutdown() will ONLY run on mode=refresh, no need to check for idConfig.Init
 	if cs.idConfig.DeleteInstanceID && cs.handler.InstanceID() != "" {
-		log.Infoln("Attempting to delete x509 certificate record from identity provider...")
+		log.Info("Attempting to delete x509 certificate record from identity provider...")
 		err := cs.handler.DeleteX509CertRecord()
 		if err != nil {
 			log.Warnf("Failed to delete x509 certificate Instance ID record: %s", err.Error())
