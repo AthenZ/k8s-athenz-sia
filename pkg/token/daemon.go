@@ -62,8 +62,8 @@ func newDaemon(idConfig *config.IdentityConfig, tt mode) (*daemon, error) {
 
 	// initialize token cache with placeholder
 	tokenExpiryInSecond := int(idConfig.TokenExpiry.Seconds())
-	accessTokenCache := NewLockedTokenCache("accesstoken")
-	roleTokenCache := NewLockedTokenCache("roletoken")
+	accessTokenCache := NewLockedTokenCache("accesstoken", idConfig)
+	roleTokenCache := NewLockedTokenCache("roletoken", idConfig)
 	for _, dr := range idConfig.TargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
 		if tt&mACCESS_TOKEN != 0 {

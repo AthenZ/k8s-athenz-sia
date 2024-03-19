@@ -44,6 +44,7 @@ type IdentityConfig struct {
 	SaTokenFile               string
 	PodIP                     net.IP
 	PodUID                    string
+	PodName                   string
 	Reloader                  *util.CertReloader
 	ServerCACert              string
 	TargetDomainRoles         []DomainRole
