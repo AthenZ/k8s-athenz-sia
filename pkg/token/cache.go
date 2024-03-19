@@ -22,7 +22,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -84,13 +83,13 @@ type LockedTokenCache struct {
 	podName string
 }
 
-func NewLockedTokenCache(tokenType string, idConfig *config.IdentityConfig) *LockedTokenCache {
+func NewLockedTokenCache(tokenType, namespace, podName string) *LockedTokenCache {
 	return &LockedTokenCache{
 		cache:       make(map[CacheKey]Token),
 		memoryUsage: 0,
 		tokenType:   tokenType,
-		namespace:   idConfig.Namespace,
-		podName:     idConfig.PodName,
+		namespace:   namespace,
+		podName:     podName,
 	}
 }
 

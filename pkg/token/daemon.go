@@ -85,8 +85,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// initialize token cache with placeholder
 	tokenExpiryInSecond := int(idCfg.TokenExpiry.Seconds())
-	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg)
-	roleTokenCache := NewLockedTokenCache("roletoken", idCfg)
+	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
+	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
 	for _, dr := range idCfg.TargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
 		if tt&mACCESS_TOKEN != 0 {
