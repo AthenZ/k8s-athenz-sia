@@ -253,6 +253,7 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 		t.TLSClientConfig.RootCAs = certPool
 	}
 
+	// TODO: no need to renew ZTS Client after https://github.com/AthenZ/k8s-athenz-sia/pull/99
 	// In init mode, the existing ZTS Client does not have client certificate set.
 	// When config.Reloader.GetLatestCertificate() is called to load client certificate, the first certificate has not written to the file yet.
 	// Therefore, ZTS Client must be renewed to make sure the ZTS Client loads the latest client certificate.
