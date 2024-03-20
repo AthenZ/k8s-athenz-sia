@@ -72,18 +72,8 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 		return nil, nil
 	}
 
-	ts := &tokenService{
-		shutdownChan: make(chan struct{}, 1),
-	}
-
-	// check initialization skip
-	tt := newType(idConfig.TokenType)
-	if idConfig.TokenServerAddr == "" || tt == 0 {
-		log.Infof("Token server is disabled due to insufficient options: address[%s], roles[%s], token-type[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles, idConfig.TokenType)
-		return ts, nil
-	}
-
 	// initialize token cache with placeholder
+	tt := newType(idConfig.TokenType)
 	tokenExpiryInSecond := int(idConfig.TokenExpiry.Seconds())
 	accessTokenCache := NewLockedTokenCache("accesstoken", idConfig.Namespace, idConfig.PodName)
 	roleTokenCache := NewLockedTokenCache("roletoken", idConfig.Namespace, idConfig.PodName)
@@ -118,19 +108,22 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 	}
 
 	// setup token service
-	ts.accessTokenCache = accessTokenCache
-	ts.roleTokenCache = roleTokenCache
-	ts.ztsClient = ztsClient
-	ts.saService = saService
-	ts.tokenRESTAPI = idConfig.TokenServerRESTAPI
-	ts.tokenType = tt
-	ts.tokenDir = idConfig.TokenDir
-	ts.tokenRefresh = idConfig.TokenRefresh
-	ts.tokenExpiryInSecond = tokenExpiryInSecond
-	ts.roleAuthHeader = idConfig.RoleAuthHeader
-	ts.useTokenServer = idConfig.UseTokenServer
-	ts.shutdownDelay = idConfig.ShutdownDelay
-	ts.shutdownTimeout = idConfig.ShutdownTimeout
+	ts := &tokenService{
+		shutdownChan:        make(chan struct{}, 1),
+		accessTokenCache:    accessTokenCache,
+		roleTokenCache:      roleTokenCache,
+		ztsClient:           ztsClient,
+		saService:           saService,
+		tokenRESTAPI:        idConfig.TokenServerRESTAPI,
+		tokenType:           tt,
+		tokenDir:            idConfig.TokenDir,
+		tokenRefresh:        idConfig.TokenRefresh,
+		tokenExpiryInSecond: tokenExpiryInSecond,
+		roleAuthHeader:      idConfig.RoleAuthHeader,
+		useTokenServer:      idConfig.UseTokenServer,
+		shutdownDelay:       idConfig.ShutdownDelay,
+		shutdownTimeout:     idConfig.ShutdownTimeout,
+	}
 
 	// initialize tokens on mode=refresh or TOKEN_DIR is set
 	if !idConfig.Init || idConfig.TokenDir != "" {
@@ -147,6 +140,10 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 	// create token server
 	if idConfig.Init {
 		log.Infof("Token server is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
+		return ts, nil
+	}
+	if idConfig.TokenServerAddr == "" || tt == 0 {
+		log.Infof("Token server is disabled due to insufficient options: address[%s], roles[%s], token-type[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles, idConfig.TokenType)
 		return ts, nil
 	}
 	tokenServer := &http.Server{
@@ -199,37 +196,39 @@ func (ts *tokenService) Start(ctx context.Context) error {
 	}
 
 	// refreshes tokens periodically
-	t := time.NewTicker(ts.tokenRefresh)
-	ts.shutdownWg.Add(1)
-	go func() {
-		defer t.Stop()
-		defer ts.shutdownWg.Done()
+	if ts.tokenRefresh > 0 {
+		t := time.NewTicker(ts.tokenRefresh)
+		ts.shutdownWg.Add(1)
+		go func() {
+			defer t.Stop()
+			defer ts.shutdownWg.Done()
 
-		for {
-			log.Infof("Will refresh cached tokens within %s", ts.tokenRefresh.String())
+			for {
+				log.Infof("Will refresh cached tokens within %s", ts.tokenRefresh.String())
 
-			select {
-			case <-ts.shutdownChan:
-				log.Info("Stopped token provider daemon")
-				return
-			case <-t.C:
-				// skip refresh if context is done but Shutdown() is not called
-				if ctx.Err() != nil {
-					log.Info("Skipped to refresh cached tokens")
-					continue
-				}
+				select {
+				case <-ts.shutdownChan:
+					log.Info("Stopped token provider daemon")
+					return
+				case <-t.C:
+					// skip refresh if context is done but Shutdown() is not called
+					if ctx.Err() != nil {
+						log.Info("Skipped to refresh cached tokens")
+						continue
+					}
 
-				// backoff retry until TOKEN_REFRESH_INTERVAL / 4 OR context is done
-				for _, err := range ts.updateTokenCaches(ctx, ts.tokenRefresh/4) {
-					log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
-				}
-				// backoff retry until TOKEN_REFRESH_INTERVAL / 4 OR context is done
-				if err := ts.writeFilesWithRetry(ctx, ts.tokenRefresh/4); err != nil {
-					log.Errorf("Failed to write token files after multiple retries: %s", err.Error())
+					// backoff retry until TOKEN_REFRESH_INTERVAL / 4 OR context is done
+					for _, err := range ts.updateTokenCaches(ctx, ts.tokenRefresh/4) {
+						log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
+					}
+					// backoff retry until TOKEN_REFRESH_INTERVAL / 4 OR context is done
+					if err := ts.writeFilesWithRetry(ctx, ts.tokenRefresh/4); err != nil {
+						log.Errorf("Failed to write token files after multiple retries: %s", err.Error())
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	// reports memory usage periodically
 	reportTicker := time.NewTicker(time.Minute)

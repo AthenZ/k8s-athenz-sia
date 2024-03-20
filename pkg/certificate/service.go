@@ -309,37 +309,39 @@ func (cs *certService) Start(ctx context.Context) error {
 		return nil
 	}
 
-	t := time.NewTicker(cs.idConfig.Refresh)
-	cs.shutdownWg.Add(1)
-	go func() {
-		defer t.Stop()
-		defer cs.shutdownWg.Done()
+	if cs.idConfig.Refresh > 0 {
+		t := time.NewTicker(cs.idConfig.Refresh)
+		cs.shutdownWg.Add(1)
+		go func() {
+			defer t.Stop()
+			defer cs.shutdownWg.Done()
 
-		notifyOnErr := func(err error, backoffDelay time.Duration) {
-			log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
-		}
-		for {
-			log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idConfig.KeyFile, cs.idConfig.CertFile, cs.idConfig.TargetDomainRoles, cs.idConfig.ProviderService, cs.idConfig.Backup, cs.idConfig.CertSecret, cs.idConfig.Refresh)
+			notifyOnErr := func(err error, backoffDelay time.Duration) {
+				log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
+			}
+			for {
+				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idConfig.KeyFile, cs.idConfig.CertFile, cs.idConfig.TargetDomainRoles, cs.idConfig.ProviderService, cs.idConfig.Backup, cs.idConfig.CertSecret, cs.idConfig.Refresh)
 
-			select {
-			case <-cs.shutdownChan:
-				log.Info("Stopped certificate provider daemon")
-				return
-			case <-t.C:
-				// skip refresh if context is done but Shutdown() is not called
-				if ctx.Err() != nil {
-					log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idConfig.KeyFile, cs.idConfig.CertFile, cs.idConfig.TargetDomainRoles, cs.idConfig.ProviderService, cs.idConfig.Backup, cs.idConfig.CertSecret)
-					continue
-				}
+				select {
+				case <-cs.shutdownChan:
+					log.Info("Stopped certificate provider daemon")
+					return
+				case <-t.C:
+					// skip refresh if context is done but Shutdown() is not called
+					if ctx.Err() != nil {
+						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idConfig.KeyFile, cs.idConfig.CertFile, cs.idConfig.TargetDomainRoles, cs.idConfig.ProviderService, cs.idConfig.Backup, cs.idConfig.CertSecret)
+						continue
+					}
 
-				// backoff retry until REFRESH_INTERVAL / 4 OR context is done
-				err := backoff.RetryNotify(cs.run, newExponentialBackOff(ctx, cs.idConfig.Refresh/4), notifyOnErr)
-				if err != nil {
-					log.Errorf("Failed to refresh certificates after multiple retries: %s", err.Error())
+					// backoff retry until REFRESH_INTERVAL / 4 OR context is done
+					err := backoff.RetryNotify(cs.run, newExponentialBackOff(ctx, cs.idConfig.Refresh/4), notifyOnErr)
+					if err != nil {
+						log.Errorf("Failed to refresh certificates after multiple retries: %s", err.Error())
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	return nil
 }
