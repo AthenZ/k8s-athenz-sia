@@ -49,7 +49,7 @@ var (
 	DEFAULT_SHUTDOWN_DELAY   = time.Duration(0)
 
 	// default maximum elapsed time on initialization
-	DEFAULT_MAX_ELAPSED_TIME_ON_INIT = 3 * time.Minute
+	DEFAULT_MAX_ELAPSED_TIME_ON_INIT = 1 * time.Minute
 )
 
 func init() {
