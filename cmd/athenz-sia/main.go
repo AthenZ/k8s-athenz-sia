@@ -15,35 +15,34 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/certificate"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
-	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/identity"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/healthcheck"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/token"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/version"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const serviceName = "athenz-sia"
 
-var (
-	APP_NAME   = version.APP_NAME
-	VERSION    = version.VERSION
-	BUILD_DATE = version.BUILD_DATE
-)
-
 // printVersion returns the version and the built date of the executable itself
 func printVersion() {
-	if VERSION == "" || BUILD_DATE == "" {
+	if version.VERSION == "" || version.BUILD_DATE == "" {
 		fmt.Printf("(development version)\n")
 	} else {
-		fmt.Printf("Version: %s\n", VERSION)
-		fmt.Printf("Build Date: %s\n", BUILD_DATE)
+		fmt.Printf("Version: %s\n", version.VERSION)
+		fmt.Printf("Build Date: %s\n", version.BUILD_DATE)
 		fmt.Println("===== Default Values =====")
 		fmt.Printf("Athenz Endpoint: %s\n", config.DEFAULT_ENDPOINT)
 		fmt.Printf("Certificate SANs DNS Suffix: %s\n", config.DEFAULT_DNS_SUFFIX)
@@ -58,11 +57,12 @@ func printVersion() {
 	}
 }
 
+// main should handles MODE=init/refresh, underlying daemon should NOT handle it
 func main() {
 
 	// one-time logger for loading user config
 	log.InitLogger("", "INFO", true)
-	idConfig, err := config.LoadConfig(APP_NAME, os.Args[1:])
+	idConfig, err := config.LoadConfig(version.APP_NAME, os.Args[1:])
 	if err != nil {
 		switch err {
 		case config.ErrHelp:
@@ -76,40 +76,92 @@ func main() {
 
 	// re-init logger from user config
 	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
-	log.Infof("Starting [%s] with version [%s], built on [%s]", APP_NAME, VERSION, BUILD_DATE)
+	log.Infof("Starting [%s] with version [%s], built on [%s]", version.APP_NAME, version.VERSION, version.BUILD_DATE)
 	log.Infof("Booting up with args: %v, config: %+v", os.Args, idConfig)
 
-	certificateChan := make(chan struct{}, 1)
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, syscall.SIGTERM, os.Interrupt)
+	// delay boot with jitter
+	if idConfig.DelayJitterSeconds != 0 {
+		sleep := time.Duration(rand.Int63n(idConfig.DelayJitterSeconds)) * time.Second
+		log.Infof("Delaying boot with jitter [%s] randomized from [%s]...", sleep, time.Duration(idConfig.DelayJitterSeconds)*time.Second)
+		time.Sleep(sleep)
+	}
 
-	err, sdChan := identity.Certificated(idConfig, certificateChan)
+	// register metrics
+	metrics.RegisterBuildInfo(filepath.Base(os.Args[0]), version.VERSION, version.BUILD_DATE)
+
+	// variables
+	causeBySignal := fmt.Errorf("received signal")
+	causeByStartFailed := fmt.Errorf("start failed")
+	initCtx, cancelInit := context.WithCancelCause(context.Background())
+	runCtx, cancelRun := context.WithCancelCause(context.Background())
+
+	// signal handling in background
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, os.Interrupt)
+	go func() {
+		// wait for a signal, then cancel contexts
+		sigGot := <-sigChan
+		log.Infof("Received signal: %s", sigGot.String())
+		cancelInit(fmt.Errorf("%w: %s", causeBySignal, sigGot))
+		cancelRun(fmt.Errorf("%w: %s", causeBySignal, sigGot))
+	}()
+
+	// initiate background services
+	certService, err := certificate.New(initCtx, idConfig)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("Error initiating certificate provider: %s", err.Error())
+	}
+	tokenService, err := token.New(initCtx, idConfig)
+	if err != nil {
+		log.Fatalf("Error initiating token provider: %s", err.Error())
+	}
+	metricsService, err := metrics.New(initCtx, idConfig)
+	if err != nil {
+		log.Fatalf("Error initiating metrics exporter: %s", err.Error())
+	}
+	hcService, err := healthcheck.New(initCtx, idConfig)
+	if err != nil {
+		log.Fatalf("Error initiating health check: %s", err.Error())
+	}
+
+	// mode=init, end the process
+	if initCtx.Err() != nil {
+		log.Infof("Init stopped by cause: %s", context.Cause(initCtx).Error())
+		return
+	}
+	if idConfig.Init {
+		log.Infoln("Init completed!")
 		return
 	}
 
-	// register a metric to display the application's app_name, version and build_date
-	promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "sidecar_build_info",
-		Help: "Indicates the application name, build version and date",
-		ConstLabels: prometheus.Labels{
-			"app_name": APP_NAME,
-			"version":  VERSION,
-			"built":    BUILD_DATE, // reference: https://github.com/enix/x509-certificate-exporter/blob/b33c43ac520dfbced529bf7543d8271d052947d0/internal/collector.go#L49
-		},
-	}, func() float64 {
-		return float64(1)
-	})
-
-	if !idConfig.Init {
-		s := <-ch // wait until receiving os.Signal from channel ch
-		log.Printf("Initiating shutdown with received signal %s ...\n", s.String())
+	// start background services, should process the sequences in order and graceful shutdown if any start failed
+	if err := certService.Start(runCtx); err != nil {
+		log.Errorf("Error starting certificate provider: %s", err.Error())
+		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
+	}
+	if err := tokenService.Start(runCtx); err != nil {
+		log.Errorf("Error starting token provider: %s", err.Error())
+		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
+	}
+	if err := metricsService.Start(runCtx); err != nil {
+		log.Errorf("Error starting metrics exporter: %s", err.Error())
+		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
+	}
+	if err := hcService.Start(runCtx); err != nil {
+		log.Errorf("Error starting health check: %s", err.Error())
+		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
 	}
 
-	close(certificateChan)
-	if sdChan != nil {
-		<-sdChan
+	// mode=refresh, wait for signal and then shutdown gracefully
+	<-runCtx.Done()
+	log.Infof("Initiating shutdown by cause: %s ...", context.Cause(runCtx).Error())
+	hcService.Shutdown()
+	metricsService.Shutdown()
+	tokenService.Shutdown()
+	certService.Shutdown()
+
+	if errors.Is(context.Cause(runCtx), causeByStartFailed) {
+		log.Fatalf("Start failed by cause: %s", context.Cause(runCtx).Error())
 	}
-	log.Println("Shutdown completed!")
+	log.Infoln("Shutdown completed!")
 }

@@ -12,38 +12,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
+package metrics
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 
 	// using git submodule to import internal package (special package in golang)
 	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
-	internal "github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics/internal"
 )
 
-func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
-	if stopChan == nil {
-		panic(fmt.Errorf("Metricsd: stopChan cannot be empty"))
+type metricsService struct {
+	shutdownChan chan struct{}
+	shutdownWg   sync.WaitGroup
+
+	idConfig        *config.IdentityConfig
+	exporter        *internal.Exporter
+	exporterRunning bool
+}
+
+func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, error) {
+	if ctx.Err() != nil {
+		log.Info("Skipped metrics exporter initiation")
+		return nil, nil
 	}
 
+	ms := &metricsService{
+		shutdownChan: make(chan struct{}, 1),
+		idConfig:     idConfig,
+	}
+
+	// check initialization skip
 	if idConfig.Init {
 		log.Infof("Metrics exporter is disabled for init mode: address[%s]", idConfig.MetricsServerAddr)
-		return nil, nil
+		return ms, nil
 	}
-
 	if idConfig.MetricsServerAddr == "" {
 		log.Infof("Metrics exporter is disabled with empty options: address[%s]", idConfig.MetricsServerAddr)
-		return nil, nil
+		return ms, nil
 	}
-
-	log.Infof("Starting metrics exporter[%s]", idConfig.MetricsServerAddr)
 
 	// https://github.com/enix/x509-certificate-exporter
 	// https://github.com/enix/x509-certificate-exporter/blob/main/cmd/x509-certificate-exporter/main.go
@@ -78,28 +93,50 @@ func Metricsd(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error,
 		}
 	}
 
-	serverDone := make(chan struct{}, 1)
-	go func() {
-		err := exporter.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start metrics exporter: %s", err.Error())
+	ms.exporter = &exporter
+	return ms, nil
+}
+
+// Start starts the metrics exporter
+func (ms *metricsService) Start(ctx context.Context) error {
+	if ctx.Err() != nil {
+		log.Info("Skipped metrics exporter start")
+		return nil
+	}
+
+	if ms.exporter != nil {
+		log.Infof("Starting metrics exporter server[%s]", ms.idConfig.MetricsServerAddr)
+		ms.shutdownWg.Add(1)
+		go func() {
+			defer ms.shutdownWg.Done()
+			if err := ms.exporter.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("Failed to start metrics exporter server: %s", err.Error())
+			}
+			log.Info("Stopped metrics exporter server")
+		}()
+
+		if err := daemon.WaitForServerReady(ms.exporter.ListenAddress, false); err != nil {
+			log.Errorf("Failed to confirm metrics exporter server ready: %s", err.Error())
+			return err
 		}
-		close(serverDone)
-	}()
+		ms.exporterRunning = true
+	}
 
-	shutdownChan := make(chan struct{}, 1)
-	go func() {
-		defer close(shutdownChan)
+	return nil
+}
 
-		<-stopChan
-		log.Info("Initiating shutdown of metrics exporter daemon ...")
-		// context.Background() is used, no timeout
-		err := exporter.Shutdown()
+func (ms *metricsService) Shutdown() {
+	log.Info("Initiating shutdown of metrics exporter daemon ...")
+	close(ms.shutdownChan)
+
+	if ms.exporter != nil && ms.exporterRunning {
+		err := ms.exporter.Shutdown() // context.Background() is used, no timeout. refer to https://github.com/enix/x509-certificate-exporter/blob/33dd533/internal/exporter.go#L111
+		// P.S. Make sure to use the httpChecker to ensure ListenAndServe() is finished before Shutdown() is called. If ListenAndServe() does not finish creating the server object before Shutdown() is called, the internal server field will be nil and Shutdown() be a no-op. ListenAndServe() will block and cause deadlock.
 		if err != nil {
-			log.Errorf("Failed to shutdown metrics exporter: %s", err.Error())
+			log.Errorf("Failed to shutdown metrics exporter server: %s", err.Error())
 		}
-		<-serverDone
-	}()
+	}
 
-	return nil, shutdownChan
+	// wait for graceful shutdown
+	ms.shutdownWg.Wait()
 }

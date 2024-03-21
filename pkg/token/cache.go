@@ -22,7 +22,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -84,13 +83,13 @@ type LockedTokenCache struct {
 	podName string
 }
 
-func NewLockedTokenCache(tokenType string, idConfig *config.IdentityConfig) *LockedTokenCache {
+func NewLockedTokenCache(tokenType, namespace, podName string) *LockedTokenCache {
 	return &LockedTokenCache{
 		cache:       make(map[CacheKey]Token),
 		memoryUsage: 0,
 		tokenType:   tokenType,
-		namespace:   idConfig.Namespace,
-		podName:     idConfig.PodName,
+		namespace:   namespace,
+		podName:     podName,
 	}
 }
 
@@ -160,27 +159,63 @@ func (c *LockedTokenCache) Clear() {
 	for t := range c.cache {
 		delete(c.cache, t)
 		// TODO: reset metrics on delete
-
 	}
 	c.memoryUsage = 0
 }
 
 var (
-	tokenExpiresInMetric = "token_expires_in_seconds"
-	tokenExpiresInHelp   = "Indicates remaining time until the token expires"
+	cachedTokenBytesMetric   = "cached_token_bytes"
+	cachedTokenBytesHelp     = "Number of bytes cached"
+	cachedTokenEntriesMetric = "cached_token_entries"
+	cachedTokenEntriesHelp   = "Number of entries cached"
+	tokenExpiresInMetric     = "token_expires_in_seconds"
+	tokenExpiresInHelp       = "Indicates remaining time until the token expires"
 )
 
 func (c *LockedTokenCache) Describe(ch chan<- *prometheus.Desc) {
 	labelKeys := []string{"domain", "role"}
-	ch <- prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, prometheus.Labels{
+	constLabels := prometheus.Labels{
 		"type": c.tokenType,
-	})
+	}
+
+	ch <- prometheus.NewDesc(cachedTokenBytesMetric, cachedTokenBytesHelp, nil, constLabels)
+	ch <- prometheus.NewDesc(cachedTokenEntriesMetric, cachedTokenEntriesHelp, nil, constLabels)
+	ch <- prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, constLabels)
 }
 
 func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 
+	constLabels := prometheus.Labels{
+		"type": c.tokenType,
+	}
+
+	// token cache metrics
+	var metric prometheus.Metric
+	var err error
+	metric, err = prometheus.NewConstMetric(
+		prometheus.NewDesc(cachedTokenBytesMetric, cachedTokenBytesHelp, nil, constLabels),
+		prometheus.GaugeValue,
+		float64(c.Size()),
+	)
+	if err != nil {
+		log.Errorf("Failed to create metric: %s", err.Error())
+	} else {
+		ch <- metric
+	}
+	metric, err = prometheus.NewConstMetric(
+		prometheus.NewDesc(cachedTokenEntriesMetric, cachedTokenEntriesHelp, nil, constLabels),
+		prometheus.GaugeValue,
+		float64(c.Len()),
+	)
+	if err != nil {
+		log.Errorf("Failed to create metric: %s", err.Error())
+	} else {
+		ch <- metric
+	}
+
+	// token expiry metrics
 	for k, t := range c.cache {
 		// skip placeholder token added during daemon creation
 		if t.Raw() == "" {
@@ -212,15 +247,13 @@ func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
 			labelValues = append(labelValues, c.podName)
 		}
 		metric, err := prometheus.NewConstMetric(
-			prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, prometheus.Labels{
-				"type": c.tokenType,
-			}),
+			prometheus.NewDesc(tokenExpiresInMetric, tokenExpiresInHelp, labelKeys, constLabels),
 			prometheus.GaugeValue,
 			float64(time.Until(time.Unix(t.Expiry(), 0)).Seconds()),
 			labelValues...,
 		)
 		if err != nil {
-			log.Errorf("Failed to create metric: %v", err)
+			log.Errorf("Failed to create metric: %s", err.Error())
 			continue
 		}
 		ch <- metric

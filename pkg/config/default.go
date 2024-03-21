@@ -47,6 +47,9 @@ var (
 	// default values for graceful shutdown
 	DEFAULT_SHUTDOWN_TIMEOUT = 5 * time.Second
 	DEFAULT_SHUTDOWN_DELAY   = time.Duration(0)
+
+	// default maximum elapsed time on initialization
+	DEFAULT_MAX_ELAPSED_TIME_ON_INIT = 1 * time.Minute
 )
 
 func init() {

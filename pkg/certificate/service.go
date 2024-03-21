@@ -12,27 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
+package certificate
 
 import (
+	"context"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
-	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/token"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 	"github.com/cenkalti/backoff"
 )
 
-func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (error, <-chan struct{}) {
+type certService struct {
+	shutdownChan chan struct{}
+	shutdownWg   sync.WaitGroup
 
-	if stopChan == nil {
-		panic(fmt.Errorf("Certificated: stopChan cannot be empty"))
+	idConfig *config.IdentityConfig
+	handler  *identityHandler
+	run      func() error
+}
+
+func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, error) {
+	if ctx.Err() != nil {
+		log.Info("Skipped certificate provider initiation")
+		return nil, nil
 	}
 
 	if idConfig.ProviderService == "" {
@@ -46,7 +56,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 	handler, err := InitIdentityHandler(idConfig)
 	if err != nil {
 		log.Errorf("Failed to initialize client for certificates: %s", err.Error())
-		return err, nil
+		return nil, err
 	}
 
 	// identity & keyPEM will be STORED to the local file system:
@@ -78,7 +88,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 					return fmt.Errorf("unable to save x509 cert: %w", err)
 				}
 				log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idConfig.KeyFile)
-				if err := w.AddBytes(idConfig.KeyFile, 0644, keyPEM); err != nil { // TODO: finalize perms and user
+				if err := w.AddBytes(idConfig.KeyFile, 0644, keyPEM); err != nil {
 					return fmt.Errorf("unable to save x509 key: %w", err)
 				}
 			}
@@ -136,7 +146,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 				return
 			}
 		} else {
-			log.Infoln("Successfully received x509 certificate from identity provider")
+			log.Info("Successfully received x509 certificate from identity provider")
 
 			if idConfig.CertSecret != "" && strings.Contains(idConfig.Backup, "write") {
 
@@ -170,22 +180,8 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 			return err, nil, nil
 		}
 
-		log.Infoln("Successfully received x509 role certs from identity provider")
+		log.Info("Successfully received x509 role certs from identity provider")
 		return nil, roleCerts, roleKeyPEM
-	}
-
-	// getExponentialBackoff will return a backoff config with first retry delay of 5s, and backoff retry
-	// until REFRESH_INTERVAL / 4
-	getExponentialBackoff := func() *backoff.ExponentialBackOff {
-		b := backoff.NewExponentialBackOff()
-		b.InitialInterval = 5 * time.Second
-		b.Multiplier = 2
-		b.MaxElapsedTime = idConfig.Refresh / 4
-		return b
-	}
-
-	notifyOnErr := func(err error, backoffDelay time.Duration) {
-		log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
 
 	run := func() error {
@@ -201,7 +197,7 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 				log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
 			}
 		} else if idConfig.KeyFile != "" && idConfig.CertFile != "" {
-			log.Debugln("Attempting to load x509 certificate from cert reloader...")
+			log.Debug("Attempting to load x509 certificate from cert reloader...")
 			localFileKeyPEM, localFileCertPEM, err := idConfig.Reloader.GetLatestKeyAndCert()
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate key from cert reloader: %s", err.Error())
@@ -283,105 +279,99 @@ func Certificated(idConfig *config.IdentityConfig, stopChan <-chan struct{}) (er
 		return err
 	}
 
-	deleteRequest := func() error {
-		if idConfig.DeleteInstanceID && !idConfig.Init && handler.InstanceID() != "" {
-
-			log.Infoln("Attempting to delete x509 certificate record from identity provider...")
-
-			err := handler.DeleteX509CertRecord()
-			if err != nil {
-				log.Warnf("Error while deleting x509 certificate Instance ID record: %s", err.Error())
-				return err
-			}
-
-			log.Infof("Successfully deleted x509 certificate Instance ID record[%s]", handler.InstanceID())
-		}
-
-		return nil
-	}
-
-	if idConfig.DelayJitterSeconds != 0 {
-		sleep := time.Duration(rand.Int63n(idConfig.DelayJitterSeconds)) * time.Second
-		log.Infof("Delaying boot with jitter [%s] randomized from [%s]...", sleep, time.Duration(idConfig.DelayJitterSeconds)*time.Second)
-		time.Sleep(sleep)
-	}
-
-	err = backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
+	// initialize with retry
+	ebo := newExponentialBackOff(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT)
+	err = backoff.RetryNotify(run, ebo, func(err error, backoffDelay time.Duration) {
+		log.Errorf("Failed to get initial certificates: %s. Retrying in %s", err.Error(), backoffDelay)
+	})
 	if err != nil {
 		// mode=init, must output preset certificates
 		if idConfig.Init {
-			log.Errorf("Failed to get initial certificate after multiple retries for init mode: %s", err.Error())
-			return err, nil
+			log.Errorf("Failed to get initial certificates after multiple retries for init mode: %s", err.Error())
+			return nil, err
 		}
 		// mode=refresh, on retry error, ignore and continue server startup
-		log.Errorf("Failed to get initial certificate after multiple retries for refresh mode: %s, will try to continue startup process...", err.Error())
+		log.Errorf("Failed to get initial certificates after multiple retries for refresh mode: %s, will try to continue startup process...", err.Error())
 	}
 
-	tokenChan := make(chan struct{}, 1)
-	err, tokenSdChan := token.Tokend(idConfig, tokenChan)
-	if err != nil {
-		log.Errorf("Error starting token provider[%s]", err)
-		close(tokenChan)
-		return err, nil
+	return &certService{
+		shutdownChan: make(chan struct{}, 1),
+		idConfig:     idConfig,
+		handler:      handler,
+		run:          run,
+	}, nil
+}
+
+// Start refreshes certificates periodically
+func (cs *certService) Start(ctx context.Context) error {
+	if ctx.Err() != nil {
+		log.Info("Skipped certificate provider start")
+		return nil
 	}
 
-	metricsChan := make(chan struct{}, 1)
-	err, metricsSdChan := Metricsd(idConfig, metricsChan)
-	if err != nil {
-		log.Errorf("Error starting metrics exporter[%s]", err)
-		close(metricsChan)
-		close(tokenChan)
-		return err, nil
-	}
+	if cs.idConfig.Refresh > 0 {
+		t := time.NewTicker(cs.idConfig.Refresh)
+		cs.shutdownWg.Add(1)
+		go func() {
+			defer t.Stop()
+			defer cs.shutdownWg.Done()
 
-	healthcheckChan := make(chan struct{}, 1)
-	err, healthcheckSdChan := Healthcheckd(idConfig, healthcheckChan)
-	if err != nil {
-		log.Errorf("Error starting health check server[%s]", err)
-		close(healthcheckChan)
-		close(metricsChan)
-		close(tokenChan)
-		return err, nil
-	}
-
-	shutdownChan := make(chan struct{}, 1)
-	t := time.NewTicker(idConfig.Refresh)
-	go func() {
-		defer t.Stop()
-		defer close(shutdownChan)
-
-		for {
-
-			log.Infof("Refreshing key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] in %s", idConfig.KeyFile, idConfig.CertFile, idConfig.TargetDomainRoles, idConfig.ProviderService, idConfig.Backup, idConfig.CertSecret, idConfig.Refresh)
-
-			select {
-			case <-t.C:
-				err := backoff.RetryNotify(run, getExponentialBackoff(), notifyOnErr)
-				if err != nil {
-					log.Errorf("Failed to refresh x509 certificate after multiple retries: %s", err.Error())
-				}
-			case <-stopChan:
-				log.Info("Initiating shutdown of certificate provider daemon ...")
-				err = deleteRequest()
-				if err != nil {
-					log.Errorf("Failed to delete x509 certificate Instance ID record: %s", err.Error())
-				}
-				close(healthcheckChan)
-				close(metricsChan)
-				close(tokenChan)
-				if tokenSdChan != nil {
-					<-tokenSdChan
-				}
-				if metricsSdChan != nil {
-					<-metricsSdChan
-				}
-				if healthcheckSdChan != nil {
-					<-healthcheckSdChan
-				}
-				return
+			notifyOnErr := func(err error, backoffDelay time.Duration) {
+				log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 			}
-		}
-	}()
+			for {
+				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idConfig.KeyFile, cs.idConfig.CertFile, cs.idConfig.TargetDomainRoles, cs.idConfig.ProviderService, cs.idConfig.Backup, cs.idConfig.CertSecret, cs.idConfig.Refresh)
 
-	return nil, shutdownChan
+				select {
+				case <-cs.shutdownChan:
+					log.Info("Stopped certificate provider daemon")
+					return
+				case <-t.C:
+					// skip refresh if context is done but Shutdown() is not called
+					if ctx.Err() != nil {
+						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idConfig.KeyFile, cs.idConfig.CertFile, cs.idConfig.TargetDomainRoles, cs.idConfig.ProviderService, cs.idConfig.Backup, cs.idConfig.CertSecret)
+						continue
+					}
+
+					// backoff retry until REFRESH_INTERVAL / 4 OR context is done
+					err := backoff.RetryNotify(cs.run, newExponentialBackOff(ctx, cs.idConfig.Refresh/4), notifyOnErr)
+					if err != nil {
+						log.Errorf("Failed to refresh certificates after multiple retries: %s", err.Error())
+					}
+				}
+			}
+		}()
+	}
+
+	return nil
+}
+
+func (cs *certService) Shutdown() {
+	log.Info("Initiating shutdown of certificate provider daemon ...")
+	close(cs.shutdownChan)
+
+	// wait for graceful shutdown
+	cs.shutdownWg.Wait()
+
+	// delete x509 certificate record to prevent future refresh
+	// P.S. Shutdown() will ONLY run on mode=refresh, no need to check for idConfig.Init
+	if cs.idConfig.DeleteInstanceID && cs.handler.InstanceID() != "" {
+		log.Info("Attempting to delete x509 certificate record from identity provider...")
+		err := cs.handler.DeleteX509CertRecord()
+		if err != nil {
+			log.Warnf("Failed to delete x509 certificate Instance ID record: %s", err.Error())
+		} else {
+			log.Infof("Successfully deleted x509 certificate Instance ID record[%s]", cs.handler.InstanceID())
+		}
+	}
+}
+
+// newExponentialBackOff returns a backoff config with first retry delay of 5s. Allow cancel by context.
+func newExponentialBackOff(ctx context.Context, maxElapsedTime time.Duration) backoff.BackOff {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 5 * time.Second
+	b.Multiplier = 2
+	b.MaxElapsedTime = maxElapsedTime
+
+	return backoff.WithContext(b, ctx)
 }
