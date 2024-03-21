@@ -30,12 +30,12 @@ type hcService struct {
 	shutdownChan chan struct{}
 	shutdownWg   sync.WaitGroup
 
-	idConfig        *config.IdentityConfig
+	idCfg           *config.IdentityConfig
 	hcServer        *http.Server
 	hcServerRunning bool
 }
 
-func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, error) {
+func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
 	if ctx.Err() != nil {
 		log.Info("Skipped health check initiation")
 		return nil, nil
@@ -43,23 +43,23 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 
 	hs := &hcService{
 		shutdownChan: make(chan struct{}, 1),
-		idConfig:     idConfig,
+		idCfg:        idCfg,
 	}
 
 	// check initialization skip
-	if idConfig.Init {
-		log.Infof("Health check server is disabled for init mode: address[%s]", idConfig.HealthCheckAddr)
+	if idCfg.Init {
+		log.Infof("Health check server is disabled for init mode: address[%s]", idCfg.HealthCheckAddr)
 		return hs, nil
 	}
-	if idConfig.HealthCheckAddr == "" {
-		log.Infof("Health check server is disabled with empty options: address[%s]", idConfig.HealthCheckAddr)
+	if idCfg.HealthCheckAddr == "" {
+		log.Infof("Health check server is disabled with empty options: address[%s]", idCfg.HealthCheckAddr)
 		return hs, nil
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(idConfig.HealthCheckEndpoint, handleHealthCheckRequest)
+	mux.HandleFunc(idCfg.HealthCheckEndpoint, handleHealthCheckRequest)
 	hs.hcServer = &http.Server{
-		Addr:    idConfig.HealthCheckAddr,
+		Addr:    idCfg.HealthCheckAddr,
 		Handler: mux,
 	}
 
@@ -74,7 +74,7 @@ func (hs *hcService) Start(ctx context.Context) error {
 	}
 
 	if hs.hcServer != nil {
-		log.Infof("Starting health check server[%s]", hs.idConfig.HealthCheckAddr)
+		log.Infof("Starting health check server[%s]", hs.idCfg.HealthCheckAddr)
 		hs.shutdownWg.Add(1)
 		go func() {
 			defer hs.shutdownWg.Done()
