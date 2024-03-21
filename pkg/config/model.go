@@ -15,9 +15,11 @@
 package config
 
 import (
+	"fmt"
+	"net"
 	"time"
 
-	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
 // IdentityConfig from cmd line args
@@ -40,11 +42,12 @@ type IdentityConfig struct {
 	AthenzSuffix              string
 	ServiceAccount            string
 	SaTokenFile               string
-	PodIP                     string
+	PodIP                     net.IP
 	PodUID                    string
+	PodName                   string
 	Reloader                  *util.CertReloader
 	ServerCACert              string
-	TargetDomainRoles         string
+	TargetDomainRoles         []DomainRole
 	RoleCertDir               string
 	RoleCertFilenameDelimiter string
 	RoleCertKeyFileOutput     bool
@@ -72,6 +75,8 @@ type IdentityConfig struct {
 
 	// raw strings before parsing
 	rawMode                  string
+	rawPodIP                 string
+	rawTargetDomainRoles     string
 	rawRefresh               string
 	rawDelayJitterSeconds    string
 	rawRoleCertKeyFileOutput string
@@ -83,4 +88,13 @@ type IdentityConfig struct {
 	rawUseTokenServer        string
 	rawShutdownTimeout       string
 	rawShutdownDelay         string
+}
+
+type DomainRole struct {
+	Domain string
+	Role   string
+}
+
+func (dr DomainRole) String() string {
+	return fmt.Sprintf("%s:role.%s", dr.Domain, dr.Role)
 }

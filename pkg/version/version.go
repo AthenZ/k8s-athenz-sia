@@ -12,5 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package config defines all the configuration parameters. It reads configuration from environment variables and command-line arguments.
-package config
+package version
+
+import (
+	"os"
+	"path/filepath"
+)
+
+var (
+	APP_NAME   = filepath.Base(os.Args[0])
+	VERSION    string
+	BUILD_DATE string
+)

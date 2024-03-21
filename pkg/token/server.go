@@ -17,6 +17,7 @@ package token
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,6 +33,10 @@ const (
 	ROLE_HEADER   = "X-Athenz-Role"
 )
 
+var (
+	ClientError = fmt.Errorf("Client error") // error should be fixed by the client-side, log as warning, response 4xx status code
+)
+
 func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	requestID := r.Context().Value(contextKeyRequestID).(string)
 
@@ -44,7 +49,11 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			errMsg := fmt.Sprintf("Error: %s requestID[%s]\t%s", err.Error(), requestID, http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
-			log.Errorf(errMsg)
+			if errors.Is(err, ClientError) {
+				log.Warnf(errMsg)
+			} else {
+				log.Errorf(errMsg)
+			}
 		}
 	}()
 
@@ -53,6 +62,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err = decoder.Decode(&rtRequest); err != nil {
+		err = fmt.Errorf("%w: %w", ClientError, err)
 		return
 	}
 
@@ -63,7 +73,7 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		role = *rtRequest.Role
 	}
 	if domain == "" {
-		err = fmt.Errorf("Invalid value: domain[%s], role[%s]", domain, role)
+		err = fmt.Errorf("%w: Invalid value: domain[%s], role[%s]", ClientError, domain, role)
 		return
 	}
 
@@ -72,28 +82,28 @@ func postRoleToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	if rtRequest.ProxyForPrincipal != nil {
 		k.ProxyForPrincipal = *rtRequest.ProxyForPrincipal
 	}
-	if rtRequest.MinExpiry != nil {
+	if rtRequest.MinExpiry != nil && *rtRequest.MinExpiry > 0 {
 		k.MinExpiry = *rtRequest.MinExpiry
 	}
-	if rtRequest.MaxExpiry != nil {
-		k.MaxExpiry = *rtRequest.MaxExpiry
-	}
-	if k.MinExpiry == 0 {
+	// To prevent the Role Token's expiration from being shorter than the ZTS server's default value,
+	// we will ignore the maxExpiry setting value in the request body.
+	// if rtRequest.MaxExpiry != nil && *rtRequest.MaxExpiry > 0{
+	// 	k.MaxExpiry = *rtRequest.MaxExpiry
+	// }
+	if k.MinExpiry == 0 && d.tokenExpiryInSecond > 0 {
 		k.MinExpiry = d.tokenExpiryInSecond
 	}
-
 	// cache lookup (token TTL must >= 1 minute)
 	rToken := d.roleTokenCache.Load(k)
+	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
+	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Attempting to fetch role token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
-		// on cache miss, fetch token from Athenz ZTS server
-		rToken, err = fetchRoleToken(d.ztsClient, k)
+		res, resErr := d.requestTokenToZts(k, mROLE_TOKEN, requestID)
+		err = resErr // assign error for defer
 		if err != nil {
 			return
 		}
-		// update cache
-		d.roleTokenCache.Store(k, rToken)
-		log.Infof("Successfully updated role token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
+		rToken = res.token
 	}
 
 	// check context cancelled
@@ -125,7 +135,11 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			errMsg := fmt.Sprintf("Error: %s requestID[%s]\t%s", err.Error(), requestID, http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
-			log.Errorf(errMsg)
+			if errors.Is(err, ClientError) {
+				log.Warnf(errMsg)
+			} else {
+				log.Errorf(errMsg)
+			}
 		}
 	}()
 
@@ -134,6 +148,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err = decoder.Decode(&atRequest); err != nil {
+		err = fmt.Errorf("%w: %w", ClientError, err)
 		return
 	}
 
@@ -144,7 +159,7 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 		role = *atRequest.Role
 	}
 	if domain == "" {
-		err = fmt.Errorf("Invalid value: domain[%s], role[%s]", domain, role)
+		err = fmt.Errorf("%w: Invalid value: domain[%s], role[%s]", ClientError, domain, role)
 		return
 	}
 
@@ -153,25 +168,24 @@ func postAccessToken(d *daemon, w http.ResponseWriter, r *http.Request) {
 	if atRequest.ProxyForPrincipal != nil {
 		k.ProxyForPrincipal = *atRequest.ProxyForPrincipal
 	}
-	if atRequest.Expiry != nil {
+	if atRequest.Expiry != nil && *atRequest.Expiry > 0 {
 		k.MaxExpiry = *atRequest.Expiry
 	}
-	if k.MaxExpiry == 0 {
+	if k.MaxExpiry == 0 && d.tokenExpiryInSecond > 0 {
 		k.MaxExpiry = d.tokenExpiryInSecond
 	}
 
 	// cache lookup (token TTL must >= 1 minute)
 	aToken := d.accessTokenCache.Load(k)
+	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
+	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
-		log.Debugf("Attempting to fetch access token due to a cache miss from Athenz ZTS server: target[%s], requestID[%s]", k.String(), requestID)
-		// on cache miss, fetch token from Athenz ZTS server
-		aToken, err = fetchAccessToken(d.ztsClient, k, d.saService)
+		res, resErr := d.requestTokenToZts(k, mACCESS_TOKEN, requestID)
+		err = resErr // assign error for defer
 		if err != nil {
 			return
 		}
-		// update cache
-		d.accessTokenCache.Store(k, aToken)
-		log.Infof("Successfully updated access token cache due to a cache miss: target[%s], requestID[%s]", k.String(), requestID)
+		aToken = res.token
 	}
 
 	// check context cancelled
@@ -264,12 +278,11 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 		if len(errMsg) > 0 {
 			response, err := json.Marshal(map[string]string{"error": errMsg})
 			if err != nil {
-				log.Warnf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
+				log.Errorf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			errMsg = fmt.Sprintf("Error while handling request with: %s[%s] %s[%s], error[%s]", DOMAIN_HEADER, domain, ROLE_HEADER, role, errMsg)
-			log.Warnf(errMsg)
+			log.Warn(fmt.Errorf("%w: while handling request with: %s[%s] %s[%s], error[%s]", ClientError, DOMAIN_HEADER, domain, ROLE_HEADER, role, errMsg))
 			w.WriteHeader(http.StatusBadRequest)
 			io.WriteString(w, string(response))
 			return
@@ -288,7 +301,7 @@ func newHandlerFunc(d *daemon, timeout time.Duration) http.Handler {
 		}
 		response, err := json.Marshal(resJSON)
 		if err != nil {
-			log.Warnf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
+			log.Errorf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

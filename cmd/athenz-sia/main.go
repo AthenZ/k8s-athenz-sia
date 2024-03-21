@@ -23,14 +23,18 @@ import (
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/identity"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/version"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const serviceName = "athenz-sia"
 
 var (
-	VERSION    string
-	BUILD_DATE string
+	APP_NAME   = version.APP_NAME
+	VERSION    = version.VERSION
+	BUILD_DATE = version.BUILD_DATE
 )
 
 // printVersion returns the version and the built date of the executable itself
@@ -58,7 +62,7 @@ func main() {
 
 	// one-time logger for loading user config
 	log.InitLogger("", "INFO", true)
-	idConfig, err := config.LoadConfig(filepath.Base(os.Args[0]), os.Args[1:])
+	idConfig, err := config.LoadConfig(APP_NAME, os.Args[1:])
 	if err != nil {
 		switch err {
 		case config.ErrHelp:
@@ -72,6 +76,7 @@ func main() {
 
 	// re-init logger from user config
 	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
+	log.Infof("Starting [%s] with version [%s], built on [%s]", APP_NAME, VERSION, BUILD_DATE)
 	log.Infof("Booting up with args: %v, config: %+v", os.Args, idConfig)
 
 	certificateChan := make(chan struct{}, 1)
@@ -83,6 +88,19 @@ func main() {
 		log.Fatalln(err)
 		return
 	}
+
+	// register a metric to display the application's app_name, version and build_date
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "sidecar_build_info",
+		Help: "Indicates the application name, build version and date",
+		ConstLabels: prometheus.Labels{
+			"app_name": APP_NAME,
+			"version":  VERSION,
+			"built":    BUILD_DATE, // reference: https://github.com/enix/x509-certificate-exporter/blob/b33c43ac520dfbced529bf7543d8271d052947d0/internal/collector.go#L49
+		},
+	}, func() float64 {
+		return float64(1)
+	})
 
 	if !idConfig.Init {
 		s := <-ch // wait until receiving os.Signal from channel ch

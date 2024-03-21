@@ -25,16 +25,23 @@ import (
 	"strings"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/version"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
-func newZTSClient(keyPath, certPath, serverCAPath, endpoint string) (*zts.ZTSClient, error) {
+func newZTSClient(reloader *util.CertReloader, serverCAPath, endpoint string) (*zts.ZTSClient, error) {
 
 	// TODO: use tls.go in sidecar: https://github.com/AthenZ/authorization-proxy/blob/6378236262dc0fbda8c00bb2d4d6544bb6e7d9d7/service/tls.go#LL71C51-L71C51
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
+
+	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		return reloader.GetLatestCertificate()
+	}
+
 	if serverCAPath != "" {
 		certPool := x509.NewCertPool()
 		caCert, err := os.ReadFile(serverCAPath)
@@ -43,26 +50,6 @@ func newZTSClient(keyPath, certPath, serverCAPath, endpoint string) (*zts.ZTSCli
 		}
 		certPool.AppendCertsFromPEM(caCert)
 		tlsConfig.RootCAs = certPool
-	}
-	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		log.Debugf("Attempting to load client x509 certificate from local file to fetch tokens: key[%s], cert[%s]...", keyPath, certPath)
-		certPEM, err := os.ReadFile(certPath)
-		if err != nil {
-			log.Warnf("Error while reading client x509 certificate from local file[%s]: %s", certPath, err.Error())
-			return nil, err
-		}
-		keyPEM, err := os.ReadFile(keyPath)
-		if err != nil {
-			log.Warnf("Error while reading client x509 certificate key from local file[%s]: %s", keyPath, err.Error())
-			return nil, err
-		}
-		cert, err := tls.X509KeyPair(certPEM, keyPEM)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to client x509 certificate from local file to fetch tokens, err: %v", err)
-		}
-
-		log.Debugf("Successfully loaded client x509 certificate from local file to fetch tokens: key size[%d]bytes, certificate size[%d]bytes", len(keyPEM), len(certPEM))
-		return &cert, nil
 	}
 
 	t := http.DefaultTransport.(*http.Transport).Clone()
@@ -76,6 +63,8 @@ func newZTSClient(keyPath, certPath, serverCAPath, endpoint string) (*zts.ZTSCli
 	// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
 	log.Infof("Create ZTS client to fetch tokens: %s, %+v", endpoint, t)
 	ztsClient := zts.NewClient(endpoint, t)
+	// Add User-Agent header to ZTS client for fetching tokens
+	ztsClient.AddCredentials("User-Agent", fmt.Sprintf("%s/%s", version.APP_NAME, version.VERSION))
 	return &ztsClient, nil
 }
 
@@ -106,14 +95,16 @@ func fetchAccessToken(ztsClient *zts.ZTSClient, t CacheKey, saService string) (*
 
 func fetchRoleToken(ztsClient *zts.ZTSClient, t CacheKey) (*RoleToken, error) {
 	var minExpiry, maxExpiry *int32
-	if t.MinExpiry != 0 {
+	if t.MinExpiry > 0 {
 		e := int32(t.MinExpiry)
 		minExpiry = &e
 	}
-	if t.MaxExpiry != 0 {
-		e := int32(t.MaxExpiry)
-		maxExpiry = &e
-	}
+	// To prevent the Role Token's expiration from being shorter than the ZTS server's default value,
+	// we will ignore the maxExpiry setting value in the request body.
+	// if t.MaxExpiry > 0 {
+	// 	e := int32(t.MaxExpiry)
+	// 	maxExpiry = &e
+	// }
 	roletokenResponse, err := ztsClient.GetRoleToken(zts.DomainName(t.Domain), zts.EntityList(t.Role), minExpiry, maxExpiry, zts.EntityName(t.ProxyForPrincipal))
 	if err != nil || roletokenResponse.Token == "" {
 		return nil, fmt.Errorf("GetRoleToken failed for target [%s], err: %v", t.String(), err)
