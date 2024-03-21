@@ -154,14 +154,14 @@ func main() {
 
 	// mode=refresh, wait for signal and then shutdown gracefully
 	<-runCtx.Done()
-	log.Infof("Initiating shutdown by caused: %s ...", context.Cause(runCtx).Error())
+	log.Infof("Initiating shutdown by cause: %s ...", context.Cause(runCtx).Error())
 	hcService.Shutdown()
 	metricsService.Shutdown()
 	tokenService.Shutdown()
 	certService.Shutdown()
 
 	if errors.Is(context.Cause(runCtx), causeByStartFailed) {
-		log.Fatalf("Start failed by caused: %s", context.Cause(runCtx).Error())
+		log.Fatalf("Start failed by cause: %s", context.Cause(runCtx).Error())
 	}
 	log.Infoln("Shutdown completed!")
 }
