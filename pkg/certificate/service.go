@@ -192,9 +192,11 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 			if err != nil {
 				log.Errorf("Failed to retrieve x509 certificate from identity provider: %s", err.Error())
 			}
-			err = idConfig.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
-			if err != nil {
-				log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+			if identity != nil && len(keyPEM) != 0 {
+				err = idConfig.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+				if err != nil {
+					log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+				}
 			}
 		} else if idConfig.KeyFile != "" && idConfig.CertFile != "" {
 			log.Debug("Attempting to load x509 certificate from cert reloader...")
@@ -233,9 +235,11 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 					keyPEM = k8sSecretBackupKeyPEM
 					log.Infof("Successfully loaded x509 certificate from kubernetes secret")
 
-					err = idConfig.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
-					if err != nil {
-						log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+					if identity != nil && len(keyPEM) != 0 {
+						err = idConfig.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+						if err != nil {
+							log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+						}
 					}
 				}
 			} else {
@@ -255,9 +259,11 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 			} else {
 				identity = forceInitIdentity
 				keyPEM = forceInitKeyPEM
-				err = idConfig.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
-				if err != nil {
-					log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+				if identity != nil && len(keyPEM) != 0 {
+					err = idConfig.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+					if err != nil {
+						log.Errorf("Failed to reload x509 certificate from identity provider: %s", err.Error())
+					}
 				}
 			}
 		}
