@@ -79,6 +79,9 @@ sequenceDiagram
 - Extra execution should be skipped if the current context is cancelled.
 - 🌟 implies that the specification is NOT fixed.
 
+> [!NOTE]
+> The following test results are created by editing the source code to simulate the expected behavior. Refer to [commit 58458db](https://github.com/AthenZ/k8s-athenz-sia/commit/58458dbe6af7e51045b14f0e778f6a8164252701) for the editing details.
+
 | case ID | event        | trigger time                     | certificate  | token                 | metrics      | healthcheck  | exit code |
 | ------- | ------------ | -------------------------------- | ------------ | --------------------- | ------------ | ------------ | --------- |
 | 000     | normal start | N/A                              | ✅ success    | ✅ success             | ✅ success    | ✅ success    | 0         |

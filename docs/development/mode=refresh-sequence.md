@@ -105,7 +105,6 @@ sequenceDiagram
 
 ## Expectation
 
-
 - On error or signal, for system integration, the whole code block should complete its execution instead of stopping immediately.
 - Retry should stop when the current context is cancelled.
 - Extra execution should be skipped if the current context is cancelled.
@@ -115,6 +114,9 @@ sequenceDiagram
     - `shutdownWg` is used to wait until ALL the goroutines stopped gracefully.
 - To confirm a HTTP server is ready, so that it can be shutdown gracefully. `WaitForServerReady()` should ONLY be *success* OR *retry until error* (max. 1 min) instead of allowing cancellation.
 - Once `Start()` is called, ALL `Shutdown()` should always be executed to shutdown gracefully.
+
+> [!NOTE]
+> The following test results are created by editing the source code to simulate the expected behavior. Refer to [commit 58458db](https://github.com/AthenZ/k8s-athenz-sia/commit/58458dbe6af7e51045b14f0e778f6a8164252701) for the editing details.
 
 | case ID | event                | trigger time                                                 | certificate | token     | metrics   | healthcheck | ALL `Shutdown()` | exit code |
 | ------- | -------------------- | ------------------------------------------------------------ | ----------- | --------- | --------- | ----------- | ---------------- | --------- |
