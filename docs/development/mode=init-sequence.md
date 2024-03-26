@@ -80,7 +80,7 @@ sequenceDiagram
 - 🌟 implies that the specification is NOT fixed.
 
 > [!NOTE]
-> The following test results are created by editing the source code to simulate the expected behavior. Refer to [commit 58458db](https://github.com/AthenZ/k8s-athenz-sia/commit/58458dbe6af7e51045b14f0e778f6a8164252701) for the editing details.
+> The following test results are created by editing the source code to simulate the expected behavior. Refer to [commit f06a625](https://github.com/AthenZ/k8s-athenz-sia/commit/f06a625d7de90600020f79cabadce2ef1d15a052) for the editing details.
 
 | case ID | event        | trigger time                     | certificate  | token                 | metrics      | healthcheck  | exit code |
 | ------- | ------------ | -------------------------------- | ------------ | --------------------- | ------------ | ------------ | --------- |

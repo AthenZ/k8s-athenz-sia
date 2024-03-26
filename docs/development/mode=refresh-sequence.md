@@ -6,28 +6,28 @@
 - [Sequence Diagram](#sequence-diagram)
 - [Expectation](#expectation)
 - [Logs](#logs)
-  - [000](#000)
-  - [001](#001)
-  - [002](#002)
-  - [003](#003)
-  - [004](#004)
-  - [005](#005)
-  - [006](#006)
-  - [007](#007)
-  - [008](#008)
-  - [009](#009)
-  - [010](#010)
-  - [011](#011)
-  - [012](#012)
-  - [013](#013)
-  - [014](#014)
-  - [015](#015)
-  - [016](#016)
-  - [017](#017)
-  - [018](#018)
-  - [019](#019)
-  - [020](#020)
-  - [021](#021)
+  - [100](#100)
+  - [101](#101)
+  - [102](#102)
+  - [103](#103)
+  - [104](#104)
+  - [105](#105)
+  - [106](#106)
+  - [107](#107)
+  - [108](#108)
+  - [109](#109)
+  - [110](#110)
+  - [111](#111)
+  - [112](#112)
+  - [113](#113)
+  - [114](#114)
+  - [115](#115)
+  - [116](#116)
+  - [117](#117)
+  - [118](#118)
+  - [119](#119)
+  - [120](#120)
+  - [121](#121)
 
 ## Sequence Diagram
 
@@ -116,39 +116,39 @@ sequenceDiagram
 - Once `Start()` is called, ALL `Shutdown()` should always be executed to shutdown gracefully.
 
 > [!NOTE]
-> The following test results are created by editing the source code to simulate the expected behavior. Refer to [commit 58458db](https://github.com/AthenZ/k8s-athenz-sia/commit/58458dbe6af7e51045b14f0e778f6a8164252701) for the editing details.
+> The following test results are created by editing the source code to simulate the expected behavior. Refer to [commit f06a625](https://github.com/AthenZ/k8s-athenz-sia/commit/f06a625d7de90600020f79cabadce2ef1d15a052) for the editing details.
 
 | case ID | event                | trigger time                                                 | certificate | token     | metrics   | healthcheck | ALL `Shutdown()` | exit code |
 | ------- | -------------------- | ------------------------------------------------------------ | ----------- | --------- | --------- | ----------- | ---------------- | --------- |
-| 000     | SIGINT (normal case) | before `is runCtx cancelled?`                                 | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
-| 001     | SIGINT               | before `certificate Start(runCtx)`                           | ⏭️ skipped   | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
-| 002     | SIGINT               | before `token Start(runCtx)`                                 | ✅ success   | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
-| 003     | SIGINT               | before `metrics Start(runCtx)`                               | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
-| 004     | SIGINT               | before `healthcheck Start(runCtx)`                           | ✅ success   | ✅ success | ✅ success | ⏭️ skipped   | ✅ success        | 0         |
-| 005     | SIGINT               | before `cert refresh timer goroutine`                        | ✅ success   | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
-| 006     | SIGINT               | before `token server goroutine`                              | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
-| 007     | SIGINT               | before `token refresh timer goroutine`                       | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
-| 008     | SIGINT               | before `memory reporter goroutine`                           | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
-| 009     | SIGINT               | before `metrics server goroutine`                            | ✅ success   | ✅ success | ✅ success | ⏭️ skipped   | ✅ success        | 0         |
-| 010     | SIGINT               | before `healthcheck server goroutine`                        | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
-| 011     | error                | in `certificate Start(runCtx)`                               | ❌ error     | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 1         |
-| 012     | error                | in `token Start(runCtx)`                                     | ✅ success   | ❌ error   | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 1         |
-| 013     | error                | in `metrics Start(runCtx)`                                   | ✅ success   | ✅ success | ❌ error   | ⏭️ skipped   | ✅ success        | 1         |
-| 014     | error                | in `healthcheck Start(runCtx)`                               | ✅ success   | ✅ success | ✅ success | ❌ error     | ✅ success        | 1         |
-| 015     | error + SIGINT       | error in `metrics Start(runCtx)`, SIGINT during `Shutdown()` | ✅ success   | ✅ success | ❌ error   | ⏭️ skipped   | ✅ success        | 1         |
-| 016     | retry error          | after `ALL Start()`, during `certificate refresh retry`      | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | NO exit   |
-| 017    | SIGINT               | after `ALL Start()`, during `certificate refresh retry`      | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
-| 018     | SIGINT    | after `ALL Start()`, during `token refresh retry`<br/>(last timer interval runs before Shutdown()) | ✅ success<br/>(last interval skipped)   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0  |
-| 019     | retry error          | after `ALL Start()`, during `token refresh retry`            | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | NO exit   |
-| 020     | SIGINT               | after `ALL Start()`, during `token refresh retry`            | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
-| 021     | SIGINT    | after `ALL Start()`, during `token refresh retry`<br/>(last timer interval runs before Shutdown())            | ✅ success   | ✅ success<br/>(last interval skipped) | ✅ success | ✅ success   | ✅ success        | 0  |
+| 100     | SIGINT (normal case) | before `is runCtx cancelled?`                                 | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
+| 101     | SIGINT               | before `certificate Start(runCtx)`                           | ⏭️ skipped   | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 102     | SIGINT               | before `token Start(runCtx)`                                 | ✅ success   | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 103     | SIGINT               | before `metrics Start(runCtx)`                               | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 104     | SIGINT               | before `healthcheck Start(runCtx)`                           | ✅ success   | ✅ success | ✅ success | ⏭️ skipped   | ✅ success        | 0         |
+| 105     | SIGINT               | before `cert refresh timer goroutine`                        | ✅ success   | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 106     | SIGINT               | before `token server goroutine`                              | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 107     | SIGINT               | before `token refresh timer goroutine`                       | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 108     | SIGINT               | before `memory reporter goroutine`                           | ✅ success   | ✅ success | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 0         |
+| 109     | SIGINT               | before `metrics server goroutine`                            | ✅ success   | ✅ success | ✅ success | ⏭️ skipped   | ✅ success        | 0         |
+| 110     | SIGINT               | before `healthcheck server goroutine`                        | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
+| 111     | error                | in `certificate Start(runCtx)`                               | ❌ error     | ⏭️ skipped | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 1         |
+| 112     | error                | in `token Start(runCtx)`                                     | ✅ success   | ❌ error   | ⏭️ skipped | ⏭️ skipped   | ✅ success        | 1         |
+| 113     | error                | in `metrics Start(runCtx)`                                   | ✅ success   | ✅ success | ❌ error   | ⏭️ skipped   | ✅ success        | 1         |
+| 114     | error                | in `healthcheck Start(runCtx)`                               | ✅ success   | ✅ success | ✅ success | ❌ error     | ✅ success        | 1         |
+| 115     | error + SIGINT       | error in `metrics Start(runCtx)`, SIGINT during `Shutdown()` | ✅ success   | ✅ success | ❌ error   | ⏭️ skipped   | ✅ success        | 1         |
+| 116     | retry error          | after `ALL Start()`, during `certificate refresh retry`      | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | NO exit   |
+| 117    | SIGINT               | after `ALL Start()`, during `certificate refresh retry`      | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
+| 118     | SIGINT    | after `ALL Start()`, during `token refresh retry`<br/>(last timer interval runs before Shutdown()) | ✅ success<br/>(last interval skipped)   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0  |
+| 119     | retry error          | after `ALL Start()`, during `token refresh retry`            | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | NO exit   |
+| 120     | SIGINT               | after `ALL Start()`, during `token refresh retry`            | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
+| 121     | SIGINT    | after `ALL Start()`, during `token refresh retry`<br/>(last timer interval runs before Shutdown())            | ✅ success   | ✅ success<br/>(last interval skipped) | ✅ success | ✅ success   | ✅ success        | 0  |
 
 ## Logs
 
 <details>
 <summary>Click to expand!</summary>
 
-### 000
+### 100
 
 ```text
 INFO[2024-03-14T11:22:55+09:00] Starting token provider server[:8880]
@@ -184,7 +184,7 @@ INFO[2024-03-14T11:23:08+09:00] Shutdown completed!
 Process 5378 has exited with status 0
 ```
 
-### 001
+### 101
 
 ```text
 ...
@@ -204,7 +204,7 @@ INFO[2024-03-18T15:28:48+09:00] Shutdown completed!
 Process 32497 has exited with status 0
 ```
 
-### 002
+### 102
 
 ```text
 ...
@@ -225,7 +225,7 @@ INFO[2024-03-18T15:34:08+09:00] Shutdown completed!
 Process 35406 has exited with status 0
 ```
 
-### 003
+### 103
 
 ```text
 ...
@@ -254,7 +254,7 @@ INFO[2024-03-18T15:35:07+09:00] Shutdown completed!
 Process 35752 has exited with status 0
 ```
 
-### 004
+### 104
 
 ```text
 ...
@@ -290,7 +290,7 @@ INFO[2024-03-18T15:36:36+09:00] Shutdown completed!
 Process 36325 has exited with status 0
 ```
 
-### 005
+### 105
 
 ```text
 ...
@@ -311,7 +311,7 @@ INFO[2024-03-18T15:43:06+09:00] Shutdown completed!
 Process 39379 has exited with status 0
 ```
 
-### 006
+### 106
 
 ```text
 ...
@@ -340,7 +340,7 @@ INFO[2024-03-18T15:44:46+09:00] Shutdown completed!
 Process 40417 has exited with status 0
 ```
 
-### 007
+### 107
 
 ```text
 ...
@@ -369,7 +369,7 @@ INFO[2024-03-18T15:52:55+09:00] Shutdown completed!
 Process 43528 has exited with status 0
 ```
 
-### 008
+### 108
 
 ```text
 ...
@@ -398,7 +398,7 @@ INFO[2024-03-18T15:54:43+09:00] Shutdown completed!
 Process 44749 has exited with status 0
 ```
 
-### 009
+### 109
 
 ```text
 ...
@@ -434,7 +434,7 @@ INFO[2024-03-18T15:56:53+09:00] Shutdown completed!
 Process 45971 has exited with status 0
 ```
 
-### 010
+### 110
 
 ```text
 ...
@@ -471,7 +471,7 @@ INFO[2024-03-18T15:58:09+09:00] Shutdown completed!
 Process 55039 has exited with status 0
 ```
 
-### 011
+### 111
 
 ```text
 ERROR[2024-03-14T12:05:56+09:00] Error starting certificate provider: test error
@@ -489,7 +489,7 @@ FATAL[2024-03-14T12:05:56+09:00] Start failed by cause: start failed: test error
 Process 58436 has exited with status 1
 ```
 
-### 012
+### 112
 
 ```text
 INFO[2024-03-14T12:15:38+09:00] Starting token provider server[:8880]
@@ -515,7 +515,7 @@ FATAL[2024-03-14T12:15:38+09:00] Start failed by cause: start failed: test error
 Process 58436 has exited with status 1
 ```
 
-### 013
+### 113
 
 ```text
 INFO[2024-03-14T12:23:53+09:00] Starting token provider server[:8880]
@@ -549,7 +549,7 @@ FATAL[2024-03-14T12:23:59+09:00] Start failed by cause: start failed: test error
 Process 58436 has exited with status 1
 ```
 
-### 014
+### 114
 
 ```text
 INFO[2024-03-14T12:29:21+09:00] Starting token provider server[:8880]
@@ -584,7 +584,7 @@ FATAL[2024-03-14T12:29:29+09:00] Start failed by cause: start failed: test error
 Process 58436 has exited with status 1
 ```
 
-### 015
+### 115
 
 ```text
 INFO[2024-03-14T12:32:03+09:00] Starting token provider server[:8880]
@@ -619,7 +619,7 @@ INFO[2024-03-14T12:32:11+09:00] Stopped certificate provider daemon
 FATAL[2024-03-14T12:32:11+09:00] Start failed by cause: start failed: test error
 ```
 
-### 016
+### 116
 
 ```text
 ...
@@ -635,7 +635,7 @@ INFO[2024-03-18T17:20:13+09:00] Will refresh key[./.local/private.pem], cert[./.
 NO EXIT
 ```
 
-### 017
+### 117
 
 ```text
 ...
@@ -653,7 +653,7 @@ INFO[2024-03-18T18:30:06+09:00] Will refresh cached tokens within 20s
 NO EXIT    
 ```
 
-### 018
+### 118
 
 ```text
 ...
@@ -683,7 +683,7 @@ INFO[2024-03-18T18:16:26+09:00] Shutdown completed!
 Process 55039 has exited with status 0
 ```
 
-### 019
+### 119
 
 ```text
 ...
@@ -715,7 +715,7 @@ INFO[2024-03-18T18:36:34+09:00] Shutdown completed!
 Process 55039 has exited with status 0
 ```
 
-### 020
+### 120
 
 ```text
 ...
@@ -738,7 +738,7 @@ INFO[2024-03-18T18:04:51+09:00] Shutdown completed!
 Process 55039 has exited with status 0
 ```
 
-### 021
+### 121
 
 ```text
 ...
