@@ -12,15 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package version
+package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
 
 var (
-	APP_NAME   = filepath.Base(os.Args[0])
-	VERSION    string
+	// VERSION is a constant storing the SIA version, provided by the build argument in go build
+	VERSION string
+
+	// VERSION is a constant storing the SIA build date, provided by the build argument in go build
 	BUILD_DATE string
+
+	// APP_NAME is a constant storing the binary name, provided by the command line
+	APP_NAME = filepath.Base(os.Args[0])
+
+	// USER_AGENT is a constant storing the User-Agent Header value, computed on package loading
+	USER_AGENT = fmt.Sprintf("%s/%s", APP_NAME, VERSION)
 )
