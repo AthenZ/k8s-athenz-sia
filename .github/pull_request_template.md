@@ -12,7 +12,7 @@ _description_with_details_and_reasoning_
   - `documentation`: Documentation changes
   - `enhancement`: New Feature
   - `good first issue`: First contribution
-  - `loging`: Log changes
+  - `logging`: Log changes
   - `refactor`: Refactoring (no functional changes, no api changes)
 
 ### Flags
