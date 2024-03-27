@@ -32,7 +32,6 @@ import (
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/k8s"
-	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/version"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 
@@ -61,7 +60,7 @@ type InstanceIdentity struct {
 }
 
 type identityHandler struct {
-	config       *config.IdentityConfig
+	idCfg        *config.IdentityConfig
 	client       zts.ZTSClient
 	domain       string
 	service      string
@@ -71,23 +70,23 @@ type identityHandler struct {
 }
 
 // InitIdentityHandler initializes the ZTS client and parses the config to create CSR options
-func InitIdentityHandler(config *config.IdentityConfig) (*identityHandler, error) {
+func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error) {
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
-	if !config.Init {
+	if !idCfg.Init {
 		tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return config.Reloader.GetLatestCertificate()
+			return idCfg.Reloader.GetLatestCertificate()
 		}
 	}
 
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.TLSClientConfig = tlsConfig
 
-	if config.ServerCACert != "" {
+	if idCfg.ServerCACert != "" {
 		certPool := x509.NewCertPool()
-		caCert, err := os.ReadFile(config.ServerCACert)
+		caCert, err := os.ReadFile(idCfg.ServerCACert)
 		if err != nil {
 			return nil, err
 		}
@@ -96,32 +95,32 @@ func InitIdentityHandler(config *config.IdentityConfig) (*identityHandler, error
 		t.TLSClientConfig = tlsConfig
 	}
 
-	client := zts.NewClient(config.Endpoint, t)
+	client := zts.NewClient(idCfg.Endpoint, t)
 	// Add User-Agent header to ZTS client for fetching x509 certificate
-	client.AddCredentials("User-Agent", fmt.Sprintf("%s/%s", version.APP_NAME, version.VERSION))
+	client.AddCredentials("User-Agent", config.USER_AGENT)
 
-	domain := extutil.NamespaceToDomain(config.Namespace, config.AthenzPrefix, config.AthenzDomain, config.AthenzSuffix)
-	service := extutil.ServiceAccountToService(config.ServiceAccount)
+	domain := extutil.NamespaceToDomain(idCfg.Namespace, idCfg.AthenzPrefix, idCfg.AthenzDomain, idCfg.AthenzSuffix)
+	service := extutil.ServiceAccountToService(idCfg.ServiceAccount)
 
-	csrOptions, err := PrepareIdentityCsrOptions(config, domain, service)
+	csrOptions, err := PrepareIdentityCsrOptions(idCfg, domain, service)
 	if err != nil {
 		return nil, err
 	}
 
 	var secretClient *k8s.SecretsClient
-	if config.CertSecret != "" {
-		secretClient, err = k8s.NewSecretClient(config.CertSecret, config.Namespace)
+	if idCfg.CertSecret != "" {
+		secretClient, err = k8s.NewSecretClient(idCfg.CertSecret, idCfg.Namespace)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to initialize kubernetes secret client, err: %v", err)
 		}
 	}
 
 	return &identityHandler{
-		config:       config,
+		idCfg:        idCfg,
 		client:       client,
 		domain:       domain,
 		service:      service,
-		instanceID:   config.PodUID,
+		instanceID:   idCfg.PodUID,
 		csrOptions:   csrOptions,
 		secretClient: secretClient,
 	}, nil
@@ -170,15 +169,15 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 		return nil, nil, fmt.Errorf("Failed to generate key and csr, err: %v", err)
 	}
 
-	saToken, err := os.ReadFile(h.config.SaTokenFile)
+	saToken, err := os.ReadFile(h.idCfg.SaTokenFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to read service account token file, err: %v", err)
 	}
 
 	var id *zts.InstanceIdentity
-	if h.config.Init || forceInit {
+	if h.idCfg.Init || forceInit {
 		id, _, err = h.client.PostInstanceRegisterInformation(&zts.InstanceRegisterInformation{
-			Provider:        zts.ServiceName(h.config.ProviderService),
+			Provider:        zts.ServiceName(h.idCfg.ProviderService),
 			Domain:          zts.DomainName(h.domain),
 			Service:         zts.SimpleName(h.service),
 			AttestationData: string(saToken),
@@ -190,10 +189,10 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 
 	} else {
 		id, err = h.client.PostInstanceRefreshInformation(
-			zts.ServiceName(h.config.ProviderService),
+			zts.ServiceName(h.idCfg.ProviderService),
 			zts.DomainName(h.domain),
 			zts.SimpleName(h.service),
-			zts.PathElement(h.config.PodUID),
+			zts.PathElement(h.idCfg.PodUID),
 			&zts.InstanceRefreshInformation{
 				AttestationData: string(saToken),
 				Csr:             string(csrPEM),
@@ -214,7 +213,7 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 // GetX509RoleCert makes ZTS API calls to generate an X.509 role certificate
 func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), roleKeyPEM []byte, err error) {
 
-	keyPEM, certPEM, err := h.config.Reloader.GetLatestKeyAndCert()
+	keyPEM, certPEM, err := h.idCfg.Reloader.GetLatestKeyAndCert()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to load tls client key pair from cert reloader for PostRoleCertificateRequest, err: %v", err)
 	}
@@ -232,7 +231,7 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 		return nil, nil, err
 	}
 
-	roleCsrOptions, err := PrepareRoleCsrOptions(h.config, domain, service)
+	roleCsrOptions, err := PrepareRoleCsrOptions(h.idCfg, domain, service)
 	if err != nil || roleCsrOptions == nil {
 		return nil, nil, err
 	}
@@ -246,9 +245,9 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 		return &cert, nil
 	}
 
-	if h.config.ServerCACert != "" {
+	if h.idCfg.ServerCACert != "" {
 		certPool := x509.NewCertPool()
-		caCert, err := os.ReadFile(h.config.ServerCACert)
+		caCert, err := os.ReadFile(h.idCfg.ServerCACert)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to load tls client ca certificate for PostRoleCertificateRequest, err: %v", err)
 		}
@@ -263,9 +262,9 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 	//
 	// The intermediate certificates may be different between each ZTS.
 	// Therefore, ZTS Client for PostRoleCertificateRequest must share the same endpoint as PostInstanceRegisterInformation/PostInstanceRefreshInformation
-	roleCertClient := zts.NewClient(h.config.Endpoint, t)
+	roleCertClient := zts.NewClient(h.idCfg.Endpoint, t)
 	// Add User-Agent header to ZTS client for fetching x509 role certificates
-	roleCertClient.AddCredentials("User-Agent", fmt.Sprintf("%s/%s", version.APP_NAME, version.VERSION))
+	roleCertClient.AddCredentials("User-Agent", config.USER_AGENT)
 
 	key, err := PrivateKeyFromPEMBytes(keyPEM)
 	if err != nil {
@@ -273,8 +272,8 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 	}
 
 	var intermediateCerts string
-	if h.config.IntermediateCertBundle != "" {
-		intermediateCertBundle, err := roleCertClient.GetCertificateAuthorityBundle(zts.SimpleName(h.config.IntermediateCertBundle))
+	if h.idCfg.IntermediateCertBundle != "" {
+		intermediateCertBundle, err := roleCertClient.GetCertificateAuthorityBundle(zts.SimpleName(h.idCfg.IntermediateCertBundle))
 		if err != nil || intermediateCertBundle == nil || intermediateCertBundle.Certs == "" {
 			return nil, nil, fmt.Errorf("GetCertificateAuthorityBundle failed for role certificate, err: %v", err)
 		}
@@ -323,12 +322,12 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 
 // DeleteX509CertRecord makes ZTS API calls to delete the X.509 certificate record
 func (h *identityHandler) DeleteX509CertRecord() error {
-	if !h.config.Init {
+	if !h.idCfg.Init {
 		err := h.client.DeleteInstanceIdentity(
-			zts.ServiceName(h.config.ProviderService),
+			zts.ServiceName(h.idCfg.ProviderService),
 			zts.DomainName(h.domain),
 			zts.SimpleName(h.service),
-			zts.PathElement(h.config.PodUID),
+			zts.PathElement(h.idCfg.PodUID),
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to call DeleteInstanceIdentity, err: %v", err)
@@ -354,10 +353,10 @@ func (h *identityHandler) InstanceID() string {
 }
 
 // PrepareIdentityCsrOptions prepares csrOptions for an X.509 certificate
-func PrepareIdentityCsrOptions(cfg *config.IdentityConfig, domain, service string) (*util.CSROptions, error) {
+func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service string) (*util.CSROptions, error) {
 
-	if cfg.ProviderService == "" {
-		log.Debugf("Skipping to prepare csr with provider service[%s]", cfg.ProviderService)
+	if idCfg.ProviderService == "" {
+		log.Debugf("Skipping to prepare csr with provider service[%s]", idCfg.ProviderService)
 		return nil, nil
 	}
 
@@ -369,16 +368,16 @@ func PrepareIdentityCsrOptions(cfg *config.IdentityConfig, domain, service strin
 	}
 
 	sans := []string{
-		fmt.Sprintf("%s.%s.%s", service, domainDNSPart, cfg.DNSSuffix),
-		fmt.Sprintf("*.%s.%s.%s", service, domainDNSPart, cfg.DNSSuffix),
-		fmt.Sprintf("%s.instanceid.athenz.%s", cfg.PodUID, cfg.DNSSuffix),
+		fmt.Sprintf("%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
+		fmt.Sprintf("*.%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
+		fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.PodUID, idCfg.DNSSuffix),
 	}
 
 	subject := pkix.Name{
 		Country:            []string{config.DEFAULT_COUNTRY},
 		Province:           []string{config.DEFAULT_PROVINCE},
 		Organization:       []string{config.DEFAULT_ORGANIZATION},
-		OrganizationalUnit: []string{cfg.ProviderService},
+		OrganizationalUnit: []string{idCfg.ProviderService},
 		CommonName:         fmt.Sprintf("%s.%s", domain, service),
 	}
 
@@ -386,23 +385,23 @@ func PrepareIdentityCsrOptions(cfg *config.IdentityConfig, domain, service strin
 		Subject: subject,
 		SANs: util.SubjectAlternateNames{
 			DNSNames:    sans,
-			IPAddresses: []net.IP{cfg.PodIP},
+			IPAddresses: []net.IP{idCfg.PodIP},
 			URIs:        []url.URL{*spiffeURI},
 		},
 	}, nil
 }
 
 // PrepareRoleCsrOptions prepares csrOptions for an X.509 certificate
-func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (*[]util.CSROptions, error) {
+func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string) (*[]util.CSROptions, error) {
 
 	var roleCsrOptions []util.CSROptions
 
-	if len(cfg.TargetDomainRoles) == 0 || cfg.RoleCertDir == "" {
-		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", cfg.TargetDomainRoles, cfg.RoleCertDir)
+	if len(idCfg.TargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
+		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", idCfg.TargetDomainRoles, idCfg.RoleCertDir)
 		return nil, nil
 	}
 
-	for _, dr := range cfg.TargetDomainRoles {
+	for _, dr := range idCfg.TargetDomainRoles {
 		targetDomain, targetRole := dr.Domain, dr.Role
 
 		domainDNSPart := extutil.DomainToDNSPart(domain)
@@ -413,7 +412,7 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 		}
 
 		sans := []string{
-			fmt.Sprintf("%s.%s.%s", service, domainDNSPart, cfg.DNSSuffix),
+			fmt.Sprintf("%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
 		}
 
 		subject := pkix.Name{
@@ -428,12 +427,12 @@ func PrepareRoleCsrOptions(cfg *config.IdentityConfig, domain, service string) (
 			Subject: subject,
 			SANs: util.SubjectAlternateNames{
 				DNSNames:    sans,
-				IPAddresses: []net.IP{cfg.PodIP},
+				IPAddresses: []net.IP{idCfg.PodIP},
 				URIs: []url.URL{
 					*spiffeURI,
 				},
 				EmailAddresses: []string{
-					fmt.Sprintf("%s.%s@%s", domain, service, cfg.DNSSuffix),
+					fmt.Sprintf("%s.%s@%s", domain, service, idCfg.DNSSuffix),
 				},
 			},
 		}

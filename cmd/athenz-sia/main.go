@@ -30,7 +30,6 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/healthcheck"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/token"
-	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/version"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
@@ -38,11 +37,11 @@ const serviceName = "athenz-sia"
 
 // printVersion returns the version and the built date of the executable itself
 func printVersion() {
-	if version.VERSION == "" || version.BUILD_DATE == "" {
+	if config.VERSION == "" || config.BUILD_DATE == "" {
 		fmt.Printf("(development version)\n")
 	} else {
-		fmt.Printf("Version: %s\n", version.VERSION)
-		fmt.Printf("Build Date: %s\n", version.BUILD_DATE)
+		fmt.Printf("Version: %s\n", config.VERSION)
+		fmt.Printf("Build Date: %s\n", config.BUILD_DATE)
 		fmt.Println("===== Default Values =====")
 		fmt.Printf("Athenz Endpoint: %s\n", config.DEFAULT_ENDPOINT)
 		fmt.Printf("Certificate SANs DNS Suffix: %s\n", config.DEFAULT_DNS_SUFFIX)
@@ -62,7 +61,7 @@ func main() {
 
 	// one-time logger for loading user config
 	log.InitLogger("", "INFO", true)
-	idConfig, err := config.LoadConfig(version.APP_NAME, os.Args[1:])
+	idCfg, err := config.LoadConfig(config.APP_NAME, os.Args[1:])
 	if err != nil {
 		switch err {
 		case config.ErrHelp:
@@ -75,19 +74,19 @@ func main() {
 	}
 
 	// re-init logger from user config
-	log.InitLogger(filepath.Join(idConfig.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idConfig.LogLevel)), idConfig.LogLevel, true)
-	log.Infof("Starting [%s] with version [%s], built on [%s]", version.APP_NAME, version.VERSION, version.BUILD_DATE)
-	log.Infof("Booting up with args: %v, config: %+v", os.Args, idConfig)
+	log.InitLogger(filepath.Join(idCfg.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idCfg.LogLevel)), idCfg.LogLevel, true)
+	log.Infof("Starting [%s] with version [%s], built on [%s]", config.APP_NAME, config.VERSION, config.BUILD_DATE)
+	log.Infof("Booting up with args: %v, config: %+v", os.Args, idCfg)
 
 	// delay boot with jitter
-	if idConfig.DelayJitterSeconds != 0 {
-		sleep := time.Duration(rand.Int63n(idConfig.DelayJitterSeconds)) * time.Second
-		log.Infof("Delaying boot with jitter [%s] randomized from [%s]...", sleep, time.Duration(idConfig.DelayJitterSeconds)*time.Second)
+	if idCfg.DelayJitterSeconds != 0 {
+		sleep := time.Duration(rand.Int63n(idCfg.DelayJitterSeconds)) * time.Second
+		log.Infof("Delaying boot with jitter [%s] randomized from [%s]...", sleep, time.Duration(idCfg.DelayJitterSeconds)*time.Second)
 		time.Sleep(sleep)
 	}
 
 	// register metrics
-	metrics.RegisterBuildInfo(filepath.Base(os.Args[0]), version.VERSION, version.BUILD_DATE)
+	metrics.RegisterBuildInfo(filepath.Base(os.Args[0]), config.VERSION, config.BUILD_DATE)
 
 	// variables
 	causeBySignal := fmt.Errorf("received signal")
@@ -107,19 +106,19 @@ func main() {
 	}()
 
 	// initiate background services
-	certService, err := certificate.New(initCtx, idConfig)
+	certService, err := certificate.New(initCtx, idCfg)
 	if err != nil {
 		log.Fatalf("Error initiating certificate provider: %s", err.Error())
 	}
-	tokenService, err := token.New(initCtx, idConfig)
+	tokenService, err := token.New(initCtx, idCfg)
 	if err != nil {
 		log.Fatalf("Error initiating token provider: %s", err.Error())
 	}
-	metricsService, err := metrics.New(initCtx, idConfig)
+	metricsService, err := metrics.New(initCtx, idCfg)
 	if err != nil {
 		log.Fatalf("Error initiating metrics exporter: %s", err.Error())
 	}
-	hcService, err := healthcheck.New(initCtx, idConfig)
+	hcService, err := healthcheck.New(initCtx, idCfg)
 	if err != nil {
 		log.Fatalf("Error initiating health check: %s", err.Error())
 	}
@@ -129,7 +128,7 @@ func main() {
 		log.Infof("Init stopped by cause: %s", context.Cause(initCtx).Error())
 		return
 	}
-	if idConfig.Init {
+	if idCfg.Init {
 		log.Infoln("Init completed!")
 		return
 	}
