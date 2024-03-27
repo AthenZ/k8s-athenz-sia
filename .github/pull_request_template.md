@@ -25,7 +25,6 @@ _description_with_details_and_reasoning_
 
 ## Checklist
 ```
-- [ ] `Assignees` is set
 - [ ] Followed the guidelines in the CONTRIBUTING document
 - [ ] Added prefix `[skip ci]`/`[ci skip]`/`[no ci]`/`[skip actions]`/`[actions skip]` in the PR title if necessary
 - [ ] Tested and linted the code
