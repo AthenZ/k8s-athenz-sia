@@ -6,7 +6,7 @@ _description_with_details_and_reasoning_
 - [ ] `Assignees` is set
 
 ## Type of changes
-- [ ] Apply one or more tags of the following that fits:
+- [ ] Apply one or more `labels` of the following that fits:
   - `bug`: Bug fix
   - `dependencies`: Dependency upgrades
   - `documentation`: Documentation changes
