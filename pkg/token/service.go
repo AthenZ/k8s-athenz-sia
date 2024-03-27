@@ -66,18 +66,18 @@ type tokenService struct {
 	shutdownTimeout time.Duration
 }
 
-func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, error) {
+func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
 	if ctx.Err() != nil {
 		log.Info("Skipped token provider initiation")
 		return nil, nil
 	}
 
 	// initialize token cache with placeholder
-	tt := newType(idConfig.TokenType)
-	tokenExpiryInSecond := int(idConfig.TokenExpiry.Seconds())
-	accessTokenCache := NewLockedTokenCache("accesstoken", idConfig.Namespace, idConfig.PodName)
-	roleTokenCache := NewLockedTokenCache("roletoken", idConfig.Namespace, idConfig.PodName)
-	for _, dr := range idConfig.TargetDomainRoles {
+	tt := newType(idCfg.TokenType)
+	tokenExpiryInSecond := int(idCfg.TokenExpiry.Seconds())
+	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
+	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
+	for _, dr := range idCfg.TargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
 		if tt&mACCESS_TOKEN != 0 {
 			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond}, &AccessToken{})
@@ -87,12 +87,12 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 		}
 	}
 
-	ztsClient, err := newZTSClient(idConfig.Reloader, idConfig.ServerCACert, idConfig.Endpoint)
+	ztsClient, err := newZTSClient(idCfg.Reloader, idCfg.ServerCACert, idCfg.Endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	saService := extutil.ServiceAccountToService(idConfig.ServiceAccount)
+	saService := extutil.ServiceAccountToService(idCfg.ServiceAccount)
 	if saService == "" {
 		// TODO: get service from svc cert
 		// https://github.com/AthenZ/athenz/blob/73b25572656f289cce501b4c2fe78f86656082e7/libs/go/athenzutils/principal.go
@@ -114,19 +114,19 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 		roleTokenCache:      roleTokenCache,
 		ztsClient:           ztsClient,
 		saService:           saService,
-		tokenRESTAPI:        idConfig.TokenServerRESTAPI,
+		tokenRESTAPI:        idCfg.TokenServerRESTAPI,
 		tokenType:           tt,
-		tokenDir:            idConfig.TokenDir,
-		tokenRefresh:        idConfig.TokenRefresh,
+		tokenDir:            idCfg.TokenDir,
+		tokenRefresh:        idCfg.TokenRefresh,
 		tokenExpiryInSecond: tokenExpiryInSecond,
-		roleAuthHeader:      idConfig.RoleAuthHeader,
-		useTokenServer:      idConfig.UseTokenServer,
-		shutdownDelay:       idConfig.ShutdownDelay,
-		shutdownTimeout:     idConfig.ShutdownTimeout,
+		roleAuthHeader:      idCfg.RoleAuthHeader,
+		useTokenServer:      idCfg.UseTokenServer,
+		shutdownDelay:       idCfg.ShutdownDelay,
+		shutdownTimeout:     idCfg.ShutdownTimeout,
 	}
 
 	// initialize tokens on mode=refresh or TOKEN_DIR is set
-	if !idConfig.Init || idConfig.TokenDir != "" {
+	if !idCfg.Init || idCfg.TokenDir != "" {
 		errs := ts.updateTokenCaches(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT)
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
 		for _, err := range errs {
@@ -138,21 +138,21 @@ func New(ctx context.Context, idConfig *config.IdentityConfig) (daemon.Daemon, e
 	}
 
 	// create token server
-	if idConfig.Init {
-		log.Infof("Token server is disabled for init mode: address[%s]", idConfig.TokenServerAddr)
+	if idCfg.Init {
+		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServerAddr)
 		return ts, nil
 	}
-	if idConfig.TokenServerAddr == "" || tt == 0 {
-		log.Infof("Token server is disabled due to insufficient options: address[%s], roles[%s], token-type[%s]", idConfig.TokenServerAddr, idConfig.TargetDomainRoles, idConfig.TokenType)
+	if idCfg.TokenServerAddr == "" || tt == 0 {
+		log.Infof("Token server is disabled due to insufficient options: address[%s], roles[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TargetDomainRoles, idCfg.TokenType)
 		return ts, nil
 	}
 	tokenServer := &http.Server{
-		Addr:      idConfig.TokenServerAddr,
-		Handler:   newHandlerFunc(ts, idConfig.TokenServerTimeout),
+		Addr:      idCfg.TokenServerAddr,
+		Handler:   newHandlerFunc(ts, idCfg.TokenServerTimeout),
 		TLSConfig: nil,
 	}
-	if idConfig.TokenServerTLSCertPath != "" && idConfig.TokenServerTLSKeyPath != "" {
-		tokenServer.TLSConfig, err = NewTLSConfig(idConfig.TokenServerTLSCAPath, idConfig.TokenServerTLSCertPath, idConfig.TokenServerTLSKeyPath)
+	if idCfg.TokenServerTLSCertPath != "" && idCfg.TokenServerTLSKeyPath != "" {
+		tokenServer.TLSConfig, err = NewTLSConfig(idCfg.TokenServerTLSCAPath, idCfg.TokenServerTLSCertPath, idCfg.TokenServerTLSKeyPath)
 		if err != nil {
 			return nil, err
 		}

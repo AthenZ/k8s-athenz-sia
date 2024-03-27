@@ -41,187 +41,187 @@ func LoadConfig(program string, args []string) (*IdentityConfig, error) {
 	}
 
 	// load with reverse precedence order
-	idConfig := DefaultIdentityConfig()
-	if err := idConfig.loadFromENV(); err != nil {
+	idCfg := DefaultIdentityConfig()
+	if err := idCfg.loadFromENV(); err != nil {
 		return nil, err
 	}
-	if err := idConfig.loadFromFlag(program, args); err != nil {
+	if err := idCfg.loadFromFlag(program, args); err != nil {
 		return nil, err
 	}
 
 	// parse custom values that shared by ENV and args to prevent duplicated warnings
-	if err := idConfig.parseRawValues(); err != nil {
+	if err := idCfg.parseRawValues(); err != nil {
 		return nil, err
 	}
 
 	// check fatal errors that startup should be stopped
-	if err := idConfig.validateAndInit(); err != nil {
+	if err := idCfg.validateAndInit(); err != nil {
 		return nil, err
 	}
-	return idConfig, nil
+	return idCfg, nil
 }
 
-func (idConfig *IdentityConfig) loadFromENV() error {
+func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv := func(envName string, valuePtr *string) {
 		*valuePtr = athenz.EnvOrDefault(envName, *valuePtr)
 	}
 
-	loadEnv("MODE", &idConfig.rawMode)
-	loadEnv("ENDPOINT", &idConfig.Endpoint)
-	loadEnv("PROVIDER_SERVICE", &idConfig.ProviderService)
-	loadEnv("DNS_SUFFIX", &idConfig.DNSSuffix)
-	loadEnv("REFRESH_INTERVAL", &idConfig.rawRefresh)
-	loadEnv("DELAY_JITTER_SECONDS", &idConfig.rawDelayJitterSeconds)
-	loadEnv("KEY_FILE", &idConfig.KeyFile)
-	loadEnv("CERT_FILE", &idConfig.CertFile)
-	loadEnv("CA_CERT_FILE", &idConfig.CaCertFile)
-	loadEnv("INTERMEDIATE_CERT_BUNDLE", &idConfig.IntermediateCertBundle)
-	loadEnv("BACKUP", &idConfig.Backup)
-	loadEnv("CERT_SECRET", &idConfig.CertSecret)
-	loadEnv("NAMESPACE", &idConfig.Namespace)
-	loadEnv("ATHENZ_DOMAIN", &idConfig.AthenzDomain)
-	loadEnv("ATHENZ_PREFIX", &idConfig.AthenzPrefix)
-	loadEnv("ATHENZ_SUFFIX", &idConfig.AthenzSuffix)
-	loadEnv("SERVICEACCOUNT", &idConfig.ServiceAccount)
-	loadEnv("SA_TOKEN_FILE", &idConfig.SaTokenFile)
-	loadEnv("POD_IP", &idConfig.rawPodIP)
-	loadEnv("POD_UID", &idConfig.PodUID)
-	loadEnv("POD_NAME", &idConfig.PodName)
-	loadEnv("SERVER_CA_CERT", &idConfig.ServerCACert)
-	loadEnv("TARGET_DOMAIN_ROLES", &idConfig.rawTargetDomainRoles)
-	loadEnv("ROLECERT_DIR", &idConfig.RoleCertDir)
-	loadEnv("ROLE_CERT_FILENAME_DELIMITER", &idConfig.RoleCertFilenameDelimiter)
-	loadEnv("ROLE_CERT_KEY_FILE_OUTPUT", &idConfig.rawRoleCertKeyFileOutput)
-	loadEnv("ROLE_AUTH_HEADER", &idConfig.RoleAuthHeader)
-	loadEnv("TOKEN_TYPE", &idConfig.TokenType)
-	loadEnv("TOKEN_REFRESH_INTERVAL", &idConfig.rawTokenRefresh)
-	loadEnv("TOKEN_EXPIRY", &idConfig.rawTokenExpiry)
-	loadEnv("TOKEN_SERVER_ADDR", &idConfig.TokenServerAddr)
-	loadEnv("TOKEN_SERVER_REST_API", &idConfig.rawTokenServerRESTAPI)
-	loadEnv("TOKEN_SERVER_TIMEOUT", &idConfig.rawTokenServerTimeout)
-	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idConfig.TokenServerTLSCAPath)
-	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idConfig.TokenServerTLSCertPath)
-	loadEnv("TOKEN_SERVER_TLS_KEY_PATH", &idConfig.TokenServerTLSKeyPath)
-	loadEnv("TOKEN_DIR", &idConfig.TokenDir)
-	loadEnv("METRICS_SERVER_ADDR", &idConfig.MetricsServerAddr)
-	loadEnv("DELETE_INSTANCE_ID", &idConfig.rawDeleteInstanceID)
-	loadEnv("USE_TOKEN_SERVER", &idConfig.rawUseTokenServer)
+	loadEnv("MODE", &idCfg.rawMode)
+	loadEnv("ENDPOINT", &idCfg.Endpoint)
+	loadEnv("PROVIDER_SERVICE", &idCfg.ProviderService)
+	loadEnv("DNS_SUFFIX", &idCfg.DNSSuffix)
+	loadEnv("REFRESH_INTERVAL", &idCfg.rawRefresh)
+	loadEnv("DELAY_JITTER_SECONDS", &idCfg.rawDelayJitterSeconds)
+	loadEnv("KEY_FILE", &idCfg.KeyFile)
+	loadEnv("CERT_FILE", &idCfg.CertFile)
+	loadEnv("CA_CERT_FILE", &idCfg.CaCertFile)
+	loadEnv("INTERMEDIATE_CERT_BUNDLE", &idCfg.IntermediateCertBundle)
+	loadEnv("BACKUP", &idCfg.Backup)
+	loadEnv("CERT_SECRET", &idCfg.CertSecret)
+	loadEnv("NAMESPACE", &idCfg.Namespace)
+	loadEnv("ATHENZ_DOMAIN", &idCfg.AthenzDomain)
+	loadEnv("ATHENZ_PREFIX", &idCfg.AthenzPrefix)
+	loadEnv("ATHENZ_SUFFIX", &idCfg.AthenzSuffix)
+	loadEnv("SERVICEACCOUNT", &idCfg.ServiceAccount)
+	loadEnv("SA_TOKEN_FILE", &idCfg.SaTokenFile)
+	loadEnv("POD_IP", &idCfg.rawPodIP)
+	loadEnv("POD_UID", &idCfg.PodUID)
+	loadEnv("POD_NAME", &idCfg.PodName)
+	loadEnv("SERVER_CA_CERT", &idCfg.ServerCACert)
+	loadEnv("TARGET_DOMAIN_ROLES", &idCfg.rawTargetDomainRoles)
+	loadEnv("ROLECERT_DIR", &idCfg.RoleCertDir)
+	loadEnv("ROLE_CERT_FILENAME_DELIMITER", &idCfg.RoleCertFilenameDelimiter)
+	loadEnv("ROLE_CERT_KEY_FILE_OUTPUT", &idCfg.rawRoleCertKeyFileOutput)
+	loadEnv("ROLE_AUTH_HEADER", &idCfg.RoleAuthHeader)
+	loadEnv("TOKEN_TYPE", &idCfg.TokenType)
+	loadEnv("TOKEN_REFRESH_INTERVAL", &idCfg.rawTokenRefresh)
+	loadEnv("TOKEN_EXPIRY", &idCfg.rawTokenExpiry)
+	loadEnv("TOKEN_SERVER_ADDR", &idCfg.TokenServerAddr)
+	loadEnv("TOKEN_SERVER_REST_API", &idCfg.rawTokenServerRESTAPI)
+	loadEnv("TOKEN_SERVER_TIMEOUT", &idCfg.rawTokenServerTimeout)
+	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idCfg.TokenServerTLSCAPath)
+	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idCfg.TokenServerTLSCertPath)
+	loadEnv("TOKEN_SERVER_TLS_KEY_PATH", &idCfg.TokenServerTLSKeyPath)
+	loadEnv("TOKEN_DIR", &idCfg.TokenDir)
+	loadEnv("METRICS_SERVER_ADDR", &idCfg.MetricsServerAddr)
+	loadEnv("DELETE_INSTANCE_ID", &idCfg.rawDeleteInstanceID)
+	loadEnv("USE_TOKEN_SERVER", &idCfg.rawUseTokenServer)
 
-	loadEnv("LOG_DIR", &idConfig.LogDir)
-	loadEnv("LOG_LEVEL", &idConfig.LogLevel)
+	loadEnv("LOG_DIR", &idCfg.LogDir)
+	loadEnv("LOG_LEVEL", &idCfg.LogLevel)
 
-	loadEnv("HEALTH_CHECK_ADDR", &idConfig.HealthCheckAddr)
-	loadEnv("HEALTH_CHECK_ENDPOINT", &idConfig.HealthCheckEndpoint)
+	loadEnv("HEALTH_CHECK_ADDR", &idCfg.HealthCheckAddr)
+	loadEnv("HEALTH_CHECK_ENDPOINT", &idCfg.HealthCheckEndpoint)
 
-	loadEnv("SHUTDOWN_TIMEOUT", &idConfig.rawShutdownTimeout)
-	loadEnv("SHUTDOWN_DELAY", &idConfig.rawShutdownDelay)
+	loadEnv("SHUTDOWN_TIMEOUT", &idCfg.rawShutdownTimeout)
+	loadEnv("SHUTDOWN_DELAY", &idCfg.rawShutdownDelay)
 
 	// parse values
 	var err error
-	idConfig.PodIP = net.ParseIP(idConfig.rawPodIP)
-	if idConfig.PodIP == nil {
+	idCfg.PodIP = net.ParseIP(idCfg.rawPodIP)
+	if idCfg.PodIP == nil {
 		// PodIP should always be non-nil to issue role certificate
-		return fmt.Errorf("Invalid POD_IP [%q]", idConfig.rawPodIP)
+		return fmt.Errorf("Invalid POD_IP [%q]", idCfg.rawPodIP)
 	}
-	idConfig.Refresh, err = time.ParseDuration(idConfig.rawRefresh)
+	idCfg.Refresh, err = time.ParseDuration(idCfg.rawRefresh)
 	if err != nil {
-		return fmt.Errorf("Invalid REFRESH_INTERVAL [%q], %w", idConfig.rawRefresh, err)
+		return fmt.Errorf("Invalid REFRESH_INTERVAL [%q], %w", idCfg.rawRefresh, err)
 	}
-	idConfig.DelayJitterSeconds, err = strconv.ParseInt(idConfig.rawDelayJitterSeconds, 10, 64)
+	idCfg.DelayJitterSeconds, err = strconv.ParseInt(idCfg.rawDelayJitterSeconds, 10, 64)
 	if err != nil {
-		return fmt.Errorf("Invalid DELAY_JITTER_SECONDS [%q], %w", idConfig.rawDelayJitterSeconds, err)
+		return fmt.Errorf("Invalid DELAY_JITTER_SECONDS [%q], %w", idCfg.rawDelayJitterSeconds, err)
 	}
-	idConfig.RoleCertKeyFileOutput, err = strconv.ParseBool(idConfig.rawRoleCertKeyFileOutput)
+	idCfg.RoleCertKeyFileOutput, err = strconv.ParseBool(idCfg.rawRoleCertKeyFileOutput)
 	if err != nil {
-		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %w", idConfig.rawRoleCertKeyFileOutput, err)
+		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %w", idCfg.rawRoleCertKeyFileOutput, err)
 	}
-	idConfig.TokenRefresh, err = time.ParseDuration(idConfig.rawTokenRefresh)
+	idCfg.TokenRefresh, err = time.ParseDuration(idCfg.rawTokenRefresh)
 	if err != nil {
-		return fmt.Errorf("Invalid TOKEN_REFRESH_INTERVAL [%q], %w", idConfig.rawTokenRefresh, err)
+		return fmt.Errorf("Invalid TOKEN_REFRESH_INTERVAL [%q], %w", idCfg.rawTokenRefresh, err)
 	}
-	idConfig.TokenExpiry, err = time.ParseDuration(idConfig.rawTokenExpiry)
+	idCfg.TokenExpiry, err = time.ParseDuration(idCfg.rawTokenExpiry)
 	if err != nil {
-		return fmt.Errorf("Invalid TOKEN_EXPIRY [%q], %w", idConfig.rawTokenExpiry, err)
+		return fmt.Errorf("Invalid TOKEN_EXPIRY [%q], %w", idCfg.rawTokenExpiry, err)
 	}
-	idConfig.TokenServerRESTAPI, err = strconv.ParseBool(idConfig.rawTokenServerRESTAPI)
+	idCfg.TokenServerRESTAPI, err = strconv.ParseBool(idCfg.rawTokenServerRESTAPI)
 	if err != nil {
-		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %w", idConfig.rawTokenServerRESTAPI, err)
+		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %w", idCfg.rawTokenServerRESTAPI, err)
 	}
-	idConfig.TokenServerTimeout, err = time.ParseDuration(idConfig.rawTokenServerTimeout)
+	idCfg.TokenServerTimeout, err = time.ParseDuration(idCfg.rawTokenServerTimeout)
 	if err != nil {
-		return fmt.Errorf("Invalid TOKEN_SERVER_TIMEOUT [%q], %w", idConfig.rawTokenServerTimeout, err)
+		return fmt.Errorf("Invalid TOKEN_SERVER_TIMEOUT [%q], %w", idCfg.rawTokenServerTimeout, err)
 	}
-	idConfig.DeleteInstanceID, err = strconv.ParseBool(idConfig.rawDeleteInstanceID)
+	idCfg.DeleteInstanceID, err = strconv.ParseBool(idCfg.rawDeleteInstanceID)
 	if err != nil {
-		return fmt.Errorf("Invalid DELETE_INSTANCE_ID [%q], %w", idConfig.rawDeleteInstanceID, err)
+		return fmt.Errorf("Invalid DELETE_INSTANCE_ID [%q], %w", idCfg.rawDeleteInstanceID, err)
 	}
-	idConfig.UseTokenServer, err = strconv.ParseBool(idConfig.rawUseTokenServer)
+	idCfg.UseTokenServer, err = strconv.ParseBool(idCfg.rawUseTokenServer)
 	if err != nil {
-		return fmt.Errorf("Invalid USE_TOKEN_SERVER [%q], %w", idConfig.rawUseTokenServer, err)
+		return fmt.Errorf("Invalid USE_TOKEN_SERVER [%q], %w", idCfg.rawUseTokenServer, err)
 	}
-	idConfig.ShutdownTimeout, err = time.ParseDuration(idConfig.rawShutdownTimeout)
+	idCfg.ShutdownTimeout, err = time.ParseDuration(idCfg.rawShutdownTimeout)
 	if err != nil {
-		return fmt.Errorf("Invalid SHUTDOWN_TIMEOUT [%q], %w", idConfig.rawShutdownTimeout, err)
+		return fmt.Errorf("Invalid SHUTDOWN_TIMEOUT [%q], %w", idCfg.rawShutdownTimeout, err)
 	}
-	idConfig.ShutdownDelay, err = time.ParseDuration(idConfig.rawShutdownDelay)
+	idCfg.ShutdownDelay, err = time.ParseDuration(idCfg.rawShutdownDelay)
 	if err != nil {
-		return fmt.Errorf("Invalid SHUTDOWN_DELAY [%q], %w", idConfig.rawShutdownDelay, err)
+		return fmt.Errorf("Invalid SHUTDOWN_DELAY [%q], %w", idCfg.rawShutdownDelay, err)
 	}
 	return nil
 }
 
-func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) error {
+func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f := flag.NewFlagSet(program, flag.ContinueOnError)
 
-	f.StringVar(&idConfig.rawMode, "mode", idConfig.rawMode, "mode, must be one of init or refresh")
-	f.StringVar(&idConfig.Endpoint, "endpoint", idConfig.Endpoint, "Athenz ZTS endpoint (required for identity/role certificate and token provisioning)")
-	f.StringVar(&idConfig.ProviderService, "provider-service", idConfig.ProviderService, "Identity Provider service (required for identity certificate provisioning)")
-	f.StringVar(&idConfig.DNSSuffix, "dns-suffix", idConfig.DNSSuffix, "DNS Suffix for x509 identity/role certificates (required for identity/role certificate provisioning)")
-	f.DurationVar(&idConfig.Refresh, "refresh-interval", idConfig.Refresh, "certificate refresh interval")
-	f.Int64Var(&idConfig.DelayJitterSeconds, "delay-jitter-seconds", idConfig.DelayJitterSeconds, "delay boot with random jitter within the specified seconds (0 to disable)")
-	f.StringVar(&idConfig.KeyFile, "key", idConfig.KeyFile, "key file for the certificate (required)")
-	f.StringVar(&idConfig.CertFile, "cert", idConfig.CertFile, "certificate file to identity a service (required)")
-	f.StringVar(&idConfig.CaCertFile, "out-ca-cert", idConfig.CaCertFile, "CA certificate file to write")
+	f.StringVar(&idCfg.rawMode, "mode", idCfg.rawMode, "mode, must be one of init or refresh")
+	f.StringVar(&idCfg.Endpoint, "endpoint", idCfg.Endpoint, "Athenz ZTS endpoint (required for identity/role certificate and token provisioning)")
+	f.StringVar(&idCfg.ProviderService, "provider-service", idCfg.ProviderService, "Identity Provider service (required for identity certificate provisioning)")
+	f.StringVar(&idCfg.DNSSuffix, "dns-suffix", idCfg.DNSSuffix, "DNS Suffix for x509 identity/role certificates (required for identity/role certificate provisioning)")
+	f.DurationVar(&idCfg.Refresh, "refresh-interval", idCfg.Refresh, "certificate refresh interval")
+	f.Int64Var(&idCfg.DelayJitterSeconds, "delay-jitter-seconds", idCfg.DelayJitterSeconds, "delay boot with random jitter within the specified seconds (0 to disable)")
+	f.StringVar(&idCfg.KeyFile, "key", idCfg.KeyFile, "key file for the certificate (required)")
+	f.StringVar(&idCfg.CertFile, "cert", idCfg.CertFile, "certificate file to identity a service (required)")
+	f.StringVar(&idCfg.CaCertFile, "out-ca-cert", idCfg.CaCertFile, "CA certificate file to write")
 	// IntermediateCertBundle
-	f.StringVar(&idConfig.Backup, "backup", idConfig.Backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
-	f.StringVar(&idConfig.CertSecret, "cert-secret", idConfig.CertSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
+	f.StringVar(&idCfg.Backup, "backup", idCfg.Backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
+	f.StringVar(&idCfg.CertSecret, "cert-secret", idCfg.CertSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
 	// Namespace
 	// AthenzDomain
 	// AthenzPrefix
 	// AthenzSuffix
 	// ServiceAccount
-	f.StringVar(&idConfig.SaTokenFile, "sa-token-file", idConfig.SaTokenFile, "bound sa jwt token file location (required for identity certificate provisioning)")
+	f.StringVar(&idCfg.SaTokenFile, "sa-token-file", idCfg.SaTokenFile, "bound sa jwt token file location (required for identity certificate provisioning)")
 	// PodIP
 	// PodUID
-	f.StringVar(&idConfig.ServerCACert, "server-ca-cert", idConfig.ServerCACert, "path to CA certificate file to verify ZTS server certs")
-	f.StringVar(&idConfig.rawTargetDomainRoles, "target-domain-roles", idConfig.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idConfig.RoleCertFilenameDelimiter+"admin,sys.auth"+idConfig.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
-	f.StringVar(&idConfig.RoleCertDir, "rolecert-dir", idConfig.RoleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
+	f.StringVar(&idCfg.ServerCACert, "server-ca-cert", idCfg.ServerCACert, "path to CA certificate file to verify ZTS server certs")
+	f.StringVar(&idCfg.rawTargetDomainRoles, "target-domain-roles", idCfg.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idCfg.RoleCertFilenameDelimiter+"admin,sys.auth"+idCfg.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
+	f.StringVar(&idCfg.RoleCertDir, "rolecert-dir", idCfg.RoleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
 	// RoleCertFilenameDelimiter
-	f.BoolVar(&idConfig.RoleCertKeyFileOutput, "rolecert-key-file-output", idConfig.RoleCertKeyFileOutput, "output role certificate key file (true/false)")
+	f.BoolVar(&idCfg.RoleCertKeyFileOutput, "rolecert-key-file-output", idCfg.RoleCertKeyFileOutput, "output role certificate key file (true/false)")
 	// RoleAuthHeader
-	f.StringVar(&idConfig.TokenType, "token-type", idConfig.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
-	f.DurationVar(&idConfig.TokenRefresh, "token-refresh-interval", idConfig.TokenRefresh, "token refresh interval")
-	f.DurationVar(&idConfig.TokenExpiry, "token-expiry", idConfig.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
-	f.StringVar(&idConfig.TokenServerAddr, "token-server-addr", idConfig.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
-	f.BoolVar(&idConfig.TokenServerRESTAPI, "token-server-rest-api", idConfig.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
-	f.DurationVar(&idConfig.TokenServerTimeout, "token-server-timeout", idConfig.TokenServerTimeout, "token server timeout (default 3s)")
-	f.StringVar(&idConfig.TokenServerTLSCAPath, "token-server-tls-ca-path", idConfig.TokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
-	f.StringVar(&idConfig.TokenServerTLSCertPath, "token-server-tls-cert-path", idConfig.TokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
-	f.StringVar(&idConfig.TokenServerTLSKeyPath, "token-server-tls-key-path", idConfig.TokenServerTLSKeyPath, "token server TLS certificate key path (if empty, disable TLS)")
-	f.StringVar(&idConfig.TokenDir, "token-dir", idConfig.TokenDir, "directory to write token files")
-	f.StringVar(&idConfig.MetricsServerAddr, "metrics-server-addr", idConfig.MetricsServerAddr, "HTTP server address to provide metrics")
-	f.BoolVar(&idConfig.DeleteInstanceID, "delete-instance-id", idConfig.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
+	f.StringVar(&idCfg.TokenType, "token-type", idCfg.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
+	f.DurationVar(&idCfg.TokenRefresh, "token-refresh-interval", idCfg.TokenRefresh, "token refresh interval")
+	f.DurationVar(&idCfg.TokenExpiry, "token-expiry", idCfg.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
+	f.StringVar(&idCfg.TokenServerAddr, "token-server-addr", idCfg.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
+	f.BoolVar(&idCfg.TokenServerRESTAPI, "token-server-rest-api", idCfg.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
+	f.DurationVar(&idCfg.TokenServerTimeout, "token-server-timeout", idCfg.TokenServerTimeout, "token server timeout (default 3s)")
+	f.StringVar(&idCfg.TokenServerTLSCAPath, "token-server-tls-ca-path", idCfg.TokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
+	f.StringVar(&idCfg.TokenServerTLSCertPath, "token-server-tls-cert-path", idCfg.TokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
+	f.StringVar(&idCfg.TokenServerTLSKeyPath, "token-server-tls-key-path", idCfg.TokenServerTLSKeyPath, "token server TLS certificate key path (if empty, disable TLS)")
+	f.StringVar(&idCfg.TokenDir, "token-dir", idCfg.TokenDir, "directory to write token files")
+	f.StringVar(&idCfg.MetricsServerAddr, "metrics-server-addr", idCfg.MetricsServerAddr, "HTTP server address to provide metrics")
+	f.BoolVar(&idCfg.DeleteInstanceID, "delete-instance-id", idCfg.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// Token Server
-	f.BoolVar(&idConfig.UseTokenServer, "use-token-server", idConfig.UseTokenServer, "enable token server (true/false)")
+	f.BoolVar(&idCfg.UseTokenServer, "use-token-server", idCfg.UseTokenServer, "enable token server (true/false)")
 	// log
-	f.StringVar(&idConfig.LogDir, "log-dir", idConfig.LogDir, "directory to store the log files")
-	f.StringVar(&idConfig.LogLevel, "log-level", idConfig.LogLevel, "logging level")
+	f.StringVar(&idCfg.LogDir, "log-dir", idCfg.LogDir, "directory to store the log files")
+	f.StringVar(&idCfg.LogLevel, "log-level", idCfg.LogLevel, "logging level")
 	// healthCheck
-	f.StringVar(&idConfig.HealthCheckAddr, "health-check-addr", idConfig.HealthCheckAddr, "HTTP server address to provide health check")
-	f.StringVar(&idConfig.HealthCheckEndpoint, "health-check-endpoint", idConfig.HealthCheckEndpoint, "HTTP server endpoint to provide health check")
+	f.StringVar(&idCfg.HealthCheckAddr, "health-check-addr", idCfg.HealthCheckAddr, "HTTP server address to provide health check")
+	f.StringVar(&idCfg.HealthCheckEndpoint, "health-check-endpoint", idCfg.HealthCheckEndpoint, "HTTP server endpoint to provide health check")
 	// graceful shutdown option
-	f.DurationVar(&idConfig.ShutdownTimeout, "shutdown-timeout", idConfig.ShutdownTimeout, "graceful shutdown timeout")
-	f.DurationVar(&idConfig.ShutdownDelay, "shutdown-delay", idConfig.ShutdownDelay, "graceful shutdown delay")
+	f.DurationVar(&idCfg.ShutdownTimeout, "shutdown-timeout", idCfg.ShutdownTimeout, "graceful shutdown timeout")
+	f.DurationVar(&idCfg.ShutdownDelay, "shutdown-delay", idCfg.ShutdownDelay, "graceful shutdown delay")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
@@ -229,19 +229,19 @@ func (idConfig *IdentityConfig) loadFromFlag(program string, args []string) erro
 	return nil
 }
 
-func (idConfig *IdentityConfig) parseRawValues() (err error) {
-	idConfig.Init, err = parseMode(idConfig.rawMode)
+func (idCfg *IdentityConfig) parseRawValues() (err error) {
+	idCfg.Init, err = parseMode(idCfg.rawMode)
 	if err != nil {
-		return fmt.Errorf("Invalid MODE/mode [%q], %w", idConfig.rawMode, err)
+		return fmt.Errorf("Invalid MODE/mode [%q], %w", idCfg.rawMode, err)
 	}
 
-	if idConfig.rawTargetDomainRoles != "" {
-		idConfig.TargetDomainRoles, err = parseTargetDomainRoles(idConfig.rawTargetDomainRoles)
+	if idCfg.rawTargetDomainRoles != "" {
+		idCfg.TargetDomainRoles, err = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
 		if err != nil {
 			// continue if partially valid, fail if nothing valid
-			log.Warnf("Invalid TARGET_DOMAIN_ROLES/target-domain-roles [%q], warnings:\n%s", idConfig.rawTargetDomainRoles, err.Error())
-			if len(idConfig.TargetDomainRoles) == 0 {
-				return fmt.Errorf("Invalid TARGET_DOMAIN_ROLES [%q], %w", idConfig.rawTargetDomainRoles, fmt.Errorf("NO valid domain-role pairs"))
+			log.Warnf("Invalid TARGET_DOMAIN_ROLES/target-domain-roles [%q], warnings:\n%s", idCfg.rawTargetDomainRoles, err.Error())
+			if len(idCfg.TargetDomainRoles) == 0 {
+				return fmt.Errorf("Invalid TARGET_DOMAIN_ROLES [%q], %w", idCfg.rawTargetDomainRoles, fmt.Errorf("NO valid domain-role pairs"))
 			}
 			// reset warnings
 			err = nil
@@ -251,37 +251,37 @@ func (idConfig *IdentityConfig) parseRawValues() (err error) {
 	return err
 }
 
-func (idConfig *IdentityConfig) validateAndInit() (err error) {
+func (idCfg *IdentityConfig) validateAndInit() (err error) {
 
-	if idConfig.TokenExpiry != 0 && idConfig.TokenRefresh >= idConfig.TokenExpiry {
-		return fmt.Errorf("Invalid TokenRefresh[%s] >= TokenExpiry[%s]", idConfig.TokenRefresh.String(), idConfig.TokenExpiry.String())
+	if idCfg.TokenExpiry != 0 && idCfg.TokenRefresh >= idCfg.TokenExpiry {
+		return fmt.Errorf("Invalid TokenRefresh[%s] >= TokenExpiry[%s]", idCfg.TokenRefresh.String(), idCfg.TokenExpiry.String())
 	}
 
 	// TODO: clarify unused logic
-	// pollTokenInterval := idConfig.TokenRefresh
+	// pollTokenInterval := idCfg.TokenRefresh
 	// if pollTokenInterval > DEFAULT_POLL_TOKEN_INTERVAL {
 	// 	pollTokenInterval = DEFAULT_POLL_TOKEN_INTERVAL
 	// }
 
-	pollInterval := idConfig.Refresh
+	pollInterval := idCfg.Refresh
 	if pollInterval > util.DefaultPollInterval {
 		pollInterval = util.DefaultPollInterval
 	}
-	idConfig.Reloader, err = util.NewCertReloader(util.ReloadConfig{
-		Init:            idConfig.Init,
-		ProviderService: idConfig.ProviderService,
-		KeyFile:         idConfig.KeyFile,
-		CertFile:        idConfig.CertFile,
+	idCfg.Reloader, err = util.NewCertReloader(util.ReloadConfig{
+		Init:            idCfg.Init,
+		ProviderService: idCfg.ProviderService,
+		KeyFile:         idCfg.KeyFile,
+		CertFile:        idCfg.CertFile,
 		Logger:          log.Debugf,
 		PollInterval:    pollInterval,
 	})
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
 	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
-	if idConfig.ProviderService == "" && !idConfig.RoleCertKeyFileOutput {
+	if idCfg.ProviderService == "" && !idCfg.RoleCertKeyFileOutput {
 		// if role certificate issuing is enabled, warn user about the mismatch problem
-		if idConfig.rawTargetDomainRoles != "" && idConfig.RoleCertDir != "" {
-			log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idConfig.KeyFile)
+		if idCfg.rawTargetDomainRoles != "" && idCfg.RoleCertDir != "" {
+			log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idCfg.KeyFile)
 		}
 	}
 
@@ -294,22 +294,22 @@ func (idConfig *IdentityConfig) validateAndInit() (err error) {
 	// to the kube and kubelet APIs. So, we might end up getting an X.509 certificate with the old pod IP.
 	// To avoid this, we fail the current run with an error to force SYNC the status on the pod resource and let
 	// the subsequent retry for the init container to attempt to get a new certificate from the identity provider.
-	if idConfig.Init && err == nil && idConfig.ProviderService != "" {
-		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", idConfig.CertFile)
-		cert, err := idConfig.Reloader.GetLatestCertificate()
+	if idCfg.Init && err == nil && idCfg.ProviderService != "" {
+		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", idCfg.CertFile)
+		cert, err := idCfg.Reloader.GetLatestCertificate()
 		if err != nil {
 			log.Infof("[X.509 Certificate] Subject: %v, DNS SANs: %v, IPs: %v", cert.Leaf.Subject, cert.Leaf.DNSNames, cert.Leaf.IPAddresses)
 		}
 		log.Infof("Deleting the existing key and cert...")
-		if err := os.Remove(idConfig.CertFile); err != nil {
-			log.Errorf("Error deleting %s file: %s", idConfig.CertFile, err.Error())
+		if err := os.Remove(idCfg.CertFile); err != nil {
+			log.Errorf("Error deleting %s file: %s", idCfg.CertFile, err.Error())
 		}
-		if err := os.Remove(idConfig.KeyFile); err != nil {
-			log.Errorf("Error deleting %s file: %s", idConfig.KeyFile, err.Error())
+		if err := os.Remove(idCfg.KeyFile); err != nil {
+			log.Errorf("Error deleting %s file: %s", idCfg.KeyFile, err.Error())
 		}
 		return errors.New("Deleted X.509 certificate that already existed.")
 	}
-	if !idConfig.Init && err != nil {
+	if !idCfg.Init && err != nil {
 		return fmt.Errorf("Unable to read key and cert: %w", err)
 	}
 
