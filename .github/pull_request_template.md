@@ -3,10 +3,10 @@
 _description_with_details_and_reasoning_
 
 ## Type of changes
-- [ ] Apply one or more tags of the folllwing that fits:
+- [ ] Apply one or more tags of the following that fits:
   - `bug`: Bug fix
-  - `dependencies`: Depenedency upgrades
-  - `docuemtnation`: Docuemntation changes
+  - `dependencies`: Dependency upgrades
+  - `documentation`: Documentation changes
   - `enhancement`: New Feature
   - `good first issue`: First contribution
   - `loging`: Log changes
@@ -21,7 +21,7 @@ _description_with_details_and_reasoning_
 ---
 
 ## Checklist
-
+- [ ] `Assignees` is set
 - [ ] Followed the guidelines in the CONTRIBUTING document
 - [ ] Added prefix `[skip ci]`/`[ci skip]`/`[no ci]`/`[skip actions]`/`[actions skip]` in the PR title if necessary
 - [ ] Tested and linted the code
