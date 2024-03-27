@@ -192,6 +192,12 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 			if err != nil {
 				log.Errorf("Failed to retrieve x509 certificate from identity provider: %s", err.Error())
 			}
+			if identity != nil && len(keyPEM) != 0 {
+				errUpdate := idCfg.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+				if errUpdate != nil {
+					log.Errorf("Failed to update x509 certificate into certificate reloader: %s", errUpdate.Error())
+				}
+			}
 		} else if idCfg.KeyFile != "" && idCfg.CertFile != "" {
 			log.Debug("Attempting to load x509 certificate from cert reloader...")
 			localFileKeyPEM, localFileCertPEM, err := idCfg.Reloader.GetLatestKeyAndCert()
@@ -228,6 +234,12 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					identity = k8sSecretBackupIdentity
 					keyPEM = k8sSecretBackupKeyPEM
 					log.Infof("Successfully loaded x509 certificate from kubernetes secret")
+					if identity != nil && len(keyPEM) != 0 {
+						errUpdate := idCfg.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+						if errUpdate != nil {
+							log.Errorf("Failed to update x509 certificate into certificate reloader: %s", errUpdate.Error())
+						}
+					}
 				}
 			} else {
 				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret[%s]", idCfg.CertSecret)
@@ -246,12 +258,14 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 			} else {
 				identity = forceInitIdentity
 				keyPEM = forceInitKeyPEM
-			}
-		}
 
-		errUpdate := idCfg.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
-		if errUpdate != nil {
-			log.Errorf("Failed to update x509 certificate into certificate reloader: %s", err.Error())
+				if identity != nil && len(keyPEM) != 0 {
+					errUpdate := idCfg.Reloader.UpdateCertificate([]byte(identity.X509CertificatePEM), keyPEM)
+					if errUpdate != nil {
+						log.Errorf("Failed to update x509 certificate into certificate reloader: %s", errUpdate.Error())
+					}
+				}
+			}
 		}
 
 		err, roleCerts, roleKeyPEM = roleCertProvisioningRequest()
