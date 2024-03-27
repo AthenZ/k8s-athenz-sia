@@ -143,7 +143,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		return ts, nil
 	}
 	if idCfg.TokenServerAddr == "" || tt == 0 {
-		log.Infof("Token server is disabled due to insufficient options: address[%s], roles[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TargetDomainRoles, idCfg.TokenType)
+		log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TokenType)
 		return ts, nil
 	}
 	tokenServer := &http.Server{
