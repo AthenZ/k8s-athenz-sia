@@ -2,24 +2,21 @@
 
 _description_with_details_and_reasoning_
 
-## Type of change
-
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Refactoring (no functional changes, no api changes)
-- [ ] Non-code changes (update documentation, pipeline, etc.)
+## Type of changes
+- [ ] Apply one or more tags of the folllwing that fits:
+  - `bug`: Bug fix
+  - `dependencies`: Depenedency upgrades
+  - `docuemtnation`: Docuemntation changes
+  - `enhancement`: New Feature
+  - `good first issue`: First contribution
+  - `loging`: Log changes
+  - `refactor`: Refactoring (no functional changes, no api changes)
 
 ### Flags
 
 - [ ] Breaks backward compatibility
 - [ ] Requires a documentation update
 - [ ] Has untestable code
-
-## Related issue/PR
-
-**Delete this section if there are no issues or pull requests that relate to this pull request.**
-- Fixes #_issue_
-- Closes #_PR_
 
 ---
 
@@ -30,7 +27,6 @@ _description_with_details_and_reasoning_
 - [ ] Tested and linted the code
 - [ ] Commented the code
 - [ ] Made corresponding changes to the documentation
-- [ ] Passed all pipeline checking
 
 ## Checklist for maintainer
 
