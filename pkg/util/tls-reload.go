@@ -168,7 +168,7 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 		return nil, err
 	}
 	// If SIA is not issuing certificates, use pollRefresh function to periodically read certificate files and update cert reloader.
-	if config.ProviderService == "" {
+	if config.ProviderService == "" && config.CertFile != "" && config.KeyFile != "" {
 		go r.pollRefresh()
 	}
 	return r, nil
