@@ -2,6 +2,9 @@
 
 _description_with_details_and_reasoning_
 
+## Assignees
+- [ ] `Assignees` is set
+
 ## Type of changes
 - [ ] Apply one or more tags of the following that fits:
   - `bug`: Bug fix
