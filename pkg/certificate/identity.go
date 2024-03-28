@@ -381,14 +381,20 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		CommonName:         fmt.Sprintf("%s.%s", domain, service),
 	}
 
-	return &util.CSROptions{
+	csrOptions := &util.CSROptions{
 		Subject: subject,
 		SANs: util.SubjectAlternateNames{
-			DNSNames:    sans,
-			IPAddresses: []net.IP{idCfg.PodIP},
-			URIs:        []url.URL{*spiffeURI},
+			DNSNames: sans,
+			URIs:     []url.URL{*spiffeURI},
 		},
-	}, nil
+	}
+
+	log.Debugf("POD IP was: %s", idCfg.PodIP)
+	if idCfg.PodIP != nil {
+		csrOptions.SANs.IPAddresses = []net.IP{idCfg.PodIP}
+	}
+
+	return csrOptions, nil
 }
 
 // PrepareRoleCsrOptions prepares csrOptions for an X.509 certificate
@@ -426,8 +432,7 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 		roleCsrOption := util.CSROptions{
 			Subject: subject,
 			SANs: util.SubjectAlternateNames{
-				DNSNames:    sans,
-				IPAddresses: []net.IP{idCfg.PodIP},
+				DNSNames: sans,
 				URIs: []url.URL{
 					*spiffeURI,
 				},
@@ -435,6 +440,11 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 					fmt.Sprintf("%s.%s@%s", domain, service, idCfg.DNSSuffix),
 				},
 			},
+		}
+
+		log.Debugf("POD IP was: %s", idCfg.PodIP)
+		if idCfg.PodIP != nil {
+			roleCsrOption.SANs.IPAddresses = []net.IP{idCfg.PodIP}
 		}
 
 		roleCsrOptions = append(roleCsrOptions, roleCsrOption)

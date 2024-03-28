@@ -118,10 +118,8 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 
 	// parse values
 	var err error
-	idCfg.PodIP = net.ParseIP(idCfg.rawPodIP)
-	if idCfg.PodIP == nil {
-		// PodIP should always be non-nil to issue role certificate
-		return fmt.Errorf("Invalid POD_IP [%q]", idCfg.rawPodIP)
+	if idCfg.rawPodIP != "" {
+		idCfg.PodIP = net.ParseIP(idCfg.rawPodIP)
 	}
 	idCfg.Refresh, err = time.ParseDuration(idCfg.rawRefresh)
 	if err != nil {
