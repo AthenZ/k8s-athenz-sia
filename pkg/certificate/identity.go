@@ -389,7 +389,6 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		},
 	}
 
-	log.Debugf("POD IP was: %s", idCfg.PodIP)
 	if idCfg.PodIP != nil {
 		csrOptions.SANs.IPAddresses = []net.IP{idCfg.PodIP}
 	}
@@ -442,7 +441,6 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 			},
 		}
 
-		log.Debugf("POD IP was: %s", idCfg.PodIP)
 		if idCfg.PodIP != nil {
 			roleCsrOption.SANs.IPAddresses = []net.IP{idCfg.PodIP}
 		}
