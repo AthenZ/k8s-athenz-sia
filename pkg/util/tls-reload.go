@@ -167,8 +167,12 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 		}
 		return nil, err
 	}
-	// If SIA is not issuing certificates, use pollRefresh function to periodically read certificate files and update cert reloader.
-	if config.ProviderService == "" {
+
+	// If the following condition is met, the cert reloader will not be used to reload certificates:
+	//   - SIA does not use identityd to issue certificates (or fig.ProviderService == "")/
+	//   - File paths for certificates and keys are provided.
+	// TODO: Issue created based on this: https://github.com/AthenZ/k8s-athenz-sia/issues/113
+	if config.ProviderService == "" && config.CertFile != "" && config.KeyFile != "" {
 		go r.pollRefresh()
 	}
 	return r, nil
