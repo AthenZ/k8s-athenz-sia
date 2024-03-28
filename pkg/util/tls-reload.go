@@ -170,7 +170,7 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 
 	// If the following condition is met, the cert reloader will not be used to reload certificates:
 	//   - SIA does not use identityd to issue certificates (or fig.ProviderService == "")
-	//   - File paths for certificates and keys are provided.
+	//   - File paths for certificates and keys are provided. (or config.CertFile != "" && config.KeyFile != "")
 	// TODO: Issue created based on this: https://github.com/AthenZ/k8s-athenz-sia/issues/113
 	if config.ProviderService == "" && config.CertFile != "" && config.KeyFile != "" {
 		go r.pollRefresh()
