@@ -138,7 +138,7 @@ sequenceDiagram
 | 115     | error + SIGINT       | error in `metrics Start(runCtx)`, SIGINT during `Shutdown()` | ✅ success   | ✅ success | ❌ error   | ⏭️ skipped   | ✅ success        | 1         |
 | 116     | retry error          | after `ALL Start()`, during `certificate refresh retry`      | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | NO exit   |
 | 117    | SIGINT               | after `ALL Start()`, during `certificate refresh retry`      | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
-| 118     | SIGINT    | after `ALL Start()`, during `token refresh retry`<br/>(last timer interval runs before Shutdown()) | ✅ success<br/>(last interval skipped)   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0  |
+| 118     | SIGINT    | after `ALL Start()`, during `certificate refresh retry`<br/>(last timer interval runs before Shutdown()) | ✅ success<br/>(last interval skipped)   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0  |
 | 119     | retry error          | after `ALL Start()`, during `token refresh retry`            | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | NO exit   |
 | 120     | SIGINT               | after `ALL Start()`, during `token refresh retry`            | ✅ success   | ✅ success | ✅ success | ✅ success   | ✅ success        | 0         |
 | 121     | SIGINT    | after `ALL Start()`, during `token refresh retry`<br/>(last timer interval runs before Shutdown())            | ✅ success   | ✅ success<br/>(last interval skipped) | ✅ success | ✅ success   | ✅ success        | 0  |
