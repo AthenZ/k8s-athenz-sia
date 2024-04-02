@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime/metrics"
 	"sync"
@@ -438,6 +439,11 @@ func (d *tokenService) writeFiles() error {
 	if d.tokenDir == "" {
 		log.Debugf("Skipping to write token files to directory[%s]", d.tokenDir)
 		return nil
+	}
+
+	// Create the directory before saving tokens
+	if err := os.MkdirAll(d.tokenDir, 0755); err != nil {
+		return fmt.Errorf("unable to create directory for tokens: %w", err)
 	}
 
 	w := util.NewWriter()
