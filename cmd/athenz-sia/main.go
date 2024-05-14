@@ -33,8 +33,6 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
-const serviceName = "athenz-sia"
-
 // printVersion returns the version and the built date of the executable itself
 func printVersion() {
 	if config.VERSION == "" || config.BUILD_DATE == "" {
@@ -74,7 +72,7 @@ func main() {
 	}
 
 	// re-init logger from user config
-	log.InitLogger(filepath.Join(idCfg.LogDir, fmt.Sprintf("%s.%s.log", serviceName, idCfg.LogLevel)), idCfg.LogLevel, true)
+	log.InitLogger(filepath.Join(idCfg.LogDir, fmt.Sprintf("%s.%s.log", config.APP_NAME, idCfg.LogLevel)), idCfg.LogLevel, true)
 	log.Infof("Starting [%s] with version [%s], built on [%s]", config.APP_NAME, config.VERSION, config.BUILD_DATE)
 	log.Infof("Booting up with args: %v, config: %+v", os.Args, idCfg)
 
