@@ -69,6 +69,7 @@ type IdentityConfig struct {
 	UseTokenServer            bool
 	ShutdownTimeout           time.Duration
 	ShutdownDelay             time.Duration
+	SkipCertPresenceCheck     bool
 
 	LogDir   string
 	LogLevel string
@@ -88,6 +89,7 @@ type IdentityConfig struct {
 	rawUseTokenServer        string
 	rawShutdownTimeout       string
 	rawShutdownDelay         string
+	rawSkipCertPresenceCheck string
 }
 
 type DomainRole struct {

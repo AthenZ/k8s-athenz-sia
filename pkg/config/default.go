@@ -112,6 +112,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		UseTokenServer:            false,
 		ShutdownTimeout:           DEFAULT_SHUTDOWN_TIMEOUT,
 		ShutdownDelay:             DEFAULT_SHUTDOWN_DELAY,
+		SkipCertPresenceCheck:     false,
 
 		LogDir:   "",
 		LogLevel: "INFO",
@@ -130,5 +131,6 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawUseTokenServer:        "false",
 		rawShutdownTimeout:       DEFAULT_SHUTDOWN_TIMEOUT.String(),
 		rawShutdownDelay:         DEFAULT_SHUTDOWN_DELAY.String(),
+		rawSkipCertPresenceCheck: "false",
 	}
 }

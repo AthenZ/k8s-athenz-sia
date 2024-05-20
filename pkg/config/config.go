@@ -106,6 +106,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("METRICS_SERVER_ADDR", &idCfg.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idCfg.rawDeleteInstanceID)
 	loadEnv("USE_TOKEN_SERVER", &idCfg.rawUseTokenServer)
+	loadEnv("SKIP_CERT_PRESENCE_CHECK", &idCfg.rawSkipCertPresenceCheck)
 
 	loadEnv("LOG_DIR", &idCfg.LogDir)
 	loadEnv("LOG_LEVEL", &idCfg.LogLevel)
@@ -168,6 +169,10 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid SHUTDOWN_DELAY [%q], %w", idCfg.rawShutdownDelay, err)
 	}
+	idCfg.SkipCertPresenceCheck, err = strconv.ParseBool(idCfg.rawSkipCertPresenceCheck)
+	if err != nil {
+		return fmt.Errorf("Invalid SKIP_CERT_PRESENCE_CHECK [%q], %w", idCfg.rawSkipCertPresenceCheck, err)
+	}
 	return nil
 }
 
@@ -223,6 +228,8 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	// graceful shutdown option
 	f.DurationVar(&idCfg.ShutdownTimeout, "shutdown-timeout", idCfg.ShutdownTimeout, "graceful shutdown timeout")
 	f.DurationVar(&idCfg.ShutdownDelay, "shutdown-delay", idCfg.ShutdownDelay, "graceful shutdown delay")
+	// SkipCertPresenceCheck
+	f.BoolVar(&idCfg.SkipCertPresenceCheck, "skip-cert-presence-check", idCfg.SkipCertPresenceCheck, "skip certificate presence check")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
@@ -295,7 +302,10 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 	// to the kube and kubelet APIs. So, we might end up getting an X.509 certificate with the old pod IP.
 	// To avoid this, we fail the current run with an error to force SYNC the status on the pod resource and let
 	// the subsequent retry for the init container to attempt to get a new certificate from the identity provider.
-	if idCfg.Init && err == nil && idCfg.ProviderService != "" {
+	// In environments like OpenStack, even if X.509 certificates (and key) are present,
+	// there is no need to distinguish situations like in a Kubernetes environment.
+	// Therefore, there is no need to check for the presence of X.509 certificates (and key) at the time of SIA startup.
+	if idCfg.Init && err == nil && idCfg.ProviderService != "" && !idCfg.SkipCertPresenceCheck {
 		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", idCfg.CertFile)
 		cert, err := idCfg.Reloader.GetLatestCertificate()
 		if err != nil {
