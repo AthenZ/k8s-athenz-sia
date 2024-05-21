@@ -72,7 +72,11 @@ func main() {
 	}
 
 	// re-init logger from user config
-	log.InitLogger(filepath.Join(idCfg.LogDir, fmt.Sprintf("%s.%s.log", config.APP_NAME, idCfg.LogLevel)), idCfg.LogLevel, true)
+	logFile := ""
+	if idCfg.LogDir != "" {
+		logFile = filepath.Join(idCfg.LogDir, fmt.Sprintf("%s.%s.log", config.APP_NAME, idCfg.LogLevel))
+	}
+	log.InitLogger(logFile, idCfg.LogLevel, true)
 	log.Infof("Starting [%s] with version [%s], built on [%s]", config.APP_NAME, config.VERSION, config.BUILD_DATE)
 	log.Infof("Booting up with args: %v, config: %+v", os.Args, idCfg)
 
