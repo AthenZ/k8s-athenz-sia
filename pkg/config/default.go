@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 )
 
 var (
@@ -113,7 +115,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		ShutdownTimeout:           DEFAULT_SHUTDOWN_TIMEOUT,
 		ShutdownDelay:             DEFAULT_SHUTDOWN_DELAY,
 
-		LogDir:   "",
+		LogDir:   fmt.Sprintf("/var/log/%s", config.APP_NAME),
 		LogLevel: "INFO",
 
 		rawMode:                  "init",
