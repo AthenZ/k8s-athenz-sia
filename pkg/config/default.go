@@ -16,10 +16,10 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
-
-	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 )
 
 var (
@@ -115,7 +115,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		ShutdownTimeout:           DEFAULT_SHUTDOWN_TIMEOUT,
 		ShutdownDelay:             DEFAULT_SHUTDOWN_DELAY,
 
-		LogDir:   fmt.Sprintf("/var/log/%s", config.APP_NAME),
+		LogDir:   fmt.Sprintf("/var/log/%s", filepath.Base(os.Args[0])),
 		LogLevel: "INFO",
 
 		rawMode:                  "init",
