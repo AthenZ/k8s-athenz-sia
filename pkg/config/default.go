@@ -16,8 +16,6 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -115,7 +113,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		ShutdownTimeout:           DEFAULT_SHUTDOWN_TIMEOUT,
 		ShutdownDelay:             DEFAULT_SHUTDOWN_DELAY,
 
-		LogDir:   fmt.Sprintf("/var/log/%s", filepath.Base(os.Args[0])),
+		LogDir:   fmt.Sprintf("/var/log/%s", APP_NAME),
 		LogLevel: "INFO",
 
 		rawMode:                  "init",
