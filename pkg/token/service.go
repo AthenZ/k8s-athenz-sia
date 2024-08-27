@@ -89,10 +89,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
 	var atTargetDomainRoles, rtTargetDomainRoles []CacheKey
 	if tt&mACCESS_TOKEN != 0 {
-		atTargetDomainRoles = make([]CacheKey, len(idCfg.TargetDomainRoles))
+		atTargetDomainRoles = make([]CacheKey, 0, len(idCfg.TargetDomainRoles))
 	}
 	if tt&mROLE_TOKEN != 0 {
-		rtTargetDomainRoles = make([]CacheKey, len(idCfg.TargetDomainRoles))
+		rtTargetDomainRoles = make([]CacheKey, 0, len(idCfg.TargetDomainRoles))
 	}
 	for _, dr := range idCfg.TargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
