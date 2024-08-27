@@ -462,6 +462,7 @@ func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Durat
 			defer wg.Done()
 			domain, role := k.Domain, k.Role
 			token := d.accessTokenCache.Load(k)
+			log.Debugf("next: %s %s %s", domain, role, token.Raw())
 
 			outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
 			err := d.writeFileWithRetry(ctx, maxElapsedTime, token, outPath, mACCESS_TOKEN)
@@ -469,6 +470,8 @@ func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Durat
 				echan <- err
 				atErrorCount.Add(1)
 			}
+			log.Debugf("done: %s %s %s", domain, role, token.Raw())
+
 		}(k)
 	}
 
@@ -478,12 +481,14 @@ func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Durat
 			defer wg.Done()
 			domain, role := k.Domain, k.Role
 			token := d.roleTokenCache.Load(k)
+			log.Debugf("next: %s %s %s", domain, role, token.Raw())
 			outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
 			err := d.writeFileWithRetry(ctx, maxElapsedTime, token, outPath, mROLE_TOKEN)
 			if err != nil {
 				echan <- err
 				rtErrorCount.Add(1)
 			}
+			log.Debugf("done: %s %s %s", domain, role, token.Raw())
 		}(k)
 	}
 
@@ -517,7 +522,11 @@ func (d *tokenService) writeFileWithRetry(ctx context.Context, maxElapsedTime ti
 }
 
 func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
+	log.Debugf("tt: %d, token: %s, outPath: %s", tt, token.Raw(), outPath)
 	w := util.NewWriter()
+	if w == nil {
+		return fmt.Errorf("unable to create writer")
+	}
 	tokenType := ""
 	switch tt {
 	case mACCESS_TOKEN:
@@ -541,6 +550,7 @@ func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 	if err := w.AddBytes(outPath, 0644, []byte(rawToken)); err != nil {
 		return fmt.Errorf("unable to save %s Token: %w", tokenType, err)
 	}
+	log.Debugf("tmp: Successfully saved %s Token[%d bytes] at %s.tmp", tokenType, len(rawToken), outPath)
 	return w.Save()
 }
 
