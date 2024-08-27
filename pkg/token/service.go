@@ -462,6 +462,10 @@ func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Durat
 			defer wg.Done()
 			domain, role := k.Domain, k.Role
 			token := d.accessTokenCache.Load(k)
+			if token == nil {
+				log.Debugf("Skipping to write access token file for domain[%s] role[%s]", domain, role)
+				return
+			}
 			log.Debugf("next: %s %s %s", domain, role, token.Raw())
 
 			outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
@@ -481,6 +485,10 @@ func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Durat
 			defer wg.Done()
 			domain, role := k.Domain, k.Role
 			token := d.roleTokenCache.Load(k)
+			if token == nil {
+				log.Debugf("Skipping to write role token file for domain[%s] role[%s]", domain, role)
+				return
+			}
 			log.Debugf("next: %s %s %s", domain, role, token.Raw())
 			outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
 			err := d.writeFileWithRetry(ctx, maxElapsedTime, token, outPath, mROLE_TOKEN)
