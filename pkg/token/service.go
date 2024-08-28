@@ -146,7 +146,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		shutdownTimeout:           idCfg.ShutdownTimeout,
 	}
 
-	// initialize tokens on mode=refresh or TOKEN_DIR is set
+	// write tokens as files only if it is non-init mode AND TOKEN_DIR is set
 	if !idCfg.Init || idCfg.TokenDir != "" {
 		errs := ts.updateTokenCaches(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT)
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
