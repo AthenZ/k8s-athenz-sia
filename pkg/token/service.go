@@ -443,6 +443,9 @@ func (d *tokenService) updateToken(key CacheKey, tt mode) error {
 	}
 }
 
+// The latest Access Tokens and Role Tokens in the memory cache will be output to files.
+// The tokens to be output are those specified by the TargetDomainRoles for the domain and roles.
+// If multiple tokens are to be output, the file output process will be executed in parallel using go routines.
 func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Duration) []error {
 	if d.tokenDir == "" {
 		log.Debugf("Skipping to write token files to directory[%s]", d.tokenDir)
@@ -501,6 +504,7 @@ func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Durat
 	return errs
 }
 
+// writeFileWithRetry attempts multiple times to write a file for the given token (AT or RT) by utilizing writeFile()
 func (d *tokenService) writeFileWithRetry(ctx context.Context, maxElapsedTime time.Duration, token Token, outPath string, tt mode) error {
 	// backoff config with first retry delay of 5s, and then 10s, 20s, ...
 	b := backoff.NewExponentialBackOff()
@@ -517,6 +521,7 @@ func (d *tokenService) writeFileWithRetry(ctx context.Context, maxElapsedTime ti
 	return backoff.RetryNotify(operation, backoff.WithContext(b, ctx), notifyOnErr)
 }
 
+// writeFile outputs given token (AT or RT) as file
 func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 	w := util.NewWriter()
 	tokenType := ""
