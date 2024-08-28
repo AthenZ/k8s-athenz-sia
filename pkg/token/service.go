@@ -89,9 +89,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
 	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
 	var atTargetDomainRolesToFile, rtTargetDomainRolesToFile []CacheKey
+	// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."
 	if tt&mACCESS_TOKEN != 0 {
 		atTargetDomainRolesToFile = make([]CacheKey, 0, len(idCfg.TargetDomainRoles))
 	}
+	// TODO: Rewrite the following if statement as "if tt.isRoleTokenEnabled()..."
 	if tt&mROLE_TOKEN != 0 {
 		rtTargetDomainRolesToFile = make([]CacheKey, 0, len(idCfg.TargetDomainRoles))
 	}
