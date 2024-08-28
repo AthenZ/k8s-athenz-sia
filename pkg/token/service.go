@@ -41,11 +41,12 @@ type tokenService struct {
 	shutdownChan chan struct{}
 	shutdownWg   sync.WaitGroup
 
-	group               singleflight.Group
-	accessTokenCache    TokenCache
-	roleTokenCache      TokenCache
-	atTargetDomainRoles []CacheKey
-	rtTargetDomainRoles []CacheKey
+	group            singleflight.Group
+	accessTokenCache TokenCache
+	roleTokenCache   TokenCache
+
+	atTargetDomainRolesToFile []CacheKey
+	rtTargetDomainRolesToFile []CacheKey
 
 	// keyFile      string
 	// certFile     string
@@ -80,24 +81,24 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	tokenExpiryInSecond := int(idCfg.TokenExpiry.Seconds())
 	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
 	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
-	var atTargetDomainRoles, rtTargetDomainRoles []CacheKey
+	var atTargetDomainRolesToFile, rtTargetDomainRolesToFile []CacheKey
 	if tt&mACCESS_TOKEN != 0 {
-		atTargetDomainRoles = make([]CacheKey, 0, len(idCfg.TargetDomainRoles))
+		atTargetDomainRolesToFile = make([]CacheKey, 0, len(idCfg.TargetDomainRoles))
 	}
 	if tt&mROLE_TOKEN != 0 {
-		rtTargetDomainRoles = make([]CacheKey, 0, len(idCfg.TargetDomainRoles))
+		rtTargetDomainRolesToFile = make([]CacheKey, 0, len(idCfg.TargetDomainRoles))
 	}
 	for _, dr := range idCfg.TargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
 		if tt&mACCESS_TOKEN != 0 {
 			cacheKey := CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond}
 			accessTokenCache.Store(cacheKey, &AccessToken{})
-			atTargetDomainRoles = append(atTargetDomainRoles, cacheKey)
+			atTargetDomainRolesToFile = append(atTargetDomainRolesToFile, cacheKey)
 		}
 		if tt&mROLE_TOKEN != 0 {
 			cacheKey := CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}
 			roleTokenCache.Store(cacheKey, &RoleToken{})
-			rtTargetDomainRoles = append(rtTargetDomainRoles, cacheKey)
+			rtTargetDomainRolesToFile = append(rtTargetDomainRolesToFile, cacheKey)
 		}
 	}
 
@@ -123,22 +124,22 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// setup token service
 	ts := &tokenService{
-		shutdownChan:        make(chan struct{}, 1),
-		accessTokenCache:    accessTokenCache,
-		roleTokenCache:      roleTokenCache,
-		atTargetDomainRoles: atTargetDomainRoles,
-		rtTargetDomainRoles: rtTargetDomainRoles,
-		ztsClient:           ztsClient,
-		saService:           saService,
-		tokenRESTAPI:        idCfg.TokenServerRESTAPI,
-		tokenType:           tt,
-		tokenDir:            idCfg.TokenDir,
-		tokenRefresh:        idCfg.TokenRefresh,
-		tokenExpiryInSecond: tokenExpiryInSecond,
-		roleAuthHeader:      idCfg.RoleAuthHeader,
-		useTokenServer:      idCfg.UseTokenServer,
-		shutdownDelay:       idCfg.ShutdownDelay,
-		shutdownTimeout:     idCfg.ShutdownTimeout,
+		shutdownChan:              make(chan struct{}, 1),
+		accessTokenCache:          accessTokenCache,
+		roleTokenCache:            roleTokenCache,
+		atTargetDomainRolesToFile: atTargetDomainRolesToFile,
+		rtTargetDomainRolesToFile: rtTargetDomainRolesToFile,
+		ztsClient:                 ztsClient,
+		saService:                 saService,
+		tokenRESTAPI:              idCfg.TokenServerRESTAPI,
+		tokenType:                 tt,
+		tokenDir:                  idCfg.TokenDir,
+		tokenRefresh:              idCfg.TokenRefresh,
+		tokenExpiryInSecond:       tokenExpiryInSecond,
+		roleAuthHeader:            idCfg.RoleAuthHeader,
+		useTokenServer:            idCfg.UseTokenServer,
+		shutdownDelay:             idCfg.ShutdownDelay,
+		shutdownTimeout:           idCfg.ShutdownTimeout,
 	}
 
 	// initialize tokens on mode=refresh or TOKEN_DIR is set
@@ -451,9 +452,9 @@ func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Durat
 
 	var atErrorCount, rtErrorCount atomic.Int64
 	var wg sync.WaitGroup
-	echan := make(chan error, len(d.atTargetDomainRoles)+len(d.rtTargetDomainRoles))
+	echan := make(chan error, len(d.atTargetDomainRolesToFile)+len(d.rtTargetDomainRolesToFile))
 
-	for _, k := range d.atTargetDomainRoles {
+	for _, k := range d.atTargetDomainRolesToFile {
 		wg.Add(1)
 		go func(k CacheKey) {
 			defer wg.Done()
@@ -468,7 +469,7 @@ func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Durat
 		}(k)
 	}
 
-	for _, k := range d.rtTargetDomainRoles {
+	for _, k := range d.rtTargetDomainRolesToFile {
 		wg.Add(1)
 		go func(k CacheKey) {
 			defer wg.Done()
@@ -485,11 +486,11 @@ func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Durat
 
 	// wait for ALL token updates to complete
 	wg.Wait()
-	log.Infof("Saved tokens to files. accesstoken:success[%d],error[%d]; roletoken:success[%d],error[%d]", int64(len(d.atTargetDomainRoles))-atErrorCount.Load(), atErrorCount.Load(), int64(len(d.rtTargetDomainRoles))-rtErrorCount.Load(), rtErrorCount.Load())
+	log.Infof("Saved tokens to files. accesstoken:success[%d],error[%d]; roletoken:success[%d],error[%d]", int64(len(d.atTargetDomainRolesToFile))-atErrorCount.Load(), atErrorCount.Load(), int64(len(d.rtTargetDomainRolesToFile))-rtErrorCount.Load(), rtErrorCount.Load())
 
 	// collect errors
 	close(echan)
-	errs := make([]error, 0, len(d.atTargetDomainRoles)+len(d.rtTargetDomainRoles))
+	errs := make([]error, 0, len(d.atTargetDomainRolesToFile)+len(d.rtTargetDomainRolesToFile))
 	for err := range echan {
 		errs = append(errs, err)
 	}
