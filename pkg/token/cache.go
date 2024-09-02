@@ -42,6 +42,7 @@ type CacheKey struct {
 	MinExpiry         int
 	ProxyForPrincipal string
 	Role              string
+	WriteFileRequired bool
 }
 
 // UniqueId returns a unique id of this token,
