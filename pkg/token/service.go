@@ -55,12 +55,16 @@ type tokenService struct {
 	ztsClient *zts.ZTSClient
 	saService string
 
-	tokenRESTAPI        bool
-	tokenType           mode
-	tokenDir            string
-	tokenRefresh        time.Duration
-	tokenExpiryInSecond int
-	roleAuthHeader      string
+	tokenRESTAPI                 bool
+	tokenType                    mode
+	accessTokenNamingFormat      string
+	accessTokenFilenameDelimiter string
+	roleTokenNamingFormat        string
+	roleTokenFilenameDelimiter   string
+	tokenDir                     string
+	tokenRefresh                 time.Duration
+	tokenExpiryInSecond          int
+	roleAuthHeader               string
 
 	useTokenServer     bool
 	tokenServer        *http.Server
@@ -128,22 +132,26 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// setup token service
 	ts := &tokenService{
-		shutdownChan:              make(chan struct{}, 1),
-		accessTokenCache:          accessTokenCache,
-		roleTokenCache:            roleTokenCache,
-		atTargetDomainRolesToFile: atTargetDomainRolesToFile,
-		rtTargetDomainRolesToFile: rtTargetDomainRolesToFile,
-		ztsClient:                 ztsClient,
-		saService:                 saService,
-		tokenRESTAPI:              idCfg.TokenServerRESTAPI,
-		tokenType:                 tt,
-		tokenDir:                  idCfg.TokenDir,
-		tokenRefresh:              idCfg.TokenRefresh,
-		tokenExpiryInSecond:       tokenExpiryInSecond,
-		roleAuthHeader:            idCfg.RoleAuthHeader,
-		useTokenServer:            idCfg.UseTokenServer,
-		shutdownDelay:             idCfg.ShutdownDelay,
-		shutdownTimeout:           idCfg.ShutdownTimeout,
+		shutdownChan:                 make(chan struct{}, 1),
+		accessTokenCache:             accessTokenCache,
+		roleTokenCache:               roleTokenCache,
+		atTargetDomainRolesToFile:    atTargetDomainRolesToFile,
+		rtTargetDomainRolesToFile:    rtTargetDomainRolesToFile,
+		ztsClient:                    ztsClient,
+		saService:                    saService,
+		tokenRESTAPI:                 idCfg.TokenServerRESTAPI,
+		tokenType:                    tt,
+		accessTokenNamingFormat:      idCfg.AccessTokenNamingFormat,
+		accessTokenFilenameDelimiter: idCfg.AccessTokenFilenameDelimiter,
+		roleTokenNamingFormat:        idCfg.RoleTokenNamingFormat,
+		roleTokenFilenameDelimiter:   idCfg.RoleTokenFilenameDelimiter,
+		tokenDir:                     idCfg.TokenDir,
+		tokenRefresh:                 idCfg.TokenRefresh,
+		tokenExpiryInSecond:          tokenExpiryInSecond,
+		roleAuthHeader:               idCfg.RoleAuthHeader,
+		useTokenServer:               idCfg.UseTokenServer,
+		shutdownDelay:                idCfg.ShutdownDelay,
+		shutdownTimeout:              idCfg.ShutdownTimeout,
 	}
 
 	// write tokens as files only if it is non-init mode AND TOKEN_DIR is set
@@ -455,34 +463,42 @@ func (d *tokenService) writeFiles(ctx context.Context, maxElapsedTime time.Durat
 	var wg sync.WaitGroup
 	echan := make(chan error, len(d.atTargetDomainRolesToFile)+len(d.rtTargetDomainRolesToFile))
 
-	for _, k := range d.atTargetDomainRolesToFile {
-		wg.Add(1)
-		go func(k CacheKey) {
-			defer wg.Done()
-			domain, role := k.Domain, k.Role
-			token := d.accessTokenCache.Load(k)
-			outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
-			err := d.writeFileWithRetry(ctx, maxElapsedTime, token, outPath, mACCESS_TOKEN)
-			if err != nil {
-				echan <- err
-				atErrorCount.Add(1)
-			}
-		}(k)
+	if d.accessTokenNamingFormat != "" {
+		for _, k := range d.atTargetDomainRolesToFile {
+			wg.Add(1)
+			go func(k CacheKey) {
+				defer wg.Done()
+				domain, role := k.Domain, k.Role
+				token := d.accessTokenCache.Load(k)
+				outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
+				err := d.writeFileWithRetry(ctx, maxElapsedTime, token, outPath, mACCESS_TOKEN)
+				if err != nil {
+					echan <- err
+					atErrorCount.Add(1)
+				}
+			}(k)
+		}
+	} else {
+		log.Debugf("Skipping to write access token files to directory: naming format is empty")
 	}
 
-	for _, k := range d.rtTargetDomainRolesToFile {
-		wg.Add(1)
-		go func(k CacheKey) {
-			defer wg.Done()
-			domain, role := k.Domain, k.Role
-			token := d.roleTokenCache.Load(k)
-			outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
-			err := d.writeFileWithRetry(ctx, maxElapsedTime, token, outPath, mROLE_TOKEN)
-			if err != nil {
-				echan <- err
-				rtErrorCount.Add(1)
-			}
-		}(k)
+	if d.roleTokenNamingFormat != "" {
+		for _, k := range d.rtTargetDomainRolesToFile {
+			wg.Add(1)
+			go func(k CacheKey) {
+				defer wg.Done()
+				domain, role := k.Domain, k.Role
+				token := d.roleTokenCache.Load(k)
+				outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
+				err := d.writeFileWithRetry(ctx, maxElapsedTime, token, outPath, mROLE_TOKEN)
+				if err != nil {
+					echan <- err
+					rtErrorCount.Add(1)
+				}
+			}(k)
+		}
+	} else {
+		log.Debugf("Skipping to write role token files to directory: naming format is empty")
 	}
 
 	// wait for ALL token updates to complete
