@@ -75,7 +75,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
 	enableWriteFiles := idCfg.TokenDir != ""
 	if !enableWriteFiles {
-		log.Debugf("Skipping to write token files to directory")
+		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.TokenDir)
 	}
 
 	// initialize token cache with placeholder
@@ -87,13 +87,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		domain, role := dr.Domain, dr.Role
 		// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."
 		if tt&mACCESS_TOKEN != 0 {
-			cacheKey := CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}
-			accessTokenCache.Store(cacheKey, &AccessToken{})
+			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}, &AccessToken{})
 		}
 		// TODO: Rewrite the following if statement as "if tt.isRoleTokenEnabled()..."
 		if tt&mROLE_TOKEN != 0 {
-			cacheKey := CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}
-			roleTokenCache.Store(cacheKey, &RoleToken{})
+			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}, &RoleToken{})
 		}
 	}
 
@@ -462,7 +460,7 @@ func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 			return fmt.Errorf("unable to create directory for token: %w", err)
 		}
 	}
-
+	// TODO: Attempting to save token file for Domain %s, Role: %s in %s , ... outPath)
 	log.Infof("[Saving %s Token] Domain: %s, Role: %s[%d bytes] in %s", tokenType, domain, role, len(rawToken), outPath)
 	if err := w.AddBytes(outPath, 0644, []byte(rawToken)); err != nil {
 		return fmt.Errorf("unable to save %s Token: %w", tokenType, err)

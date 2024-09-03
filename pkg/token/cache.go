@@ -28,6 +28,7 @@ import (
 
 type TokenCache interface {
 	Store(k CacheKey, t Token)
+	Search(k CacheKey) (CacheKey, Token)
 	Load(k CacheKey) Token
 	Range(func(k CacheKey, t Token) error) error
 	Keys() []CacheKey
@@ -107,6 +108,29 @@ func (c *LockedTokenCache) Store(k CacheKey, t Token) {
 	} else {
 		c.memoryUsage += int64(t.Size() + k.Size())
 	}
+}
+
+// Search searches for tokens in the cache for the specified domain and role in the cache key,
+// regardless of whether they are subject to file output.
+// If the cache is hit, it returns the cache key and token used at that time.
+// If there is no cache hit, it returns the cache key specified in the arguments and nil as the token.
+func (c *LockedTokenCache) Search(k CacheKey) (CacheKey, Token) {
+	var t Token
+	// copy the key to avoid changing the original key
+	key := k
+	// Prioritize searching for tokens that are subject to file output.
+	key.WriteFileRequired = true
+	t = c.Load(key)
+	if t != nil {
+		return key, t
+	}
+	key.WriteFileRequired = false
+	t = c.Load(key)
+	if t != nil {
+		return key, t
+	}
+	// If there is no cache hit, it returns the cache key specified in the arguments as is.
+	return k, nil
 }
 
 func (c *LockedTokenCache) Load(k CacheKey) Token {
