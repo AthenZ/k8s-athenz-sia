@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime/metrics"
 	"sync"
@@ -77,6 +78,9 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
 	enableWriteFiles := idCfg.TokenDir != ""
+	if !enableWriteFiles {
+		log.Debugf("Skipping to write token files to directory")
+	}
 
 	// initialize token cache with placeholder
 	tt := newType(idCfg.TokenType)
@@ -453,6 +457,14 @@ func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 	if rawToken == "" {
 		// skip placeholder token added during daemon creation
 		return nil
+	}
+
+	// Create the directory before saving tokens
+	dir := filepath.Dir(outPath)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("unable to create directory for token: %w", err)
+		}
 	}
 
 	log.Infof("[Saving %s Token] Domain: %s, Role: %s[%d bytes] in %s", tokenType, domain, role, len(rawToken), outPath)
