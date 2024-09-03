@@ -409,6 +409,10 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 	for _, dr := range idCfg.TargetDomainRoles {
 		targetDomain, targetRole := dr.Domain, dr.Role
 
+		if dr.Role == "" {
+			continue
+		}
+
 		domainDNSPart := extutil.DomainToDNSPart(domain)
 
 		spiffeURI, err := extutil.RoleSpiffeURI(targetDomain, targetRole)

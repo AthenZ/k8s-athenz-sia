@@ -332,13 +332,16 @@ func parseTargetDomainRoles(raw string) ([]DomainRole, error) {
 	for _, domainRole := range elements {
 		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to read target domain and role from element: [%q], err: %w", domainRole, err))
-			continue
+			domainRoles = append(domainRoles, DomainRole{
+				Domain: domainRole,
+				Role:   "",
+			})
+		} else {
+			domainRoles = append(domainRoles, DomainRole{
+				Domain: targetDomain,
+				Role:   targetRole,
+			})
 		}
-		domainRoles = append(domainRoles, DomainRole{
-			Domain: targetDomain,
-			Role:   targetRole,
-		})
 	}
 
 	return domainRoles, errors.Join(errs...)
