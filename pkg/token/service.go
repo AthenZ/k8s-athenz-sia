@@ -75,7 +75,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Info("Skipped token provider initiation")
 		return nil, nil
 	}
-	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
 	enableWriteAccessTokenToFiles := idCfg.AccessTokenNamingFormat != ""
 	enableWriteRoleTokenToFiles := idCfg.RoleTokenNamingFormat != ""
 	if !enableWriteAccessTokenToFiles {
@@ -143,7 +142,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		shutdownTimeout:              idCfg.ShutdownTimeout,
 	}
 
-	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
+	// write tokens as files only if it is non-init mode OR ACCESS_TOKEN_NAMING_FORMAT is set OR ROLE_TOKEN_NAMING_FORMAT is set
 	// If it is in refresh mode, when requesting tokens using the REST API for the domains and roles specified in TARGET_DOMAIN_ROLES,
 	// the cache is updated to ensure a cache hit from the first request.
 	if !idCfg.Init || enableWriteAccessTokenToFiles || enableWriteRoleTokenToFiles {
