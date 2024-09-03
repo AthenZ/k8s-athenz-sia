@@ -106,7 +106,6 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("ACCESS_TOKEN_FILENAME_DELIMITER", &idCfg.AccessTokenFilenameDelimiter)
 	loadEnv("ROLE_TOKEN_NAMING_FORMAT", &idCfg.RoleTokenNamingFormat)
 	loadEnv("ROLE_TOKEN_FILENAME_DELIMITER", &idCfg.RoleTokenFilenameDelimiter)
-	loadEnv("TOKEN_DIR", &idCfg.TokenDir)
 	loadEnv("METRICS_SERVER_ADDR", &idCfg.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idCfg.rawDeleteInstanceID)
 	loadEnv("USE_TOKEN_SERVER", &idCfg.rawUseTokenServer)
@@ -217,7 +216,6 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.AccessTokenFilenameDelimiter, "access-token-filename-delimiter", idCfg.AccessTokenFilenameDelimiter, "access token filename delimiter")
 	f.StringVar(&idCfg.RoleTokenNamingFormat, "role-token-naming-format", idCfg.RoleTokenNamingFormat, "role token naming format")
 	f.StringVar(&idCfg.RoleTokenFilenameDelimiter, "role-token-filename-delimiter", idCfg.RoleTokenFilenameDelimiter, "role token filename delimiter")
-	f.StringVar(&idCfg.TokenDir, "token-dir", idCfg.TokenDir, "directory to write token files")
 	f.StringVar(&idCfg.MetricsServerAddr, "metrics-server-addr", idCfg.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idCfg.DeleteInstanceID, "delete-instance-id", idCfg.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// Token Server

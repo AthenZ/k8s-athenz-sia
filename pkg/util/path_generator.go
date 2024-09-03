@@ -20,8 +20,8 @@ import (
 	"strings"
 )
 
-// generatePath generates the output path for the credentials by applying the domain name, role name, and delimiter to a specified naming format.
-func generatePath(namingFormat, domain, role, delimiter string) (string, error) {
+// GeneratePath generates the output path for the credentials by applying the domain name, role name, and delimiter to a specified naming format.
+func GeneratePath(namingFormat, domain, role, delimiter string) (string, error) {
 	if namingFormat == "" {
 		return "", fmt.Errorf("naming format is empty")
 	}

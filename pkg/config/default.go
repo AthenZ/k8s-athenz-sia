@@ -110,7 +110,6 @@ func DefaultIdentityConfig() *IdentityConfig {
 		AccessTokenFilenameDelimiter: DEFAULT_ACCESS_TOKEN_FILENAME_DELIMITER,
 		RoleTokenNamingFormat:        "",
 		RoleTokenFilenameDelimiter:   DEFAULT_ROLE_TOKEN_FILENAME_DELIMITER,
-		TokenDir:                     "",
 		MetricsServerAddr:            "",
 		HealthCheckAddr:              "",
 		HealthCheckEndpoint:          "",

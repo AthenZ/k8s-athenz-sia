@@ -65,7 +65,6 @@ type IdentityConfig struct {
 	AccessTokenFilenameDelimiter string
 	RoleTokenNamingFormat        string
 	RoleTokenFilenameDelimiter   string
-	TokenDir                     string
 	MetricsServerAddr            string
 	HealthCheckAddr              string
 	HealthCheckEndpoint          string
