@@ -300,7 +300,7 @@ func (ts *tokenService) requestTokenToZts(k CacheKey, m mode, requestID string) 
 		return GroupDoResult{requestID: requestID, token: nil}, fmt.Errorf("Invalid mode: %d", m)
 	}
 
-	log.Debugf("Attempting to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+	log.Debugf("Attempting to get %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 
 	r, err, shared := ts.group.Do(k.UniqueId(tokenName), func() (interface{}, error) {
 		// define variables before request to ZTS
@@ -324,7 +324,7 @@ func (ts *tokenService) requestTokenToZts(k CacheKey, m mode, requestID string) 
 			ts.accessTokenCache.Store(k, fetchedToken)
 		}
 
-		log.Infof("Successfully updated %s cache: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+		log.Infof("Successfully received %s and saved into token cache: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 		return GroupDoResult{requestID: requestID, token: fetchedToken}, nil
 	})
 
@@ -333,7 +333,7 @@ func (ts *tokenService) requestTokenToZts(k CacheKey, m mode, requestID string) 
 
 	if shared && result.requestID != requestID { // if it is shared and not the actual performer:
 		if err == nil {
-			log.Infof("Successfully updated %s cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", tokenName, k.String(), result.requestID, requestID)
+			log.Debugf("Successfully updated %s cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", tokenName, k.String(), result.requestID, requestID)
 		} else {
 			log.Debugf("Failed to fetch %s while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", tokenName, k.String(), result.requestID, requestID, err)
 		}
@@ -346,7 +346,7 @@ func (ts *tokenService) updateTokenCachesAndWriteFiles(ctx context.Context, maxE
 	var atErrorCount, rtErrorCount atomic.Int64
 	atTargets := ts.accessTokenCache.Keys()
 	rtTargets := ts.roleTokenCache.Keys()
-	log.Infof("Attempting to fetch tokens from Athenz ZTS server: access token targets[%v], role token targets[%v]...", atTargets, rtTargets)
+	log.Infof("Attempting to get tokens from Athenz ZTS server: access token targets[%v], role token targets[%v]...", atTargets, rtTargets)
 
 	var wg sync.WaitGroup
 	echan := make(chan error, len(atTargets)+len(rtTargets))
@@ -459,7 +459,8 @@ func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 			return fmt.Errorf("unable to create directory for token: %w", err)
 		}
 	}
-	log.Infof("Attempting to save %s Token file for Domain: %s, Role: %s [%d bytes] in %s", tokenType, domain, role, len(rawToken), outPath)
+	// Unlike the delimiter used for file names, the log output will use the Athenz standard delimiter ":role.".
+	log.Infof("[New %s Token] Subject: %s:role.%s [%d bytes] in %s", tokenType, domain, role, len(rawToken), outPath)
 	if err := w.AddBytes(outPath, 0644, []byte(rawToken)); err != nil {
 		return fmt.Errorf("unable to save %s Token: %w", tokenType, err)
 	}
