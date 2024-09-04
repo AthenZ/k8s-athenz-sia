@@ -78,7 +78,7 @@ func postRoleToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create cache key
-	k := CacheKey{Domain: domain, Role: role, WriteFileRequired: false}
+	k := CacheKey{Domain: domain, Role: role}
 	if rtRequest.ProxyForPrincipal != nil {
 		k.ProxyForPrincipal = *rtRequest.ProxyForPrincipal
 	}
@@ -166,7 +166,7 @@ func postAccessToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create cache key
-	k := CacheKey{Domain: domain, Role: role, WriteFileRequired: false}
+	k := CacheKey{Domain: domain, Role: role}
 	if atRequest.ProxyForPrincipal != nil {
 		k.ProxyForPrincipal = *atRequest.ProxyForPrincipal
 	}
