@@ -336,16 +336,14 @@ func parseTargetDomainRoles(raw string) ([]DomainRole, error) {
 	for _, domainRole := range elements {
 		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
 		if err != nil {
-			domainRoles = append(domainRoles, DomainRole{
-				Domain: domainRole,
-				Role:   "",
-			})
-		} else {
-			domainRoles = append(domainRoles, DomainRole{
-				Domain: targetDomain,
-				Role:   targetRole,
-			})
+			// The entire specified string is considered as the domain name, and no role is specified.
+			targetDomain = domainRole
+			targetRole = ""
 		}
+		domainRoles = append(domainRoles, DomainRole{
+			Domain: targetDomain,
+			Role:   targetRole,
+		})
 	}
 
 	return domainRoles, errors.Join(errs...)
