@@ -324,6 +324,10 @@ func parseMode(raw string) (bool, error) {
 	return raw == "init", nil
 }
 
+// parseTargetDomainRoles parses a raw string containing domain and role pairs
+// separated by commas. If the input string does not contain ":role",
+// the entire string is considered as the domain and the role is set to an empty string.
+// All successfully split pairs are stored in the domainRoles slice.
 func parseTargetDomainRoles(raw string) ([]DomainRole, error) {
 	elements := strings.Split(raw, ",")
 	errs := make([]error, 0, len(elements))
