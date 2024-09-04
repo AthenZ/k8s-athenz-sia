@@ -137,9 +137,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// If it is in refresh mode, when requesting tokens using the REST API for the domains and roles specified in TARGET_DOMAIN_ROLES,
 	// the cache is updated to ensure a cache hit from the first request.
 	if !idCfg.Init || enableWriteFiles {
-		errs := ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT)
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
-		for _, err := range errs {
+		for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT) {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 		}
 	}

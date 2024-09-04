@@ -110,6 +110,12 @@ func (c *LockedTokenCache) Store(k CacheKey, t Token) {
 	}
 }
 
+func (c *LockedTokenCache) Load(k CacheKey) Token {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.cache[k]
+}
+
 // Search searches for tokens in the cache for the specified domain and role in the cache key,
 // regardless of whether they are subject to file output.
 // If the cache is hit, it returns the cache key and token used at that time.
@@ -131,12 +137,6 @@ func (c *LockedTokenCache) Search(k CacheKey) (CacheKey, Token) {
 	}
 	// If there is no cache hit, it returns the cache key specified in the arguments as is.
 	return k, nil
-}
-
-func (c *LockedTokenCache) Load(k CacheKey) Token {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.cache[k]
 }
 
 func (c *LockedTokenCache) Range(f func(k CacheKey, t Token) error) error {
