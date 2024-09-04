@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"runtime/metrics"
 	"sync"
 	"sync/atomic"
@@ -146,7 +144,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// If it is in refresh mode, when requesting tokens using the REST API for the domains and roles specified in TARGET_DOMAIN_ROLES,
 	// the cache is updated to ensure a cache hit from the first request.
 	if !idCfg.Init || enableWriteAccessTokenToFiles || enableWriteRoleTokenToFiles {
-		errs := ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT)
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
 		for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT) {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
@@ -464,23 +461,19 @@ func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 		return fmt.Errorf("invalid token type: %d", tt)
 	}
 
-	domain := token.Domain()
-	role := token.Role()
 	rawToken := token.Raw()
+	// TODO: Is this process necessary?
 	if rawToken == "" {
 		// skip placeholder token added during daemon creation
 		return nil
 	}
 
 	// Create the directory before saving tokens
-	dir := filepath.Dir(outPath)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("unable to create directory for token: %w", err)
-		}
+	if err := extutil.CreateDirectoryFromOutPath(outPath); err != nil {
+		return fmt.Errorf("unable to create directory for token: %w", err)
 	}
 	// TODO: Attempting to save token file for Domain %s, Role: %s in %s , ... outPath)
-	log.Infof("[Saving %s Token] Domain: %s, Role: %s[%d bytes] in %s", tokenType, domain, role, len(rawToken), outPath)
+	log.Infof("[Saving %s Token] Domain: %s, Role: %s[%d bytes] in %s", tokenType, token.Domain(), token.Role(), len(rawToken), outPath)
 	if err := w.AddBytes(outPath, 0644, []byte(rawToken)); err != nil {
 		return fmt.Errorf("unable to save %s Token: %w", tokenType, err)
 	}

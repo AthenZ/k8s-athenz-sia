@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -91,6 +92,8 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("TARGET_DOMAIN_ROLES", &idCfg.rawTargetDomainRoles)
 	loadEnv("ROLECERT_DIR", &idCfg.RoleCertDir)
 	loadEnv("ROLE_CERT_FILENAME_DELIMITER", &idCfg.RoleCertFilenameDelimiter)
+	loadEnv("ROLE_CERT_NAMING_FORMAT", &idCfg.RoleCertNamingFormat)
+	loadEnv("ROLE_CERT_KEY_NAMING_FORMAT", &idCfg.RoleCertKeyNamingFormat)
 	loadEnv("ROLE_CERT_KEY_FILE_OUTPUT", &idCfg.rawRoleCertKeyFileOutput)
 	loadEnv("ROLE_AUTH_HEADER", &idCfg.RoleAuthHeader)
 	loadEnv("TOKEN_TYPE", &idCfg.TokenType)
@@ -200,6 +203,9 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.ServerCACert, "server-ca-cert", idCfg.ServerCACert, "path to CA certificate file to verify ZTS server certs")
 	f.StringVar(&idCfg.rawTargetDomainRoles, "target-domain-roles", idCfg.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idCfg.RoleCertFilenameDelimiter+"admin,sys.auth"+idCfg.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
 	f.StringVar(&idCfg.RoleCertDir, "rolecert-dir", idCfg.RoleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
+	f.StringVar(&idCfg.RoleCertDir, "role-cert-naming-format", idCfg.RoleCertNamingFormat, "The file name format when outputting the role cert to a file")
+	f.StringVar(&idCfg.RoleCertDir, "role-cert-key-naming-format", idCfg.RoleCertKeyNamingFormat, "The file name format when outputting the role cert key to a file")
+	f.StringVar(&idCfg.RoleCertDir, "role-cert-filename-delimiter", idCfg.RoleCertFilenameDelimiter, "The delimiter that separates the domain name and role name when outputting the role cert to a file")
 	// RoleCertFilenameDelimiter
 	f.BoolVar(&idCfg.RoleCertKeyFileOutput, "rolecert-key-file-output", idCfg.RoleCertKeyFileOutput, "output role certificate key file (true/false)")
 	// RoleAuthHeader
@@ -212,10 +218,10 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.TokenServerTLSCAPath, "token-server-tls-ca-path", idCfg.TokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
 	f.StringVar(&idCfg.TokenServerTLSCertPath, "token-server-tls-cert-path", idCfg.TokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
 	f.StringVar(&idCfg.TokenServerTLSKeyPath, "token-server-tls-key-path", idCfg.TokenServerTLSKeyPath, "token server TLS certificate key path (if empty, disable TLS)")
-	f.StringVar(&idCfg.AccessTokenNamingFormat, "access-token-naming-format", idCfg.AccessTokenNamingFormat, "access token naming format")
-	f.StringVar(&idCfg.AccessTokenFilenameDelimiter, "access-token-filename-delimiter", idCfg.AccessTokenFilenameDelimiter, "access token filename delimiter")
-	f.StringVar(&idCfg.RoleTokenNamingFormat, "role-token-naming-format", idCfg.RoleTokenNamingFormat, "role token naming format")
-	f.StringVar(&idCfg.RoleTokenFilenameDelimiter, "role-token-filename-delimiter", idCfg.RoleTokenFilenameDelimiter, "role token filename delimiter")
+	f.StringVar(&idCfg.AccessTokenNamingFormat, "access-token-naming-format", idCfg.AccessTokenNamingFormat, "The file name format when outputting the access token to a file")
+	f.StringVar(&idCfg.AccessTokenFilenameDelimiter, "access-token-filename-delimiter", idCfg.AccessTokenFilenameDelimiter, "The delimiter that separates the domain name and role name when outputting the access token to a file")
+	f.StringVar(&idCfg.RoleTokenNamingFormat, "role-token-naming-format", idCfg.RoleTokenNamingFormat, "The file name format when outputting the role token to a file")
+	f.StringVar(&idCfg.RoleTokenFilenameDelimiter, "role-token-filename-delimiter", idCfg.RoleTokenFilenameDelimiter, "The delimiter that separates the domain name and role name when outputting the role token to a file")
 	f.StringVar(&idCfg.MetricsServerAddr, "metrics-server-addr", idCfg.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idCfg.DeleteInstanceID, "delete-instance-id", idCfg.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// Token Server
@@ -320,6 +326,11 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		return fmt.Errorf("Unable to read key and cert: %w", err)
 	}
 
+	idCfg.RoleCertNamingFormat, idCfg.RoleCertKeyNamingFormat, err = defineRoleCertAndKeyNamingFormat(idCfg.RoleCertDir, idCfg.RoleCertNamingFormat, idCfg.RoleCertKeyNamingFormat)
+	if err != nil {
+		return fmt.Errorf("Invalid configuration for the output file name of the Role Cert and Role Cert Key: %w", err)
+	}
+
 	return nil
 }
 
@@ -348,4 +359,28 @@ func parseTargetDomainRoles(raw string) ([]DomainRole, error) {
 	}
 
 	return domainRoles, errors.Join(errs...)
+}
+
+func defineRoleCertAndKeyNamingFormat(roleCertDir, roleCertNamingFormat, roleCertKeyNamingFormat string) (string, string, error) {
+	// If both the RoleCert settings and the NamingFormat settings are configured redundantly, an error will be returned.
+	if roleCertDir != "" && roleCertNamingFormat != "" {
+		return "", "", fmt.Errorf("RoleCertDir and RoleCertNamingFormat are both set: RoleCertDir %s, RoleCertNamingFormat %s", roleCertDir, roleCertNamingFormat)
+	}
+	if roleCertDir != "" && roleCertKeyNamingFormat != "" {
+		return "", "", fmt.Errorf("RoleCertDir and RoleCertKeyNamingFormat are both set: RoleCertDir %s, RoleCertKeyNamingFormat %s", roleCertDir, roleCertKeyNamingFormat)
+	}
+
+	// Since the RoleCertDir setting is empty, the configured NamingFormat will be used as is.
+	if roleCertDir == "" {
+		if roleCertNamingFormat == "" && roleCertKeyNamingFormat != "" {
+			log.Warnf("The RoleCert is not being output, but RoleCertKeyNamingFormat is set.")
+		}
+
+		return roleCertNamingFormat, roleCertKeyNamingFormat, nil
+	}
+
+	// If only RoleCertDir is defined, fixed values will be assigned to RoleCertNamingFormat and RoleCertKeyNamingFormat.
+	roleCertNamingFormat = filepath.Join(roleCertDir, "{{domain}}{{delimiter}}{{role}}.cert.pem")
+	roleCertKeyNamingFormat = filepath.Join(roleCertDir, "{{domain}}{{delimiter}}{{role}}.key.pem")
+	return roleCertNamingFormat, roleCertKeyNamingFormat, nil
 }

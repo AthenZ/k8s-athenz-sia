@@ -94,6 +94,8 @@ func DefaultIdentityConfig() *IdentityConfig {
 		ServerCACert:                 "",
 		TargetDomainRoles:            []DomainRole{},
 		RoleCertDir:                  "",
+		RoleCertNamingFormat:         "",
+		RoleCertKeyNamingFormat:      "",
 		RoleCertFilenameDelimiter:    DEFAULT_ROLE_CERT_FILENAME_DELIMITER,
 		RoleCertKeyFileOutput:        false,
 		RoleAuthHeader:               DEFAULT_ROLE_AUTH_HEADER,

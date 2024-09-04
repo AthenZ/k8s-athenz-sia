@@ -50,6 +50,8 @@ type IdentityConfig struct {
 	TargetDomainRoles            []DomainRole
 	RoleCertDir                  string
 	RoleCertFilenameDelimiter    string
+	RoleCertNamingFormat         string
+	RoleCertKeyNamingFormat      string
 	RoleCertKeyFileOutput        bool
 	RoleAuthHeader               string
 	TokenType                    string
