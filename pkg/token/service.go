@@ -459,8 +459,7 @@ func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 			return fmt.Errorf("unable to create directory for token: %w", err)
 		}
 	}
-	// TODO: Attempting to save token file for Domain %s, Role: %s in %s , ... outPath)
-	log.Infof("[Saving %s Token] Domain: %s, Role: %s[%d bytes] in %s", tokenType, domain, role, len(rawToken), outPath)
+	log.Infof("Attempting to save %s Token file for Domain: %s, Role: %s [%d bytes] in %s", tokenType, domain, role, len(rawToken), outPath)
 	if err := w.AddBytes(outPath, 0644, []byte(rawToken)); err != nil {
 		return fmt.Errorf("unable to save %s Token: %w", tokenType, err)
 	}
