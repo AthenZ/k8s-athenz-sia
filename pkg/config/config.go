@@ -325,10 +325,12 @@ func parseTargetDomainRoles(raw string) []DomainRole {
 
 	for _, domainRole := range elements {
 		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
+
+		// The entire specified string is considered as the domain name, and no role is specified.
 		if err != nil {
-			// The entire specified string is considered as the domain name, and no role is specified.
 			targetDomain = domainRole
 			targetRole = ""
+			log.Infof("TARGET_DOMAIN_ROLES[%s] does not contain ':role', so it will be treated as a domain name.", domainRole)
 		}
 		domainRoles = append(domainRoles, DomainRole{
 			Domain: targetDomain,
