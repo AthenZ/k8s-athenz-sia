@@ -28,8 +28,8 @@ import (
 
 type TokenCache interface {
 	Store(k CacheKey, t Token)
-	Search(k CacheKey) (CacheKey, Token)
 	Load(k CacheKey) Token
+	Search(k CacheKey) (CacheKey, Token)
 	Range(func(k CacheKey, t Token) error) error
 	Keys() []CacheKey
 	Size() int64
