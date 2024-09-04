@@ -330,7 +330,7 @@ func parseTargetDomainRoles(raw string) []DomainRole {
 		if err != nil {
 			targetDomain = domainRole
 			targetRole = ""
-			log.Debug("TARGET_DOMAIN_ROLES[%s] does not contain ':role', so it will be treated as a domain name.", domainRole)
+			log.Debugf("TARGET_DOMAIN_ROLES[%s] does not contain ':role', so it will be treated as a domain name.", domainRole)
 		}
 		domainRoles = append(domainRoles, DomainRole{
 			Domain: targetDomain,
