@@ -21,6 +21,7 @@ import (
 )
 
 // GeneratePath generates the output path for the credentials by applying the domain name, role name, and delimiter to a specified naming format.
+// i.e) namingFormat=="/var/run/athenz/rolecerts/{{domain}}{{delimiter}}{{role}}"
 func GeneratePath(namingFormat, domain, role, delimiter string) (string, error) {
 	if namingFormat == "" {
 		return "", fmt.Errorf("naming format is empty")
@@ -29,6 +30,7 @@ func GeneratePath(namingFormat, domain, role, delimiter string) (string, error) 
 		return "", fmt.Errorf("domain is empty")
 	}
 	// If the role is an empty string, the delimiter used to separate the domain name and the role name is not necessary.
+	// i.e) domain="athenz", role="" => User wants to fetch tokens directly associated to the domain.
 	if role == "" {
 		delimiter = ""
 	}

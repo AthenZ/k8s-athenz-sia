@@ -112,7 +112,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 						return fmt.Errorf("failed to generate path for role cert: %w", err)
 					}
 					// Create the directory before saving role certificate
-					if err := extutil.CreateDirectoryFromOutPath(outPath); err != nil {
+					if err := extutil.CreateDirectory(outPath); err != nil {
 						return fmt.Errorf("unable to create directory for role cert: %w", err)
 					}
 					log.Debugf("Saving x509 role cert[%d bytes] at [%s]", len(roleCertPEM), outPath)
@@ -126,7 +126,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 							return fmt.Errorf("failed to generate path for role cert key: %w", err)
 						}
 						// Create the directory before saving role certificate key
-						if err := extutil.CreateDirectoryFromOutPath(outKeyPath); err != nil {
+						if err := extutil.CreateDirectory(outKeyPath); err != nil {
 							return fmt.Errorf("unable to create directory for role cert key: %w", err)
 						}
 						log.Debugf("Saving x509 role cert key[%d bytes] at [%s]", len(roleKeyPEM), outKeyPath)

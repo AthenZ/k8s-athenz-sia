@@ -22,8 +22,8 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
-// CreateDirectoryFromOutPath creates the necessary directories for file output from the specified file path for the output token or certificate.
-func CreateDirectoryFromOutPath(outPath string) error {
+// CreateDirectory creates the necessary directories for file output from the specified file path for the output token or certificate.
+func CreateDirectory(outPath string) error {
 	dir := filepath.Dir(outPath)
 	_, err := os.Stat(dir)
 	if os.IsNotExist(err) {

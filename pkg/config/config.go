@@ -203,10 +203,9 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.ServerCACert, "server-ca-cert", idCfg.ServerCACert, "path to CA certificate file to verify ZTS server certs")
 	f.StringVar(&idCfg.rawTargetDomainRoles, "target-domain-roles", idCfg.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idCfg.RoleCertFilenameDelimiter+"admin,sys.auth"+idCfg.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
 	f.StringVar(&idCfg.RoleCertDir, "rolecert-dir", idCfg.RoleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
-	f.StringVar(&idCfg.RoleCertDir, "role-cert-naming-format", idCfg.RoleCertNamingFormat, "The file name format when outputting the role cert to a file")
-	f.StringVar(&idCfg.RoleCertDir, "role-cert-key-naming-format", idCfg.RoleCertKeyNamingFormat, "The file name format when outputting the role cert key to a file")
-	f.StringVar(&idCfg.RoleCertDir, "role-cert-filename-delimiter", idCfg.RoleCertFilenameDelimiter, "The delimiter that separates the domain name and role name when outputting the role cert to a file")
-	// RoleCertFilenameDelimiter
+	f.StringVar(&idCfg.RoleCertNamingFormat, "role-cert-naming-format", idCfg.RoleCertNamingFormat, "The file name format when outputting the role cert to a file")
+	f.StringVar(&idCfg.RoleCertKeyNamingFormat, "role-cert-key-naming-format", idCfg.RoleCertKeyNamingFormat, "The file name format when outputting the role cert key to a file")
+	f.StringVar(&idCfg.RoleCertFilenameDelimiter, "role-cert-filename-delimiter", idCfg.RoleCertFilenameDelimiter, "The delimiter that separates the domain name and role name when outputting the role cert to a file")
 	f.BoolVar(&idCfg.RoleCertKeyFileOutput, "rolecert-key-file-output", idCfg.RoleCertKeyFileOutput, "output role certificate key file (true/false)")
 	// RoleAuthHeader
 	f.StringVar(&idCfg.TokenType, "token-type", idCfg.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
