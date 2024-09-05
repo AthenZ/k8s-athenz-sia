@@ -238,9 +238,6 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 
 	if idCfg.rawTargetDomainRoles != "" {
 		idCfg.RoleCertTargetDomainRoles, idCfg.TokenTargetDomainRoles = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
-		if len(idCfg.TokenTargetDomainRoles) == 0 {
-			return fmt.Errorf("Invalid TARGET_DOMAIN_ROLES [%q], %w", idCfg.rawTargetDomainRoles, fmt.Errorf("NO valid domains or domain-role pairs"))
-		}
 	}
 	return err
 }
