@@ -87,8 +87,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		KubeExcludeLabels:     []string{},
 	}
 
-	if len(idCfg.TargetDomainRoles) != 0 && idCfg.RoleCertNamingFormat != "" {
-		for _, dr := range idCfg.TargetDomainRoles {
+	if len(idCfg.RoleCertTargetDomainRoles) != 0 && idCfg.RoleCertNamingFormat != "" {
+		for _, dr := range idCfg.RoleCertTargetDomainRoles {
 			outPath, err := extutil.GeneratePath(idCfg.RoleCertNamingFormat, dr.Domain, dr.Role, idCfg.RoleCertFilenameDelimiter)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate path for role cert: %w", err)

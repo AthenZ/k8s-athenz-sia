@@ -47,7 +47,8 @@ type IdentityConfig struct {
 	PodName                      string
 	Reloader                     *util.CertReloader
 	ServerCACert                 string
-	TargetDomainRoles            []DomainRole
+	TokenTargetDomainRoles       []DomainRole
+	RoleCertTargetDomainRoles    []DomainRole
 	RoleCertDir                  string
 	RoleCertFilenameDelimiter    string
 	RoleCertNamingFormat         string

@@ -249,18 +249,8 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 	}
 
 	if idCfg.rawTargetDomainRoles != "" {
-		idCfg.TargetDomainRoles, err = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
-		if err != nil {
-			// continue if partially valid, fail if nothing valid
-			log.Warnf("Invalid TARGET_DOMAIN_ROLES/target-domain-roles [%q], warnings:\n%s", idCfg.rawTargetDomainRoles, err.Error())
-			if len(idCfg.TargetDomainRoles) == 0 {
-				return fmt.Errorf("Invalid TARGET_DOMAIN_ROLES [%q], %w", idCfg.rawTargetDomainRoles, fmt.Errorf("NO valid domain-role pairs"))
-			}
-			// reset warnings
-			err = nil
-		}
+		idCfg.RoleCertTargetDomainRoles, idCfg.TokenTargetDomainRoles = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
 	}
-
 	return err
 }
 
@@ -341,24 +331,37 @@ func parseMode(raw string) (bool, error) {
 	return raw == "init", nil
 }
 
-func parseTargetDomainRoles(raw string) ([]DomainRole, error) {
+// parseTargetDomainRoles parses a raw string containing domain and role pairs
+// separated by commas. If the input string does not contain ":role",
+// the entire string is considered as the domain and the role is set to an empty string.
+// All successfully split pairs are stored in the domainRoles slice.
+func parseTargetDomainRoles(raw string) ([]DomainRole, []DomainRole) {
 	elements := strings.Split(raw, ",")
-	errs := make([]error, 0, len(elements))
-	domainRoles := make([]DomainRole, 0, len(elements))
+	roleCertDomainRoles := make([]DomainRole, 0, len(elements))
+	tokenDomainRoles := make([]DomainRole, 0, len(elements))
 
 	for _, domainRole := range elements {
 		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to read target domain and role from element: [%q], err: %w", domainRole, err))
-			continue
+
+		// The entire specified string is considered as the domain name, and no role is specified:
+		if err == nil {
+			// TargetDomainRoles for RoleCert will only be applicable if both the domain and role are set:
+			roleCertDomainRoles = append(roleCertDomainRoles, DomainRole{
+				Domain: targetDomain,
+				Role:   targetRole,
+			})
+		} else {
+			targetDomain = domainRole
+			targetRole = ""
+			log.Debugf("TARGET_DOMAIN_ROLES[%s] does not contain ':role', so it will be treated as a domain name.", domainRole)
 		}
-		domainRoles = append(domainRoles, DomainRole{
+		tokenDomainRoles = append(tokenDomainRoles, DomainRole{
 			Domain: targetDomain,
 			Role:   targetRole,
 		})
 	}
 
-	return domainRoles, errors.Join(errs...)
+	return roleCertDomainRoles, tokenDomainRoles
 }
 
 func defineRoleCertAndKeyNamingFormat(roleCertDir, roleCertNamingFormat, roleCertKeyNamingFormat string) (string, string, error) {
