@@ -401,12 +401,12 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 
 	var roleCsrOptions []util.CSROptions
 
-	if len(idCfg.TargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
-		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", idCfg.TargetDomainRoles, idCfg.RoleCertDir)
+	if len(idCfg.RoleCertTargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
+		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", idCfg.RoleCertTargetDomainRoles, idCfg.RoleCertDir)
 		return nil, nil
 	}
 
-	for _, dr := range idCfg.TargetDomainRoles {
+	for _, dr := range idCfg.RoleCertTargetDomainRoles {
 		targetDomain, targetRole := dr.Domain, dr.Role
 
 		domainDNSPart := extutil.DomainToDNSPart(domain)
