@@ -238,8 +238,10 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 
 	if idCfg.rawTargetDomainRoles != "" {
 		idCfg.RoleCertTargetDomainRoles, idCfg.TokenTargetDomainRoles = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
+		if len(idCfg.TokenTargetDomainRoles) == 0 {
+			return fmt.Errorf("Invalid TARGET_DOMAIN_ROLES [%q], %w", idCfg.rawTargetDomainRoles, fmt.Errorf("NO valid domains or domain-role pairs"))
+		}
 	}
-
 	return err
 }
 
@@ -321,8 +323,8 @@ func parseMode(raw string) (bool, error) {
 // All successfully split pairs are stored in the domainRoles slice.
 func parseTargetDomainRoles(raw string) ([]DomainRole, []DomainRole) {
 	elements := strings.Split(raw, ",")
-	RoleCertDomainRoles := make([]DomainRole, 0, len(elements))
-	TokenDomainRoles := make([]DomainRole, 0, len(elements))
+	roleCertDomainRoles := make([]DomainRole, 0, len(elements))
+	tokenDomainRoles := make([]DomainRole, 0, len(elements))
 
 	for _, domainRole := range elements {
 		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
@@ -330,7 +332,7 @@ func parseTargetDomainRoles(raw string) ([]DomainRole, []DomainRole) {
 		// The entire specified string is considered as the domain name, and no role is specified:
 		if err == nil {
 			// TargetDomainRoles for RoleCert will only be applicable if both the domain and role are set:
-			RoleCertDomainRoles = append(RoleCertDomainRoles, DomainRole{
+			roleCertDomainRoles = append(roleCertDomainRoles, DomainRole{
 				Domain: targetDomain,
 				Role:   targetRole,
 			})
@@ -339,11 +341,11 @@ func parseTargetDomainRoles(raw string) ([]DomainRole, []DomainRole) {
 			targetRole = ""
 			log.Debugf("TARGET_DOMAIN_ROLES[%s] does not contain ':role', so it will be treated as a domain name.", domainRole)
 		}
-		TokenDomainRoles = append(TokenDomainRoles, DomainRole{
+		tokenDomainRoles = append(tokenDomainRoles, DomainRole{
 			Domain: targetDomain,
 			Role:   targetRole,
 		})
 	}
 
-	return RoleCertDomainRoles, TokenDomainRoles
+	return roleCertDomainRoles, tokenDomainRoles
 }
