@@ -72,6 +72,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Info("Skipped token provider initiation")
 		return nil, nil
 	}
+	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
+	enableWriteFiles := idCfg.TokenDir != ""
+	if !enableWriteFiles {
+		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.TokenDir)
+	}
 
 	// initialize token cache with placeholder
 	tt := newType(idCfg.TokenType)
@@ -80,11 +85,13 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
 	for _, dr := range idCfg.TargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
+		// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."
 		if tt&mACCESS_TOKEN != 0 {
-			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond}, &AccessToken{})
+			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}, &AccessToken{})
 		}
+		// TODO: Rewrite the following if statement as "if tt.isRoleTokenEnabled()..."
 		if tt&mROLE_TOKEN != 0 {
-			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}, &RoleToken{})
+			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}, &RoleToken{})
 		}
 	}
 
@@ -126,15 +133,13 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		shutdownTimeout:     idCfg.ShutdownTimeout,
 	}
 
-	// write tokens as files only if it is non-init mode AND TOKEN_DIR is set
-	if !idCfg.Init || idCfg.TokenDir != "" {
-		errs := ts.updateTokenCaches(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT)
+	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
+	// If it is in refresh mode, when requesting tokens using the REST API for the domains and roles specified in TARGET_DOMAIN_ROLES,
+	// the cache is updated to ensure a cache hit from the first request.
+	if !idCfg.Init || enableWriteFiles {
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
-		for _, err := range errs {
+		for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT) {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
-		}
-		if err := ts.writeFilesWithRetry(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT); err != nil {
-			log.Errorf("Failed to write token files after multiple retries: %s", err.Error())
 		}
 	}
 
@@ -219,12 +224,8 @@ func (ts *tokenService) Start(ctx context.Context) error {
 					}
 
 					// backoff retry until TOKEN_REFRESH_INTERVAL / 4 OR context is done
-					for _, err := range ts.updateTokenCaches(ctx, ts.tokenRefresh/4) {
+					for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, ts.tokenRefresh/4) {
 						log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
-					}
-					// backoff retry until TOKEN_REFRESH_INTERVAL / 4 OR context is done
-					if err := ts.writeFilesWithRetry(ctx, ts.tokenRefresh/4); err != nil {
-						log.Errorf("Failed to write token files after multiple retries: %s", err.Error())
 					}
 				}
 			}
@@ -299,7 +300,7 @@ func (ts *tokenService) requestTokenToZts(k CacheKey, m mode, requestID string) 
 		return GroupDoResult{requestID: requestID, token: nil}, fmt.Errorf("Invalid mode: %d", m)
 	}
 
-	log.Debugf("Attempting to fetch %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+	log.Debugf("Attempting to get %s from Athenz ZTS server: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 
 	r, err, shared := ts.group.Do(k.UniqueId(tokenName), func() (interface{}, error) {
 		// define variables before request to ZTS
@@ -323,7 +324,7 @@ func (ts *tokenService) requestTokenToZts(k CacheKey, m mode, requestID string) 
 			ts.accessTokenCache.Store(k, fetchedToken)
 		}
 
-		log.Infof("Successfully updated %s cache: target[%s], requestID[%s]", tokenName, k.String(), requestID)
+		log.Infof("Successfully received %s and saved into token cache: target[%s], requestID[%s]", tokenName, k.String(), requestID)
 		return GroupDoResult{requestID: requestID, token: fetchedToken}, nil
 	})
 
@@ -332,7 +333,7 @@ func (ts *tokenService) requestTokenToZts(k CacheKey, m mode, requestID string) 
 
 	if shared && result.requestID != requestID { // if it is shared and not the actual performer:
 		if err == nil {
-			log.Infof("Successfully updated %s cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", tokenName, k.String(), result.requestID, requestID)
+			log.Debugf("Successfully updated %s cache by coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s]", tokenName, k.String(), result.requestID, requestID)
 		} else {
 			log.Debugf("Failed to fetch %s while coalescing requests to a leader request: target[%s], leaderRequestID[%s], requestID[%s], err[%s]", tokenName, k.String(), result.requestID, requestID, err)
 		}
@@ -341,11 +342,11 @@ func (ts *tokenService) requestTokenToZts(k CacheKey, m mode, requestID string) 
 	return result, err
 }
 
-func (ts *tokenService) updateTokenCaches(ctx context.Context, maxElapsedTime time.Duration) []error {
+func (ts *tokenService) updateTokenCachesAndWriteFiles(ctx context.Context, maxElapsedTime time.Duration) []error {
 	var atErrorCount, rtErrorCount atomic.Int64
 	atTargets := ts.accessTokenCache.Keys()
 	rtTargets := ts.roleTokenCache.Keys()
-	log.Infof("Attempting to fetch tokens from Athenz ZTS server: access token targets[%v], role token targets[%v]...", atTargets, rtTargets)
+	log.Infof("Attempting to get tokens from Athenz ZTS server: access token targets[%v], role token targets[%v]...", atTargets, rtTargets)
 
 	var wg sync.WaitGroup
 	echan := make(chan error, len(atTargets)+len(rtTargets))
@@ -354,7 +355,7 @@ func (ts *tokenService) updateTokenCaches(ctx context.Context, maxElapsedTime ti
 		wg.Add(1)
 		go func(key CacheKey) {
 			defer wg.Done()
-			err := ts.updateTokenWithRetry(ctx, maxElapsedTime, key, mACCESS_TOKEN)
+			err := ts.updateAndWriteFileTokenWithRetry(ctx, maxElapsedTime, key, mACCESS_TOKEN)
 			if err != nil {
 				echan <- err
 				atErrorCount.Add(1)
@@ -366,7 +367,7 @@ func (ts *tokenService) updateTokenCaches(ctx context.Context, maxElapsedTime ti
 		wg.Add(1)
 		go func(key CacheKey) {
 			defer wg.Done()
-			err := ts.updateTokenWithRetry(ctx, maxElapsedTime, key, mROLE_TOKEN)
+			err := ts.updateAndWriteFileTokenWithRetry(ctx, maxElapsedTime, key, mROLE_TOKEN)
 			if err != nil {
 				echan <- err
 				rtErrorCount.Add(1)
@@ -387,108 +388,82 @@ func (ts *tokenService) updateTokenCaches(ctx context.Context, maxElapsedTime ti
 	return errs
 }
 
-func (ts *tokenService) updateTokenWithRetry(ctx context.Context, maxElapsedTime time.Duration, key CacheKey, tt mode) error {
-	// backoff config with first retry delay of 5s, and then 10s, 20s, ...
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 5 * time.Second
-	b.Multiplier = 2
-	b.MaxElapsedTime = maxElapsedTime
-
+func (ts *tokenService) updateAndWriteFileTokenWithRetry(ctx context.Context, maxElapsedTime time.Duration, key CacheKey, tt mode) error {
 	operation := func() error {
-		return ts.updateToken(key, tt)
+		return ts.updateAndWriteFileToken(key, tt)
 	}
 	notifyOnErr := func(err error, backoffDelay time.Duration) {
 		log.Errorf("Failed to refresh tokens: %s. Retrying in %s", err.Error(), backoffDelay)
 	}
-	return backoff.RetryNotify(operation, backoff.WithContext(b, ctx), notifyOnErr)
+	return backoff.RetryNotify(operation, newExponentialBackOff(ctx, maxElapsedTime), notifyOnErr)
 }
 
-func (d *tokenService) updateToken(key CacheKey, tt mode) error {
-	updateAccessToken := func(key CacheKey) error {
+func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
+	updateAndWriteFileAccessToken := func(key CacheKey) error {
 		_, err := d.requestTokenToZts(key, mACCESS_TOKEN, "daemon_access_token_update")
-		return err
+		if err != nil || !key.WriteFileRequired {
+			return err
+		}
+		// File output processing
+		domain, role := key.Domain, key.Role
+		token := d.accessTokenCache.Load(key)
+		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
+		return d.writeFile(token, outPath, mACCESS_TOKEN)
 	}
-	updateRoleToken := func(key CacheKey) error {
+	updateAndWriteFileRoleToken := func(key CacheKey) error {
 		_, err := d.requestTokenToZts(key, mROLE_TOKEN, "daemon_role_token_update")
-		return err
+		if err != nil || !key.WriteFileRequired {
+			return err
+		}
+		// File output processing
+		domain, role := key.Domain, key.Role
+		token := d.roleTokenCache.Load(key)
+		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
+		return d.writeFile(token, outPath, mROLE_TOKEN)
 	}
-
 	switch tt {
 	case mACCESS_TOKEN:
-		return updateAccessToken(key)
+		return updateAndWriteFileAccessToken(key)
 	case mROLE_TOKEN:
-		return updateRoleToken(key)
+		return updateAndWriteFileRoleToken(key)
 	default:
 		return fmt.Errorf("Invalid token type: %d", tt)
 	}
 }
 
-func (ts *tokenService) writeFilesWithRetry(ctx context.Context, maxElapsedTime time.Duration) error {
-	// backoff config with first retry delay of 5s, and then 10s, 20s, ...
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 5 * time.Second
-	b.Multiplier = 2
-	b.MaxElapsedTime = maxElapsedTime
+// writeFile outputs given token (AT or RT) as file
+func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
+	w := util.NewWriter()
+	tokenType := ""
+	switch tt {
+	case mACCESS_TOKEN:
+		tokenType = "Access"
+	case mROLE_TOKEN:
+		tokenType = "Role"
+	default:
+		return fmt.Errorf("invalid token type: %d", tt)
+	}
 
-	return backoff.RetryNotify(ts.writeFiles, backoff.WithContext(b, ctx), func(err error, backoffDelay time.Duration) {
-		log.Errorf("Failed to write token files: %s. Retrying in %s", err.Error(), backoffDelay)
-	})
-}
-
-func (d *tokenService) writeFiles() error {
-	if d.tokenDir == "" {
-		log.Debugf("Skipping to write token files to directory[%s]", d.tokenDir)
+	domain := token.Domain()
+	role := token.Role()
+	rawToken := token.Raw()
+	if rawToken == "" {
+		// skip placeholder token added during daemon creation
 		return nil
 	}
 
 	// Create the directory before saving tokens
-	if err := os.MkdirAll(d.tokenDir, 0755); err != nil {
-		return fmt.Errorf("unable to create directory for tokens: %w", err)
+	dir := filepath.Dir(outPath)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("unable to create directory for token: %w", err)
+		}
 	}
-
-	w := util.NewWriter()
-
-	err := d.accessTokenCache.Range(func(k CacheKey, t Token) error {
-		domain := t.Domain()
-		role := t.Role()
-		at := t.Raw()
-		if at == "" {
-			// skip placeholder token added during daemon creation
-			return nil
-		}
-
-		log.Infof("[New Access Token] Domain: %s, Role: %s", domain, role)
-		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
-		log.Debugf("Saving Access Token[%d bytes] at %s", len(at), outPath)
-		if err := w.AddBytes(outPath, 0644, []byte(at)); err != nil {
-			return fmt.Errorf("unable to save access token: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return err
+	// Unlike the delimiter used for file names, the log output will use the Athenz standard delimiter ":role.":
+	log.Infof("[New %s Token] Subject: %s:role.%s [%d bytes] in %s", tokenType, domain, role, len(rawToken), outPath)
+	if err := w.AddBytes(outPath, 0644, []byte(rawToken)); err != nil {
+		return fmt.Errorf("unable to save %s Token: %w", tokenType, err)
 	}
-	err = d.roleTokenCache.Range(func(k CacheKey, t Token) error {
-		domain := t.Domain()
-		role := t.Role()
-		rt := t.Raw()
-		if rt == "" {
-			// skip placeholder token added during daemon creation
-			return nil
-		}
-
-		log.Infof("[New Role Token] Domain: %s, Role: %s", domain, role)
-		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
-		log.Debugf("Saving Role Token[%d bytes] at %s", len(rt), outPath)
-		if err := w.AddBytes(outPath, 0644, []byte(rt)); err != nil {
-			return fmt.Errorf("unable to save role token: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
 	return w.Save()
 }
 
@@ -541,4 +516,14 @@ func (ts *tokenService) reportMemory() {
 	// TODO: memory triggers
 	// if mem > warn threshold, warning log
 	// if mem > error threshold, binary heap dump, i.e. debug.WriteHeapDump(os.Stdout.Fd())
+}
+
+// newExponentialBackOff returns a backoff config with first retry delay of 5s. Allow cancel by context.
+func newExponentialBackOff(ctx context.Context, maxElapsedTime time.Duration) backoff.BackOff {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 5 * time.Second
+	b.Multiplier = 2
+	b.MaxElapsedTime = maxElapsedTime
+
+	return backoff.WithContext(b, ctx)
 }
