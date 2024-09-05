@@ -86,8 +86,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		KubeExcludeLabels:     []string{},
 	}
 
-	if len(idCfg.TargetDomainRoles) != 0 && idCfg.RoleCertDir != "" {
-		for _, dr := range idCfg.TargetDomainRoles {
+	if len(idCfg.RoleCertTargetDomainRoles) != 0 && idCfg.RoleCertDir != "" {
+		for _, dr := range idCfg.RoleCertTargetDomainRoles {
 			// Rolecert requires a role name in the CN, so it will skip if there is no role name.
 			if dr.Role == "" {
 				continue

@@ -237,7 +237,7 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 	}
 
 	if idCfg.rawTargetDomainRoles != "" {
-		idCfg.TargetDomainRoles = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
+		idCfg.RoleCertTargetDomainRoles, idCfg.TokenTargetDomainRoles = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
 	}
 
 	return err
@@ -319,24 +319,31 @@ func parseMode(raw string) (bool, error) {
 // separated by commas. If the input string does not contain ":role",
 // the entire string is considered as the domain and the role is set to an empty string.
 // All successfully split pairs are stored in the domainRoles slice.
-func parseTargetDomainRoles(raw string) []DomainRole {
+func parseTargetDomainRoles(raw string) ([]DomainRole, []DomainRole) {
 	elements := strings.Split(raw, ",")
-	domainRoles := make([]DomainRole, 0, len(elements))
+	RoleCertDomainRoles := make([]DomainRole, 0, len(elements))
+	TokenDomainRoles := make([]DomainRole, 0, len(elements))
 
 	for _, domainRole := range elements {
 		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
 
 		// The entire specified string is considered as the domain name, and no role is specified:
-		if err != nil {
+		if err == nil {
+			// TargetDomainRoles for RoleCert will only be applicable if both the domain and role are set:
+			RoleCertDomainRoles = append(RoleCertDomainRoles, DomainRole{
+				Domain: targetDomain,
+				Role:   targetRole,
+			})
+		} else {
 			targetDomain = domainRole
 			targetRole = ""
 			log.Debugf("TARGET_DOMAIN_ROLES[%s] does not contain ':role', so it will be treated as a domain name.", domainRole)
 		}
-		domainRoles = append(domainRoles, DomainRole{
+		TokenDomainRoles = append(TokenDomainRoles, DomainRole{
 			Domain: targetDomain,
 			Role:   targetRole,
 		})
 	}
 
-	return domainRoles
+	return RoleCertDomainRoles, TokenDomainRoles
 }
