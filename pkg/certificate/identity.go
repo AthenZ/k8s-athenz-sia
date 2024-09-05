@@ -409,6 +409,7 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 	for _, dr := range idCfg.TargetDomainRoles {
 		targetDomain, targetRole := dr.Domain, dr.Role
 
+		// Rolecert requires a role name in the CN, so it will skip if there is no role name.
 		if dr.Role == "" {
 			continue
 		}
