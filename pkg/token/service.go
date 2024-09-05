@@ -472,9 +472,8 @@ func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 	if err := extutil.CreateDirectoryFromOutPath(outPath); err != nil {
 		return fmt.Errorf("unable to create directory for token: %w", err)
 	}
-
 	// Unlike the delimiter used for file names, the log output will use the Athenz standard delimiter ":role.":
-	log.Infof("[New %s Token] Subject: %s:role.%s [%d bytes] in %s", tokenType, token.Domain(), token.Role(), len(rawToken), outPath)
+	log.Infof("[New %s Token] Subject: %s:role.%s [%d bytes] in %s", tokenType, domain, role, len(rawToken), outPath)
 	if err := w.AddBytes(outPath, 0644, []byte(rawToken)); err != nil {
 		return fmt.Errorf("unable to save %s Token: %w", tokenType, err)
 	}
