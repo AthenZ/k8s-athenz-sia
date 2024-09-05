@@ -88,6 +88,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	if len(idCfg.TargetDomainRoles) != 0 && idCfg.RoleCertDir != "" {
 		for _, dr := range idCfg.TargetDomainRoles {
+			// Rolecert requires a role name in the CN, so it will skip if there is no role name.
+			if dr.Role == "" {
+				continue
+			}
 			fileName := dr.Domain + idCfg.RoleCertFilenameDelimiter + dr.Role + ".cert.pem"
 			exporter.Files = append(exporter.Files, strings.TrimSuffix(idCfg.RoleCertDir, "/")+"/"+fileName)
 		}
