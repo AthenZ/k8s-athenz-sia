@@ -99,15 +99,15 @@ func TestGeneratePath(t *testing.T) {
 			wantErr: "failed to parse naming format: template: pathGenerator:1: function \"dummy\" not defined",
 		},
 		{
-			testCase: "return error with invalid naming format, invalid placeholder {{.}}",
+			testCase: "return success with the placeholder test for {{.}} and {{.dummy}}, when referencing non-existent data, it results in an empty string.",
 			args: args{
-				namingFormat: "/var/run/athenz/rolecerts/{{.}}",
+				namingFormat: "/var/run/athenz/rolecerts/{{.}}{{.dummy}}{{domain}}{{delimiter}}{{role}}.cert.pem",
 				domain:       "athenz",
 				role:         "users",
 				delimiter:    ":role.",
 			},
-			want:    "",
-			wantErr: "naming format contains invalid placeholder",
+			want:    "/var/run/athenz/rolecerts/athenz:role.users.cert.pem",
+			wantErr: "",
 		},
 	}
 
