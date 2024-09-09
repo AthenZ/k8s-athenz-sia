@@ -16,13 +16,14 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
+	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 
 	// using git submodule to import internal package (special package in golang)
@@ -86,10 +87,13 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		KubeExcludeLabels:     []string{},
 	}
 
-	if len(idCfg.RoleCertTargetDomainRoles) != 0 && idCfg.RoleCertDir != "" {
+	if len(idCfg.RoleCertTargetDomainRoles) != 0 && idCfg.RoleCertNamingFormat != "" {
 		for _, dr := range idCfg.RoleCertTargetDomainRoles {
-			fileName := dr.Domain + idCfg.RoleCertFilenameDelimiter + dr.Role + ".cert.pem"
-			exporter.Files = append(exporter.Files, strings.TrimSuffix(idCfg.RoleCertDir, "/")+"/"+fileName)
+			outPath, err := extutil.GeneratePath(idCfg.RoleCertNamingFormat, dr.Domain, dr.Role, idCfg.RoleCertFilenameDelimiter)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate path for role cert: %w", err)
+			}
+			exporter.Files = append(exporter.Files, outPath)
 		}
 	}
 

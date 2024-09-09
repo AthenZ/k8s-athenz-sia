@@ -17,14 +17,13 @@ package certificate
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
+	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 	"github.com/cenkalti/backoff"
@@ -49,8 +48,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idCfg.ProviderService)
 	}
 
-	if len(idCfg.RoleCertTargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
-		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idCfg.RoleCertTargetDomainRoles, idCfg.RoleCertDir)
+	if len(idCfg.RoleCertTargetDomainRoles) == 0 || idCfg.RoleCertNamingFormat == "" {
+		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], filename naming format[%s]", idCfg.RoleCertTargetDomainRoles, idCfg.RoleCertNamingFormat)
 	}
 
 	handler, err := InitIdentityHandler(idCfg)
@@ -103,24 +102,33 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		}
 
 		if roleCerts != nil {
-			// Create the directory before saving role certificates
-			if err := os.MkdirAll(idCfg.RoleCertDir, 0755); err != nil {
-				return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
-			}
-
 			for _, rolecert := range roleCerts {
 				roleCertPEM := []byte(rolecert.X509Certificate)
 				if len(roleCertPEM) != 0 {
 					log.Infof("[New Role Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
 						rolecert.Subject, rolecert.Issuer, rolecert.NotBefore, rolecert.NotAfter, rolecert.SerialNumber, rolecert.DNSNames)
-					outPath := filepath.Join(idCfg.RoleCertDir, rolecert.Domain+idCfg.RoleCertFilenameDelimiter+rolecert.Role+".cert.pem")
+					outPath, err := extutil.GeneratePath(idCfg.RoleCertNamingFormat, rolecert.Domain, rolecert.Role, idCfg.RoleCertFilenameDelimiter)
+					if err != nil {
+						return fmt.Errorf("failed to generate path for role cert: %w", err)
+					}
+					// Create the directory before saving role certificate
+					if err := extutil.CreateDirectory(outPath); err != nil {
+						return fmt.Errorf("unable to create directory for role cert: %w", err)
+					}
 					log.Debugf("Saving x509 role cert[%d bytes] at [%s]", len(roleCertPEM), outPath)
 					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {
 						return fmt.Errorf("unable to save x509 role cert: %w", err)
 					}
 
 					if idCfg.RoleCertKeyFileOutput {
-						outKeyPath := filepath.Join(idCfg.RoleCertDir, rolecert.Domain+idCfg.RoleCertFilenameDelimiter+rolecert.Role+".key.pem")
+						outKeyPath, err := extutil.GeneratePath(idCfg.RoleCertKeyNamingFormat, rolecert.Domain, rolecert.Role, idCfg.RoleCertFilenameDelimiter)
+						if err != nil {
+							return fmt.Errorf("failed to generate path for role cert key: %w", err)
+						}
+						// Create the directory before saving role certificate key
+						if err := extutil.CreateDirectory(outKeyPath); err != nil {
+							return fmt.Errorf("unable to create directory for role cert key: %w", err)
+						}
 						log.Debugf("Saving x509 role cert key[%d bytes] at [%s]", len(roleKeyPEM), outKeyPath)
 						if err := w.AddBytes(outKeyPath, 0644, roleKeyPEM); err != nil {
 							return fmt.Errorf("unable to save x509 role cert key: %w", err)
@@ -168,7 +176,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	roleCertProvisioningRequest := func() (err error, roleCerts [](*RoleCertificate), roleKeyPEM []byte) {
-		if len(idCfg.RoleCertTargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
+		if len(idCfg.RoleCertTargetDomainRoles) == 0 || idCfg.RoleCertNamingFormat == "" {
 			return nil, nil, nil
 		}
 
