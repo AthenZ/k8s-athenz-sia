@@ -26,6 +26,10 @@ func GeneratePath(namingFormat, domain, role, delimiter string) (string, error) 
 	if namingFormat == "" {
 		return "", fmt.Errorf("naming format is empty")
 	}
+	// Check if the naming format contains invalid placeholder
+	if strings.Contains(namingFormat, "{{.}}") {
+		return "", fmt.Errorf("naming format contains invalid placeholder")
+	}
 	if domain == "" {
 		return "", fmt.Errorf("domain is empty")
 	}
