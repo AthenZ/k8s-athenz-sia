@@ -103,6 +103,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		}
 
 		if roleCerts != nil {
+			// Create the directory before saving role certificates
+			if err := extutil.CreateDirectory(idCfg.RoleCertDir); err != nil {
+				return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
+			}
+
 			for _, rolecert := range roleCerts {
 				roleCertPEM := []byte(rolecert.X509Certificate)
 				if len(roleCertPEM) != 0 {
@@ -114,7 +119,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					}
 					// Create the directory before saving role certificate
 					if err := extutil.CreateDirectory(outPath); err != nil {
-						return fmt.Errorf("unable to create directory for role cert: %w", err)
+						return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
 					}
 					log.Debugf("Saving x509 role cert[%d bytes] at [%s]", len(roleCertPEM), outPath)
 					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {

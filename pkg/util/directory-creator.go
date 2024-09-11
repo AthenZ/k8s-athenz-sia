@@ -26,14 +26,18 @@ import (
 func CreateDirectory(path string) error {
 	dir := filepath.Dir(path)
 	_, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		log.Debugf("Creating new directory: %s", dir)
-		err = os.MkdirAll(dir, 0755)
-		if err != nil {
-			return fmt.Errorf("unable to create directory: %w", err)
-		}
-	} else if err != nil {
+	if err == nil {
+		return nil // directory already exists
+	}
+
+	if !os.IsNotExist(err) { // if it is not related to directory not found
 		return fmt.Errorf("unable to check directory: %w", err)
 	}
-	return nil
+
+	log.Debugf("Creating new directory: %s", dir)
+	err = os.MkdirAll(dir, 0755) // create directory
+	if err != nil {
+		return fmt.Errorf("unable to create directory: %w", err)
+	}
+	return nil // directory created successfully
 }
