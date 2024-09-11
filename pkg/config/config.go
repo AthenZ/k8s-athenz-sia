@@ -322,6 +322,11 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		return fmt.Errorf("Invalid configuration for the output file name of the Role Cert and Role Cert Key: %w", err)
 	}
 
+	idCfg.AccessTokenNamingFormat, idCfg.RoleTokenNamingFormat, err = defineTokenNamingFormat(idCfg.TokenDir, idCfg.AccessTokenNamingFormat, idCfg.RoleTokenNamingFormat)
+	if err != nil {
+		return fmt.Errorf("Invalid configuration for the output file name of the Access Token and Role Token: %w", err)
+	}
+
 	return nil
 }
 
@@ -387,4 +392,25 @@ func defineRoleCertAndKeyNamingFormat(roleCertDir, roleCertNamingFormat, roleCer
 	roleCertNamingFormat = filepath.Join(roleCertDir, "{{domain}}{{delimiter}}{{role}}.cert.pem")
 	roleCertKeyNamingFormat = filepath.Join(roleCertDir, "{{domain}}{{delimiter}}{{role}}.key.pem")
 	return roleCertNamingFormat, roleCertKeyNamingFormat, nil
+}
+
+func defineTokenNamingFormat(tokenDir, accessTokenNamingFormat, roleTokenNamingFormat string) (string, string, error) {
+	// If both the TokenDir settings and the NamingFormat settings are configured redundantly, an error will be returned.
+	if tokenDir != "" && accessTokenNamingFormat != "" {
+		return "", "", fmt.Errorf("TokenDir and AccessTokenNamingFormat are both set: TokenDir %s, AccessTokenNamingFormat %s", tokenDir, accessTokenNamingFormat)
+	}
+	if tokenDir != "" && roleTokenNamingFormat != "" {
+		return "", "", fmt.Errorf("TokenDir and RoleTokenNamingFormat are both set: TokenDir %s, RoleTokenNamingFormat %s", tokenDir, roleTokenNamingFormat)
+
+	}
+
+	// Since the TokenDir setting is empty, the configured NamingFormat will be used as is.
+	if tokenDir == "" {
+		return accessTokenNamingFormat, roleTokenNamingFormat, nil
+	}
+
+	// If only TokenDir is defined, fixed values will be assigned to AccessTokenNamingFormat and RoleTokenNamingFormat.
+	accessTokenNamingFormat = filepath.Join(tokenDir, "{{domain}}{{delimiter}}{{role}}.accesstoken")
+	roleTokenNamingFormat = filepath.Join(tokenDir, "{{domain}}{{delimiter}}{{role}}.roletoken")
+	return accessTokenNamingFormat, roleTokenNamingFormat, nil
 }
