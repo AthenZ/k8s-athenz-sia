@@ -370,6 +370,7 @@ func parseTargetDomainRoles(raw string) ([]DomainRole, []DomainRole) {
 	return roleCertDomainRoles, tokenDomainRoles
 }
 
+// defineRoleCertAndKeyNamingFormat determines the naming format for the RoleCert and RoleCertKey files.
 func defineRoleCertAndKeyNamingFormat(roleCertDir, roleCertNamingFormat, roleCertKeyNamingFormat string) (string, string, error) {
 	// If both the RoleCert settings and the NamingFormat settings are configured redundantly, an error will be returned.
 	if roleCertDir != "" && roleCertNamingFormat != "" {
