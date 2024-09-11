@@ -395,6 +395,7 @@ func defineRoleCertAndKeyNamingFormat(roleCertDir, roleCertNamingFormat, roleCer
 	return roleCertNamingFormat, roleCertKeyNamingFormat, nil
 }
 
+// defineTokenNamingFormat determines the naming format for the AccessToken and RoleToken files.
 func defineTokenNamingFormat(tokenDir, accessTokenNamingFormat, roleTokenNamingFormat string) (string, string, error) {
 	// If both the TokenDir settings and the NamingFormat settings are configured redundantly, an error will be returned.
 	if tokenDir != "" && accessTokenNamingFormat != "" {
