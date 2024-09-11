@@ -17,7 +17,6 @@ package certificate
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -25,6 +24,7 @@ import (
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
+	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 	"github.com/cenkalti/backoff"
@@ -104,7 +104,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 		if roleCerts != nil {
 			// Create the directory before saving role certificates
-			if err := os.MkdirAll(idCfg.RoleCertDir, 0755); err != nil {
+			if err := extutil.CreateDirectory(idCfg.RoleCertDir); err != nil {
 				return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
 			}
 
