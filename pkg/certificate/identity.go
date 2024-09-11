@@ -401,8 +401,9 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 
 	var roleCsrOptions []util.CSROptions
 
-	if len(idCfg.RoleCertTargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
-		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", idCfg.RoleCertTargetDomainRoles, idCfg.RoleCertDir)
+	if len(idCfg.RoleCertTargetDomainRoles) == 0 || idCfg.RoleCertNamingFormat == "" {
+		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s],filename naming format[%s]", idCfg.RoleCertTargetDomainRoles, idCfg.RoleCertNamingFormat)
+
 		return nil, nil
 	}
 
