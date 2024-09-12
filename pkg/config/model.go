@@ -48,9 +48,9 @@ type IdentityConfig struct {
 	Reloader               *util.CertReloader
 	ServerCACert           string
 	TokenTargetDomainRoles []DomainRole
-	// RoleCerts:
+	// RoleCerts Derived State and its related fields:
 	RoleCert                  DerivedRoleCert
-	roleCertDir               string // TODO: Moved into DerivedRoleCert & Make it private
+	roleCertDir               string
 	RoleCertFilenameDelimiter string // TODO: Moved into DerivedRoleCert & Make it private
 	RoleCertKeyFileOutput     bool   // TODO: Moved into DerivedRoleCert & Make it private
 	//
