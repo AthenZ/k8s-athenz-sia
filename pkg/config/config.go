@@ -94,7 +94,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("POD_NAME", &idCfg.PodName)
 	loadEnv("SERVER_CA_CERT", &idCfg.ServerCACert)
 	loadEnv("TARGET_DOMAIN_ROLES", &idCfg.rawTargetDomainRoles)
-	loadEnv("ROLECERT_DIR", &idCfg.RoleCertDir)
+	loadEnv("ROLECERT_DIR", &idCfg.roleCertDir)
 	loadEnv("ROLE_CERT_FILENAME_DELIMITER", &idCfg.RoleCertFilenameDelimiter)
 	loadEnv("ROLE_CERT_KEY_FILE_OUTPUT", &idCfg.rawRoleCertKeyFileOutput)
 	loadEnv("ROLE_AUTH_HEADER", &idCfg.RoleAuthHeader)
@@ -201,7 +201,7 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	// PodUID
 	f.StringVar(&idCfg.ServerCACert, "server-ca-cert", idCfg.ServerCACert, "path to CA certificate file to verify ZTS server certs")
 	f.StringVar(&idCfg.rawTargetDomainRoles, "target-domain-roles", idCfg.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idCfg.RoleCertFilenameDelimiter+"admin,sys.auth"+idCfg.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
-	f.StringVar(&idCfg.RoleCertDir, "rolecert-dir", idCfg.RoleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
+	f.StringVar(&idCfg.roleCertDir, "rolecert-dir", idCfg.roleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
 	// RoleCertFilenameDelimiter
 	f.BoolVar(&idCfg.RoleCertKeyFileOutput, "rolecert-key-file-output", idCfg.RoleCertKeyFileOutput, "output role certificate key file (true/false)")
 	// RoleAuthHeader
@@ -276,7 +276,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
 	if idCfg.ProviderService == "" && !idCfg.RoleCertKeyFileOutput {
 		// if role certificate issuing is enabled, warn user about the mismatch problem
-		if idCfg.rawTargetDomainRoles != "" && idCfg.RoleCertDir != "" {
+		if idCfg.rawTargetDomainRoles != "" && idCfg.roleCertDir != "" {
 			log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idCfg.KeyFile)
 		}
 	}

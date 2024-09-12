@@ -92,7 +92,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		ServerCACert:              "",
 		RoleCertTargetDomainRoles: []DomainRole{},
 		TokenTargetDomainRoles:    []DomainRole{},
-		RoleCertDir:               "",
+		roleCertDir:               "",
 		RoleCertFilenameDelimiter: DEFAULT_ROLE_CERT_FILENAME_DELIMITER,
 		RoleCertKeyFileOutput:     false,
 		RoleAuthHeader:            DEFAULT_ROLE_AUTH_HEADER,
