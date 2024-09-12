@@ -15,44 +15,10 @@
 // Package config defines all the configuration parameters. It reads configuration from environment variables and command-line arguments.
 package config
 
-type DerivedRoleCert struct {
-	Use               bool         // if fetching role certificate is enabled (de facto standard)
-	Dir               string       // directory to store role certificates. Usually one, but can be multiple // TODO: make it string[]
-	TargetDomainRoles []DomainRole // domain roles to fetch role certificates for
-	Delimiter         string
-	UseKeyFileOutput  bool // whether to output separate key file output for role certificates
-}
-
-func (idCfg *IdentityConfig) loadDerivedState() error {
-	if err := idCfg.derivedRoleCertState(); err != nil {
+func (idCfg *IdentityConfig) loadDerivedConfig() error {
+	if err := idCfg.derivedRoleCertConfig(); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (idCfg *IdentityConfig) derivedRoleCertState() error {
-	// default:
-	idCfg.RoleCert.Use = false
-
-	// handle role certificates' derived state:
-	targetDomainRoles, _ := parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
-
-	if len(targetDomainRoles) == 0 {
-		return nil // disabled
-	}
-
-	if idCfg.roleCertDir == "" {
-		return nil // disabled
-	}
-
-	// Enabled from now on:
-	idCfg.RoleCert = DerivedRoleCert{
-		Use:               true,
-		Dir:               idCfg.roleCertDir,
-		TargetDomainRoles: targetDomainRoles,
-		Delimiter:         idCfg.roleCertFilenameDelimiter,
-		UseKeyFileOutput:  idCfg.roleCertKeyFileOutput,
-	}
 	return nil
 }
