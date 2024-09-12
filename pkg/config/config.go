@@ -58,6 +58,11 @@ func LoadConfig(program string, args []string) (*IdentityConfig, error) {
 	if err := idCfg.validateAndInit(); err != nil {
 		return nil, err
 	}
+
+	if err := idCfg.loadDerivedState(); err != nil {
+		return nil, err
+	}
+
 	return idCfg, nil
 }
 

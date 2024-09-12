@@ -24,52 +24,55 @@ import (
 
 // IdentityConfig from cmd line args
 type IdentityConfig struct {
-	Init                      bool
-	Endpoint                  string
-	ProviderService           string
-	DNSSuffix                 string
-	Refresh                   time.Duration
-	DelayJitterSeconds        int64
-	KeyFile                   string
-	CertFile                  string
-	CaCertFile                string
-	IntermediateCertBundle    string
-	Backup                    string
-	CertSecret                string
-	Namespace                 string
-	AthenzDomain              string
-	AthenzPrefix              string
-	AthenzSuffix              string
-	ServiceAccount            string
-	SaTokenFile               string
-	PodIP                     net.IP
-	PodUID                    string
-	PodName                   string
-	Reloader                  *util.CertReloader
-	ServerCACert              string
-	TokenTargetDomainRoles    []DomainRole
-	RoleCertTargetDomainRoles []DomainRole
-	RoleCertDir               string
-	RoleCertFilenameDelimiter string
-	RoleCertKeyFileOutput     bool
-	RoleAuthHeader            string
-	TokenType                 string
-	TokenRefresh              time.Duration
-	TokenExpiry               time.Duration
-	TokenServerAddr           string
-	TokenServerRESTAPI        bool
-	TokenServerTimeout        time.Duration
-	TokenServerTLSCAPath      string
-	TokenServerTLSCertPath    string
-	TokenServerTLSKeyPath     string
-	TokenDir                  string
-	MetricsServerAddr         string
-	HealthCheckAddr           string
-	HealthCheckEndpoint       string
-	DeleteInstanceID          bool
-	UseTokenServer            bool
-	ShutdownTimeout           time.Duration
-	ShutdownDelay             time.Duration
+	Init                   bool
+	Endpoint               string
+	ProviderService        string
+	DNSSuffix              string
+	Refresh                time.Duration
+	DelayJitterSeconds     int64
+	KeyFile                string
+	CertFile               string
+	CaCertFile             string
+	IntermediateCertBundle string
+	Backup                 string
+	CertSecret             string
+	Namespace              string
+	AthenzDomain           string
+	AthenzPrefix           string
+	AthenzSuffix           string
+	ServiceAccount         string
+	SaTokenFile            string
+	PodIP                  net.IP
+	PodUID                 string
+	PodName                string
+	Reloader               *util.CertReloader
+	ServerCACert           string
+	TokenTargetDomainRoles []DomainRole
+	// RoleCerts:
+	D                         Derived
+	RoleCertTargetDomainRoles []DomainRole // TODO: Moved into D & Make it private
+	RoleCertDir               string       // TODO: Moved into D & Make it private
+	RoleCertFilenameDelimiter string       // TODO: Moved into D & Make it private
+	RoleCertKeyFileOutput     bool         // TODO: Moved into D & Make it private
+	//
+	RoleAuthHeader         string
+	TokenType              string
+	TokenRefresh           time.Duration
+	TokenExpiry            time.Duration
+	TokenServerAddr        string
+	TokenServerRESTAPI     bool
+	TokenServerTimeout     time.Duration
+	TokenServerTLSCAPath   string
+	TokenServerTLSCertPath string
+	TokenServerTLSKeyPath  string
+	TokenDir               string
+	MetricsServerAddr      string
+	HealthCheckAddr        string
+	HealthCheckEndpoint    string
+	DeleteInstanceID       bool
+	UseTokenServer         bool
+	ShutdownTimeout        time.Duration
+	ShutdownDelay          time.Duration
 
 	LogDir   string
 	LogLevel string

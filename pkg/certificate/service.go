@@ -49,7 +49,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idCfg.ProviderService)
 	}
 
-	if len(idCfg.RoleCertTargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
+	if !idCfg.D.RoleCert.Use {
 		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idCfg.RoleCertTargetDomainRoles, idCfg.RoleCertDir)
 	}
 
@@ -168,7 +168,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	roleCertProvisioningRequest := func() (err error, roleCerts [](*RoleCertificate), roleKeyPEM []byte) {
-		if len(idCfg.RoleCertTargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
+		if !idCfg.D.RoleCert.Use {
 			return nil, nil, nil
 		}
 
