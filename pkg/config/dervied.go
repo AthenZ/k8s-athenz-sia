@@ -19,8 +19,8 @@ type DerivedRoleCert struct {
 	Use               bool         // if fetching role certificate is enabled (de facto standard)
 	Dir               string       // directory to store role certificates. Usually one, but can be multiple // TODO: make it string[]
 	TargetDomainRoles []DomainRole // domain roles to fetch role certificates for
-	// TargetDomainRolesStr string       // raw string of domain roles
-	Delimiter string
+	Delimiter         string
+	UseKeyFileOutput  bool // whether to output separate key file output for role certificates
 }
 
 func (idCfg *IdentityConfig) loadDerivedState() error {
@@ -48,8 +48,10 @@ func (idCfg *IdentityConfig) derivedRoleCertState() error {
 
 	// Enabled from no on:
 	idCfg.RoleCert = DerivedRoleCert{
-		Use: true,
-		Dir: idCfg.roleCertDir,
+		Use:               true,
+		Dir:               idCfg.roleCertDir,
+		TargetDomainRoles: targetDomainRoles,
+		Delimiter:         idCfg.roleCertFilenameDelimiter,
 	}
 	return nil
 }
