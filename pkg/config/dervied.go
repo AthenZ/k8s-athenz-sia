@@ -15,10 +15,21 @@
 // Package config defines all the configuration parameters. It reads configuration from environment variables and command-line arguments.
 package config
 
+// loadDerivedConfig loads functions from files with prefix "derived-"
 func (idCfg *IdentityConfig) loadDerivedConfig() error {
 	if err := idCfg.derivedRoleCertConfig(); err != nil {
 		return err
 	}
+
+	// TODO:
+	// if err := idCfg.derivedAccessTokenConfig(); err != nil {
+	// 	return err
+	// }
+
+	// TODO:
+	// if err := idCfg.derivedRoleTokenConfig(); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
