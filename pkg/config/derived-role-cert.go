@@ -23,6 +23,7 @@ type DerivedRoleCert struct {
 	UseKeyFileOutput  bool // whether to output separate key file output for role certificates
 }
 
+// derivedRoleCertConfig reads given configuration and sets the derived state of fetching role certificates related configuration.
 func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	// default:
 	idCfg.RoleCert.Use = false
