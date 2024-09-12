@@ -86,10 +86,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		KubeExcludeLabels:     []string{},
 	}
 
-	if idCfg.D.RoleCert.Use {
+	if idCfg.RoleCert.Use {
 		for _, dr := range idCfg.RoleCertTargetDomainRoles {
 			fileName := dr.Domain + idCfg.RoleCertFilenameDelimiter + dr.Role + ".cert.pem"
-			exporter.Files = append(exporter.Files, strings.TrimSuffix(idCfg.D.RoleCert.Dir, "/")+"/"+fileName)
+			exporter.Files = append(exporter.Files, strings.TrimSuffix(idCfg.RoleCert.Dir, "/")+"/"+fileName)
 		}
 	}
 

@@ -39,7 +39,7 @@ func (idCfg *IdentityConfig) loadDerivedState() error {
 
 func (idCfg *IdentityConfig) derivedRoleCertState() error {
 	// default:
-	idCfg.D.RoleCert.Use = false
+	idCfg.RoleCert.Use = false
 
 	// handle role certificates' derived state:
 	targetDomainRoles, _ := parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
@@ -53,7 +53,7 @@ func (idCfg *IdentityConfig) derivedRoleCertState() error {
 	}
 
 	// Enabled from no on:
-	idCfg.D.RoleCert = DerivedRoleCert{
+	idCfg.RoleCert = DerivedRoleCert{
 		Use: true,
 		Dir: idCfg.roleCertDir,
 	}
