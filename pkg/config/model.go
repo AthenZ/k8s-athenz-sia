@@ -51,8 +51,8 @@ type IdentityConfig struct {
 	// RoleCerts Derived State and its related fields:
 	RoleCert                  DerivedRoleCert
 	roleCertDir               string
-	RoleCertFilenameDelimiter string // TODO: Moved into DerivedRoleCert & Make it private
-	RoleCertKeyFileOutput     bool   // TODO: Moved into DerivedRoleCert & Make it private
+	roleCertFilenameDelimiter string
+	RoleCertKeyFileOutput     bool // TODO: Moved into DerivedRoleCert & Make it private
 	//
 	RoleAuthHeader         string
 	TokenType              string

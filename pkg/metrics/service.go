@@ -88,7 +88,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	if idCfg.RoleCert.Use {
 		for _, dr := range idCfg.RoleCert.TargetDomainRoles {
-			fileName := dr.Domain + idCfg.RoleCertFilenameDelimiter + dr.Role + ".cert.pem"
+			fileName := dr.Domain + idCfg.RoleCert.Delimiter + dr.Role + ".cert.pem"
 			exporter.Files = append(exporter.Files, strings.TrimSuffix(idCfg.RoleCert.Dir, "/")+"/"+fileName)
 		}
 	}

@@ -20,7 +20,7 @@ type DerivedRoleCert struct {
 	Dir               string       // directory to store role certificates. Usually one, but can be multiple // TODO: make it string[]
 	TargetDomainRoles []DomainRole // domain roles to fetch role certificates for
 	// TargetDomainRolesStr string       // raw string of domain roles
-	// Delimiter            string
+	Delimiter string
 }
 
 func (idCfg *IdentityConfig) loadDerivedState() error {
