@@ -23,12 +23,6 @@ type DerivedRoleCert struct {
 	// Delimiter            string
 }
 
-type Derived struct {
-	RoleCert DerivedRoleCert
-	// accessToken DerivedAccessTokenConfig
-	// roleToken    DerivedRoleTokenConfig
-}
-
 func (idCfg *IdentityConfig) loadDerivedState() error {
 	if err := idCfg.derivedRoleCertState(); err != nil {
 		return err
