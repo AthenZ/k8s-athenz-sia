@@ -46,7 +46,7 @@ func (idCfg *IdentityConfig) derivedRoleCertState() error {
 		return nil // disabled
 	}
 
-	// Enabled from no on:
+	// Enabled from now on:
 	idCfg.RoleCert = DerivedRoleCert{
 		Use:               true,
 		Dir:               idCfg.roleCertDir,
