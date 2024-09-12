@@ -52,7 +52,7 @@ type IdentityConfig struct {
 	RoleCert                  DerivedRoleCert
 	roleCertDir               string
 	roleCertFilenameDelimiter string
-	RoleCertKeyFileOutput     bool // TODO: Moved into DerivedRoleCert & Make it private
+	roleCertKeyFileOutput     bool
 	//
 	RoleAuthHeader         string
 	TokenType              string

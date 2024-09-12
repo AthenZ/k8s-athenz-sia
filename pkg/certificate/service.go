@@ -119,7 +119,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 						return fmt.Errorf("unable to save x509 role cert: %w", err)
 					}
 
-					if idCfg.RoleCertKeyFileOutput {
+					if idCfg.RoleCert.UseKeyFileOutput {
 						outKeyPath := filepath.Join(idCfg.RoleCert.Dir, rolecert.Domain+idCfg.RoleCert.Delimiter+rolecert.Role+".key.pem")
 						log.Debugf("Saving x509 role cert key[%d bytes] at [%s]", len(roleKeyPEM), outKeyPath)
 						if err := w.AddBytes(outKeyPath, 0644, roleKeyPEM); err != nil {

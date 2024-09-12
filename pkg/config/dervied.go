@@ -52,6 +52,7 @@ func (idCfg *IdentityConfig) derivedRoleCertState() error {
 		Dir:               idCfg.roleCertDir,
 		TargetDomainRoles: targetDomainRoles,
 		Delimiter:         idCfg.roleCertFilenameDelimiter,
+		UseKeyFileOutput:  idCfg.roleCertKeyFileOutput,
 	}
 	return nil
 }
