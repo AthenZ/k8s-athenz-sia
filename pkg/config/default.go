@@ -90,7 +90,6 @@ func DefaultIdentityConfig() *IdentityConfig {
 		PodName:                   "",
 		Reloader:                  nil,
 		ServerCACert:              "",
-		RoleCertTargetDomainRoles: []DomainRole{},
 		TokenTargetDomainRoles:    []DomainRole{},
 		roleCertDir:               "",
 		RoleCertFilenameDelimiter: DEFAULT_ROLE_CERT_FILENAME_DELIMITER,

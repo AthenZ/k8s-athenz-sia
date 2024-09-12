@@ -50,7 +50,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	if !idCfg.RoleCert.Use {
-		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idCfg.RoleCertTargetDomainRoles, idCfg.RoleCert.Dir)
+		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idCfg.RoleCert.TargetDomainRoles, idCfg.RoleCert.Dir)
 	}
 
 	handler, err := InitIdentityHandler(idCfg)
@@ -172,7 +172,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 			return nil, nil, nil
 		}
 
-		log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idCfg.RoleCertTargetDomainRoles)
+		log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idCfg.RoleCert.TargetDomainRoles)
 
 		roleCerts, roleKeyPEM, err = handler.GetX509RoleCert()
 		if err != nil {
@@ -276,9 +276,9 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		err = writeFiles()
 		if err != nil {
 			if forceInitIdentity != nil || forceInitKeyPEM != nil {
-				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCertTargetDomainRoles)
+				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCert.TargetDomainRoles)
 			} else {
-				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCertTargetDomainRoles)
+				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCert.TargetDomainRoles)
 			}
 		}
 
@@ -326,7 +326,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 			}
 			for {
-				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCertTargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.Backup, cs.idCfg.CertSecret, cs.idCfg.Refresh)
+				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.Backup, cs.idCfg.CertSecret, cs.idCfg.Refresh)
 
 				select {
 				case <-cs.shutdownChan:
@@ -335,7 +335,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				case <-t.C:
 					// skip refresh if context is done but Shutdown() is not called
 					if ctx.Err() != nil {
-						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCertTargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.Backup, cs.idCfg.CertSecret)
+						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.Backup, cs.idCfg.CertSecret)
 						continue
 					}
 

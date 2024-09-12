@@ -50,10 +50,9 @@ type IdentityConfig struct {
 	TokenTargetDomainRoles []DomainRole
 	// RoleCerts:
 	RoleCert                  DerivedRoleCert
-	RoleCertTargetDomainRoles []DomainRole // TODO: Moved into DerivedRoleCert & Make it private
-	roleCertDir               string       // TODO: Moved into DerivedRoleCert & Make it private
-	RoleCertFilenameDelimiter string       // TODO: Moved into DerivedRoleCert & Make it private
-	RoleCertKeyFileOutput     bool         // TODO: Moved into DerivedRoleCert & Make it private
+	roleCertDir               string // TODO: Moved into DerivedRoleCert & Make it private
+	RoleCertFilenameDelimiter string // TODO: Moved into DerivedRoleCert & Make it private
+	RoleCertKeyFileOutput     bool   // TODO: Moved into DerivedRoleCert & Make it private
 	//
 	RoleAuthHeader         string
 	TokenType              string

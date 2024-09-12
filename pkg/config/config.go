@@ -241,8 +241,9 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 		return fmt.Errorf("Invalid MODE/mode [%q], %w", idCfg.rawMode, err)
 	}
 
+	// TODO: Delete me the following three lines, once TokenTargetDomainRoles is parsed as derived state:
 	if idCfg.rawTargetDomainRoles != "" {
-		idCfg.RoleCertTargetDomainRoles, idCfg.TokenTargetDomainRoles = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
+		_, idCfg.TokenTargetDomainRoles = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
 	}
 	return err
 }
