@@ -21,7 +21,7 @@ import (
 
 type DerivedRoleCert struct {
 	Use               bool         // if fetching role certificate is enabled (de facto standard)
-	Dir               string       // directory to store role certificates. Usually one, but can be multiple // TODO: make it string[]
+	Dir               string       // directory to store role certificates.
 	TargetDomainRoles []DomainRole // domain roles to fetch role certificates for
 	Delimiter         string
 	UseKeyFileOutput  bool // whether to output separate key file output for role certificates
