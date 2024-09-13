@@ -15,6 +15,10 @@
 // Package config defines all the configuration parameters. It reads configuration from environment variables and command-line arguments.
 package config
 
+import (
+	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+)
+
 type DerivedRoleCert struct {
 	Use               bool         // if fetching role certificate is enabled (de facto standard)
 	Dir               string       // directory to store role certificates. Usually one, but can be multiple // TODO: make it string[]
@@ -47,5 +51,13 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 		Delimiter:         idCfg.roleCertFilenameDelimiter,
 		UseKeyFileOutput:  idCfg.roleCertKeyFileOutput,
 	}
+
+	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
+	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
+	if idCfg.ProviderService == "" && !idCfg.roleCertKeyFileOutput {
+		// if role certificate issuing is enabled, warn user about the mismatch problem
+		log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idCfg.KeyFile)
+	}
+
 	return nil
 }

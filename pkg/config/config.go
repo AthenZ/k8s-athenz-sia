@@ -273,15 +273,6 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		PollInterval:    pollInterval,
 	})
 
-	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
-	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
-	if idCfg.ProviderService == "" && !idCfg.roleCertKeyFileOutput {
-		// if role certificate issuing is enabled, warn user about the mismatch problem
-		if idCfg.rawTargetDomainRoles != "" && idCfg.roleCertDir != "" {
-			log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idCfg.KeyFile)
-		}
-	}
-
 	// During the init flow if X.509 cert(and key) already exists,
 	//   - someone is attempting to run init after a pod has been started
 	//   - pod sandbox crashed and kubelet runs the init container
