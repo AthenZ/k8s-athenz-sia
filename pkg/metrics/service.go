@@ -16,8 +16,8 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +28,7 @@ import (
 	// using git submodule to import internal package (special package in golang)
 	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics/internal"
+	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
 type metricsService struct {
@@ -88,8 +89,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	if idCfg.RoleCert.Use {
 		for _, dr := range idCfg.RoleCert.TargetDomainRoles {
-			fileName := dr.Domain + idCfg.RoleCert.Delimiter + dr.Role + ".cert.pem"
-			exporter.Files = append(exporter.Files, strings.TrimSuffix(idCfg.RoleCert.Dir, "/")+"/"+fileName)
+			fileName, err := extutil.GeneratePath(idCfg.RoleCert.Format, dr.Domain, dr.Role, idCfg.RoleCert.Delimiter)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate path for role cert with format [%s], domain [%s], role [%s], delimiter [%s]: %w", idCfg.RoleCert.Format, dr.Domain, dr.Role, idCfg.RoleCert.Delimiter, err)
+			}
+			exporter.Files = append(exporter.Files, fileName)
 		}
 	}
 
