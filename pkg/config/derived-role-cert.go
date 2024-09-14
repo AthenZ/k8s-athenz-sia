@@ -34,7 +34,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	// default:
 	idCfg.RoleCert.Use = false
 
-	if len(idCfg.targetDomainRoles.RoleCerts) == 0 {
+	if len(idCfg.targetDomainRoles.roleCerts) == 0 {
 		return nil // disabled
 	}
 
@@ -46,7 +46,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	idCfg.RoleCert = DerivedRoleCert{
 		Use:               true,
 		Dir:               strings.TrimSuffix(idCfg.roleCertDir, "/") + "/", // making sure it always ends with `/`
-		TargetDomainRoles: idCfg.targetDomainRoles.RoleCerts,
+		TargetDomainRoles: idCfg.targetDomainRoles.roleCerts,
 		Delimiter:         idCfg.roleCertFilenameDelimiter,
 		UseKeyFileOutput:  idCfg.roleCertKeyFileOutput,
 	}

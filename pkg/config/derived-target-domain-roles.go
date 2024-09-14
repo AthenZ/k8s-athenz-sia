@@ -23,8 +23,8 @@ import (
 )
 
 type DerivedTargetDomainRoles struct {
-	RoleCerts []DomainRole
-	// Tokens    []DomainRole
+	roleCerts []DomainRole // private as the derived state is used only within the config package
+	// tokens    []DomainRole // private as the derived state is used only within the config package
 }
 
 // derivedTargetDomainRoles sets the DerivedTargetDomainRoles with the given rawTargetDomainRoles.
@@ -60,8 +60,8 @@ func (idCfg *IdentityConfig) derivedTargetDomainRoles() error {
 
 	idCfg.TokenTargetDomainRoles = tokenDomainRoles // TODO: Delete me and refactor by using the type DerivedTargetDomainRoles below:
 	idCfg.targetDomainRoles = DerivedTargetDomainRoles{
-		RoleCerts: roleCertDomainRoles,
-		// Tokens: tokenDomainRoles,
+		roleCerts: roleCertDomainRoles,
+		// tokens: tokenDomainRoles,
 	}
 
 	return nil
