@@ -16,27 +16,33 @@
 package config
 
 // loadDerivedConfig loads functions from files with prefix "derived-" under /pkg/config
+// The order matters, and the earlier function may affect the later function. Unconsidered change may cause unexpected behavior.
 func (idCfg *IdentityConfig) loadDerivedConfig() error {
 	// TODO:
 	// if err := idCfg.derivedServiceCert(); err != nil {
 	// 	return err
 	// }
 
-	// TODO:
-	// if err := idCfg.derivedTargetDomainRoles(); err != nil {
-	// 	return err
-	// }
+	if err := idCfg.derivedTargetDomainRoles(); err != nil {
+		return err
+	}
 
+	// depends on the following:
+	// - derivedTargetDomainRoles()
 	if err := idCfg.derivedRoleCertConfig(); err != nil {
 		return err
 	}
 
 	// TODO:
+	// depends on the following:
+	// - derivedTargetDomainRoles()
 	// if err := idCfg.derivedAccessTokenConfig(); err != nil {
 	// 	return err
 	// }
 
 	// TODO:
+	// depends on the following:
+	// - derivedTargetDomainRoles()
 	// if err := idCfg.derivedRoleTokenConfig(); err != nil {
 	// 	return err
 	// }
