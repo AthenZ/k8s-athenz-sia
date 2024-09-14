@@ -26,11 +26,11 @@ import (
 type IdentityConfig struct {
 	Init     bool
 	Endpoint string
-	// ServiceCert Related:
+	// ServiceCert Derived State and its related fields:
 	ServiceCert     DerivedServiceCert
 	providerService string
 	//
-	DNSSuffix              string        // TODO: Migrate me
+	dnsSuffix              string
 	Refresh                time.Duration // TODO: Migrate me
 	DelayJitterSeconds     int64
 	KeyFile                string // TODO: Migrate me

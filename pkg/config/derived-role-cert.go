@@ -30,6 +30,7 @@ type DerivedRoleCert struct {
 	// empty "" means no separate key file output feature enabled.
 	KeyFormat string
 	Delimiter string // delimiter to separate domain and role name in the file name.
+	DnsSuffix string // DNS suffix for the role certificate
 }
 
 // derivedRoleCertConfig reads given configuration and sets the derived state of fetching role certificates related configuration.
@@ -61,6 +62,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 			return "" // means no separate key file output feature enabled
 		}(),
 		Delimiter: idCfg.roleCertFilenameDelimiter,
+		DnsSuffix: idCfg.dnsSuffix,
 	}
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.

@@ -21,6 +21,7 @@ type CopperArgosMode struct {
 	Provider string // provider service name
 	// certPath         string
 	// keyPath          string
+	DnsSuffix string // DNS suffix for the service certificate
 }
 
 type ThirdPartyCertMode struct {
@@ -43,7 +44,8 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 
 	if idCfg.providerService != "" {
 		idCfg.ServiceCert.CopperArgos = &CopperArgosMode{
-			Provider: idCfg.providerService,
+			Provider:  idCfg.providerService,
+			DnsSuffix: idCfg.dnsSuffix,
 		}
 	} else if idCfg.KeyFile != "" && idCfg.CertFile != "" { // meaning third-party cert is provided, instead of using CopperArgos
 		idCfg.ServiceCert.LocalCert = &ThirdPartyCertMode{}

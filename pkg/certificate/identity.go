@@ -368,9 +368,9 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 	}
 
 	sans := []string{
-		fmt.Sprintf("%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
-		fmt.Sprintf("*.%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
-		fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.PodUID, idCfg.DNSSuffix),
+		fmt.Sprintf("%s.%s.%s", service, domainDNSPart, idCfg.ServiceCert.CopperArgos.DnsSuffix),
+		fmt.Sprintf("*.%s.%s.%s", service, domainDNSPart, idCfg.ServiceCert.CopperArgos.DnsSuffix),
+		fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.PodUID, idCfg.ServiceCert.CopperArgos.DnsSuffix),
 	}
 
 	subject := pkix.Name{
@@ -417,7 +417,7 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 		}
 
 		sans := []string{
-			fmt.Sprintf("%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
+			fmt.Sprintf("%s.%s.%s", service, domainDNSPart, idCfg.RoleCert.DnsSuffix),
 		}
 
 		subject := pkix.Name{
@@ -436,7 +436,7 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 					*spiffeURI,
 				},
 				EmailAddresses: []string{
-					fmt.Sprintf("%s.%s@%s", domain, service, idCfg.DNSSuffix),
+					fmt.Sprintf("%s.%s@%s", domain, service, idCfg.RoleCert.DnsSuffix),
 				},
 			},
 		}
