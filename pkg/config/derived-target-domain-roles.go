@@ -34,13 +34,12 @@ type DerivedTargetDomainRoles struct {
 // If the input string does contain ":role",
 // the string is split into two parts: the Athenz Domain and the Athenz Role.
 func (idCfg *IdentityConfig) derivedTargetDomainRoles() error {
-	drs := strings.Split(idCfg.rawTargetDomainRoles, ",") // drs=domainRoles
+	elements := strings.Split(idCfg.rawTargetDomainRoles, ",") // TODO: Rename me to targetDomainRoles (OR, drs)
+	roleCertDomainRoles := make([]DomainRole, 0, len(elements))
+	tokenDomainRoles := make([]DomainRole, 0, len(elements))
 
-	roleCertDomainRoles := make([]DomainRole, 0, len(drs))
-	tokenDomainRoles := make([]DomainRole, 0, len(drs))
-
-	for _, dr := range drs {
-		targetDomain, targetRole, err := athenz.SplitRoleName(dr)
+	for _, domainRole := range elements {
+		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
 
 		// The entire specified string is considered as the domain name, and no role is specified:
 		if err == nil {
@@ -50,9 +49,9 @@ func (idCfg *IdentityConfig) derivedTargetDomainRoles() error {
 				Role:   targetRole,
 			})
 		} else {
-			targetDomain = dr
+			targetDomain = domainRole
 			targetRole = ""
-			log.Debugf("TARGET_DOMAIN_ROLES[%s] does not contain ':role', so it will be treated as a domain name.", dr)
+			log.Debugf("TARGET_DOMAIN_ROLES[%s] does not contain ':role', so it will be treated as a domain name.", domainRole)
 		}
 		tokenDomainRoles = append(tokenDomainRoles, DomainRole{
 			Domain: targetDomain,
