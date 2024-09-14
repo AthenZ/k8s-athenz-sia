@@ -16,6 +16,8 @@
 package config
 
 import (
+	"strings"
+
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
@@ -46,7 +48,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	// Enabled from now on:
 	idCfg.RoleCert = DerivedRoleCert{
 		Use:               true,
-		Dir:               idCfg.roleCertDir,
+		Dir:               strings.TrimSuffix(idCfg.roleCertDir, "/") + "/", // making sure it always ends with `/`
 		TargetDomainRoles: targetDomainRoles,
 		Delimiter:         idCfg.roleCertFilenameDelimiter,
 		UseKeyFileOutput:  idCfg.roleCertKeyFileOutput,
