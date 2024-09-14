@@ -24,9 +24,12 @@ import (
 
 // IdentityConfig from cmd line args
 type IdentityConfig struct {
-	Init                   bool
-	Endpoint               string
-	ProviderService        string
+	Init     bool
+	Endpoint string
+	// ServiceCert Related:
+	ServiceCert     DerivedServiceCert
+	providerService string
+	//
 	DNSSuffix              string
 	Refresh                time.Duration
 	DelayJitterSeconds     int64
@@ -46,7 +49,8 @@ type IdentityConfig struct {
 	PodUID                 string
 	PodName                string
 	Reloader               *util.CertReloader
-	ServerCACert           string
+	ServerCACert           string // TODO: Rename me back to ServerCACert or migrate to derived state
+
 	TokenTargetDomainRoles []DomainRole             // TODO: Will be migrated into DerivedTargetDomainRoles
 	targetDomainRoles      DerivedTargetDomainRoles // private as the derived state is used only within the config package
 	// RoleCerts Derived State and its related fields:

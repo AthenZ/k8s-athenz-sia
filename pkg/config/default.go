@@ -69,7 +69,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 	return &IdentityConfig{
 		Init:                      true,
 		Endpoint:                  DEFAULT_ENDPOINT,
-		ProviderService:           "",
+		providerService:           "",
 		DNSSuffix:                 DEFAULT_DNS_SUFFIX,
 		Refresh:                   24 * time.Hour,
 		DelayJitterSeconds:        0,
