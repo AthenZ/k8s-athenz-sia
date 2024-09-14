@@ -48,7 +48,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	// Enabled from now on:
 	idCfg.RoleCert = DerivedRoleCert{
 		Use:               true,
-		Dir:               strings.TrimSuffix(idCfg.roleCertDir, "/") + "/",
+		Dir:               strings.TrimSuffix(idCfg.roleCertDir, "/") + "/", // making sure it always ends with `/`
 		TargetDomainRoles: targetDomainRoles,
 		Delimiter:         idCfg.roleCertFilenameDelimiter,
 		UseKeyFileOutput:  idCfg.roleCertKeyFileOutput,
