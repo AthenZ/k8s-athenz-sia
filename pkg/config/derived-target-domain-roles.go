@@ -33,6 +33,11 @@ type DerivedTargetDomainRoles struct {
 // If a targetDomainRole does not contain ":role", the entire string is considered as the Athenz Domain, and the Athenz Role is set to an empty string.
 // If a targetDomainRole contains ":role", the string is split into two parts: the Athenz Domain and the Athenz Role.
 func (idCfg *IdentityConfig) derivedTargetDomainRoles() error {
+	// TODO: Maybe use trim() here, so that empty strings are not considered as valid targetDomainRoles:
+	if idCfg.rawTargetDomainRoles == "" {
+		return nil
+	}
+
 	elements := strings.Split(idCfg.rawTargetDomainRoles, ",") // TODO: Rename me to targetDomainRoles (OR, drs)
 	roleCertDomainRoles := make([]DomainRole, 0, len(elements))
 	tokenDomainRoles := make([]DomainRole, 0, len(elements))
