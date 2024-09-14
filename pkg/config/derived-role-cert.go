@@ -39,7 +39,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	idCfg.RoleCert.Use = false
 
 	// TODO: Following log should come here after ServiceCert is done in derived-service-cert.go
-	// TODO: log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", idCfg.RoleCertTargetDomainRoles, idCfg.RoleCertDir)
+	// TODO: log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idCfg.RoleCert.TargetDomainRoles, idCfg.RoleCert.Dir)
 	if len(idCfg.targetDomainRoles.roleCerts) == 0 {
 		return nil // disabled
 	}
