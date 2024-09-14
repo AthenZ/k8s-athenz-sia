@@ -89,11 +89,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	if idCfg.RoleCert.Use {
 		for _, dr := range idCfg.RoleCert.TargetDomainRoles {
-			outPath, err := extutil.GeneratePath(idCfg.RoleCert.Format, dr.Domain, dr.Role, idCfg.RoleCert.Delimiter)
+			fileName, err := extutil.GeneratePath(idCfg.RoleCert.Format, dr.Domain, dr.Role, idCfg.RoleCert.Delimiter)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate path for role cert with format [%s], domain [%s], role [%s], delimiter [%s]: %w", idCfg.RoleCert.Format, dr.Domain, dr.Role, idCfg.RoleCert.Delimiter, err)
 			}
-			exporter.Files = append(exporter.Files, outPath)
+			exporter.Files = append(exporter.Files, fileName)
 		}
 	}
 
