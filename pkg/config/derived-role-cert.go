@@ -21,12 +21,15 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
+// TODO: Reorder this later after logic is implemented:
 type DerivedRoleCert struct {
 	Use               bool         // if fetching role certificate is enabled (de facto standard)
 	Dir               string       // directory to store role certificates.
 	TargetDomainRoles []DomainRole // domain roles to fetch role certificates for
 	Delimiter         string
 	UseKeyFileOutput  bool // whether to output separate key file output for role certificates
+	CertFormat        string
+	KeyFormat         string
 }
 
 // derivedRoleCertConfig reads given configuration and sets the derived state of fetching role certificates related configuration.
@@ -34,6 +37,8 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	// default:
 	idCfg.RoleCert.Use = false
 
+	// TODO: Following log should come here after ServiceCert is done in derived-service-cert.go
+	// TODO: log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", idCfg.RoleCertTargetDomainRoles, idCfg.RoleCertDir)
 	if len(idCfg.targetDomainRoles.roleCerts) == 0 {
 		return nil // disabled
 	}
@@ -43,12 +48,15 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	}
 
 	// Enabled from now on:
+	dir := strings.TrimSuffix(idCfg.roleCertDir, "/") + "/" // making sure it always ends with `/`
 	idCfg.RoleCert = DerivedRoleCert{
 		Use:               true,
-		Dir:               strings.TrimSuffix(idCfg.roleCertDir, "/") + "/", // making sure it always ends with `/`
+		Dir:               dir,
 		TargetDomainRoles: idCfg.targetDomainRoles.roleCerts,
 		Delimiter:         idCfg.roleCertFilenameDelimiter,
 		UseKeyFileOutput:  idCfg.roleCertKeyFileOutput,
+		CertFormat:        dir + "/{{domain}}{{delimiter}}{{role}}.cert.pem",
+		KeyFormat:         dir + "/{{domain}}{{delimiter}}{{role}}.key.pem",
 	}
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
