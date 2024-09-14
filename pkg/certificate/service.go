@@ -44,11 +44,12 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		return nil, nil
 	}
 
-	// TODO: Following two logs idCfg.ProviderService == ""  and  !idCfg.RoleCert.Use must be moved to derived-role-cert.go
+	// TODO: This log should be moved to derived-service-cert.go
 	if idCfg.ProviderService == "" {
 		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idCfg.ProviderService)
 	}
 
+	// TODO: This log should be moved to derived-role-cert.go
 	if !idCfg.RoleCert.Use {
 		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idCfg.RoleCert.TargetDomainRoles, idCfg.RoleCert.Dir)
 	}
