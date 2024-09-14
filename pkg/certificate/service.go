@@ -105,7 +105,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 		if roleCerts != nil {
 			// Create the directory before saving role certificates
-			// TODO: Maybe use the file format?
 			if err := extutil.CreateDirectory(idCfg.RoleCert.Dir); err != nil {
 				return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
 			}
