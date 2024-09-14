@@ -21,16 +21,15 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
-// TODO: Reorder this later after logic is implemented:
 type DerivedRoleCert struct {
 	Use               bool         // if fetching role certificate is enabled (de facto standard)
 	Dir               string       // directory to store role certificates. // TODO: This might be deleted later
 	TargetDomainRoles []DomainRole // domain roles to fetch role certificates for
-	Delimiter         string
-	Format            string // format for role certificate file output (i.e. /var/run/athenz/rolecerts/{{domain}}:role.{{role}}.cert.pem).
+	Format            string       // format for role certificate file output (i.e. /var/run/athenz/rolecerts/{{domain}}:role.{{role}}.cert.pem).
 	// format for role certificate key file output (i.e. /var/run/athenz/rolecerts/{{domain}}:role.{{role}}.key.pem)
 	// empty "" means no separate key file output feature enabled.
 	KeyFormat string
+	Delimiter string // delimiter to separate domain and role name in the file name.
 }
 
 // derivedRoleCertConfig reads given configuration and sets the derived state of fetching role certificates related configuration.
@@ -54,7 +53,6 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 		Use:               true,
 		Dir:               dir,
 		TargetDomainRoles: idCfg.targetDomainRoles.roleCerts,
-		Delimiter:         idCfg.roleCertFilenameDelimiter,
 		Format:            dir + "{{domain}}{{delimiter}}{{role}}.cert.pem",
 		KeyFormat: func() string {
 			if idCfg.roleCertKeyFileOutput {
@@ -62,6 +60,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 			}
 			return "" // means no separate key file output feature enabled
 		}(),
+		Delimiter: idCfg.roleCertFilenameDelimiter,
 	}
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
