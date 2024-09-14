@@ -28,8 +28,8 @@ type DerivedRoleCert struct {
 	TargetDomainRoles []DomainRole // domain roles to fetch role certificates for
 	Delimiter         string
 	UseKeyFileOutput  bool // whether to output separate key file output for role certificates
-	CertFormat        string
-	KeyFormat         string
+	Format            string
+	KeyFormat         string // TODO: Empty string represents that the key file output is disabled
 }
 
 // derivedRoleCertConfig reads given configuration and sets the derived state of fetching role certificates related configuration.
@@ -55,7 +55,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 		TargetDomainRoles: idCfg.targetDomainRoles.roleCerts,
 		Delimiter:         idCfg.roleCertFilenameDelimiter,
 		UseKeyFileOutput:  idCfg.roleCertKeyFileOutput,
-		CertFormat:        dir + "/{{domain}}{{delimiter}}{{role}}.cert.pem",
+		Format:            dir + "/{{domain}}{{delimiter}}{{role}}.cert.pem",
 		KeyFormat:         dir + "/{{domain}}{{delimiter}}{{role}}.key.pem",
 	}
 
