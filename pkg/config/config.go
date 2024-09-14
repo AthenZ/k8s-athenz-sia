@@ -21,7 +21,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
@@ -241,10 +240,6 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 		return fmt.Errorf("Invalid MODE/mode [%q], %w", idCfg.rawMode, err)
 	}
 
-	// TODO: Delete me the following three lines, once TokenTargetDomainRoles is parsed as derived state:
-	if idCfg.rawTargetDomainRoles != "" {
-		_, idCfg.TokenTargetDomainRoles = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
-	}
 	return err
 }
 
@@ -309,37 +304,4 @@ func parseMode(raw string) (bool, error) {
 		return false, fmt.Errorf(`must be one of "init" or "refresh"`)
 	}
 	return raw == "init", nil
-}
-
-// parseTargetDomainRoles parses a raw string containing domain and role pairs
-// separated by commas. If the input string does not contain ":role",
-// the entire string is considered as the domain and the role is set to an empty string.
-// All successfully split pairs are stored in the domainRoles slice.
-func parseTargetDomainRoles(raw string) ([]DomainRole, []DomainRole) {
-	elements := strings.Split(raw, ",")
-	roleCertDomainRoles := make([]DomainRole, 0, len(elements))
-	tokenDomainRoles := make([]DomainRole, 0, len(elements))
-
-	for _, domainRole := range elements {
-		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
-
-		// The entire specified string is considered as the domain name, and no role is specified:
-		if err == nil {
-			// TargetDomainRoles for RoleCert will only be applicable if both the domain and role are set:
-			roleCertDomainRoles = append(roleCertDomainRoles, DomainRole{
-				Domain: targetDomain,
-				Role:   targetRole,
-			})
-		} else {
-			targetDomain = domainRole
-			targetRole = ""
-			log.Debugf("TARGET_DOMAIN_ROLES[%s] does not contain ':role', so it will be treated as a domain name.", domainRole)
-		}
-		tokenDomainRoles = append(tokenDomainRoles, DomainRole{
-			Domain: targetDomain,
-			Role:   targetRole,
-		})
-	}
-
-	return roleCertDomainRoles, tokenDomainRoles
 }
