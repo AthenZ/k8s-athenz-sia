@@ -24,12 +24,11 @@ import (
 // TODO: Reorder this later after logic is implemented:
 type DerivedRoleCert struct {
 	Use               bool         // if fetching role certificate is enabled (de facto standard)
-	Dir               string       // directory to store role certificates.
+	Dir               string       // directory to store role certificates. // TODO: This might be deleted later
 	TargetDomainRoles []DomainRole // domain roles to fetch role certificates for
 	Delimiter         string
-	UseKeyFileOutput  bool // whether to output separate key file output for role certificates
 	Format            string
-	KeyFormat         string // TODO: Empty string represents that the key file output is disabled
+	KeyFormat         string //  empty "" means no separate key file output feature enabled; key file format for your role cert if separate key file is required.
 }
 
 // derivedRoleCertConfig reads given configuration and sets the derived state of fetching role certificates related configuration.
@@ -54,9 +53,13 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 		Dir:               dir,
 		TargetDomainRoles: idCfg.targetDomainRoles.roleCerts,
 		Delimiter:         idCfg.roleCertFilenameDelimiter,
-		UseKeyFileOutput:  idCfg.roleCertKeyFileOutput,
 		Format:            dir + "/{{domain}}{{delimiter}}{{role}}.cert.pem",
-		KeyFormat:         dir + "/{{domain}}{{delimiter}}{{role}}.key.pem",
+		KeyFormat: func() string {
+			if idCfg.roleCertKeyFileOutput {
+				return dir + "/{{domain}}{{delimiter}}{{role}}.key.pem"
+			}
+			return "" // means no separate key file output feature enabled
+		}(),
 	}
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.

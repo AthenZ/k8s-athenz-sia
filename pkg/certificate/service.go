@@ -44,6 +44,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		return nil, nil
 	}
 
+	// TODO: Following two logs idCfg.ProviderService == ""  and  !idCfg.RoleCert.Use must be moved to derived-role-cert.go
 	if idCfg.ProviderService == "" {
 		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idCfg.ProviderService)
 	}
@@ -103,6 +104,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 		if roleCerts != nil {
 			// Create the directory before saving role certificates
+			// TODO: Maybe use the file format?
 			if err := extutil.CreateDirectory(idCfg.RoleCert.Dir); err != nil {
 				return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
 			}
@@ -122,7 +124,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 						return fmt.Errorf("unable to save x509 role cert: %w", err)
 					}
 
-					if idCfg.RoleCert.UseKeyFileOutput {
+					if idCfg.RoleCert.KeyFormat != "" {
 						outKeyPath, err := extutil.GeneratePath(idCfg.RoleCert.KeyFormat, rolecert.Domain, rolecert.Role, idCfg.RoleCert.Delimiter)
 						if err != nil {
 							return fmt.Errorf("failed to generate path for role cert key with format [%s], domain [%s], role [%s], delimiter [%s]: %w", idCfg.RoleCert.KeyFormat, rolecert.Domain, rolecert.Role, idCfg.RoleCert.Delimiter, err)
