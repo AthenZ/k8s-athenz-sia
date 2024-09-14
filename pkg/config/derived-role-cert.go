@@ -27,8 +27,10 @@ type DerivedRoleCert struct {
 	Dir               string       // directory to store role certificates. // TODO: This might be deleted later
 	TargetDomainRoles []DomainRole // domain roles to fetch role certificates for
 	Delimiter         string
-	Format            string
-	KeyFormat         string //  empty "" means no separate key file output feature enabled; key file format for your role cert if separate key file is required.
+	Format            string // format for role certificate file output (i.e. /var/run/athenz/rolecerts/{{domain}}:role.{{role}}.cert.pem).
+	// format for role certificate key file output (i.e. /var/run/athenz/rolecerts/{{domain}}:role.{{role}}.key.pem)
+	// empty "" means no separate key file output feature enabled.
+	KeyFormat string
 }
 
 // derivedRoleCertConfig reads given configuration and sets the derived state of fetching role certificates related configuration.
