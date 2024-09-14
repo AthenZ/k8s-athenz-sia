@@ -401,6 +401,7 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 
 	var roleCsrOptions []util.CSROptions
 
+	// TODO: this should not output log, as everything must have been outputted in derivedRoleCertConfig:
 	if !idCfg.RoleCert.Use {
 		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", idCfg.RoleCert.TargetDomainRoles, idCfg.RoleCert.Dir)
 		return nil, nil
