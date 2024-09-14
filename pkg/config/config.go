@@ -58,6 +58,11 @@ func LoadConfig(program string, args []string) (*IdentityConfig, error) {
 	if err := idCfg.validateAndInit(); err != nil {
 		return nil, err
 	}
+
+	if err := idCfg.loadDerivedConfig(); err != nil {
+		return nil, err
+	}
+
 	return idCfg, nil
 }
 
@@ -89,8 +94,8 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("POD_NAME", &idCfg.PodName)
 	loadEnv("SERVER_CA_CERT", &idCfg.ServerCACert)
 	loadEnv("TARGET_DOMAIN_ROLES", &idCfg.rawTargetDomainRoles)
-	loadEnv("ROLECERT_DIR", &idCfg.RoleCertDir)
-	loadEnv("ROLE_CERT_FILENAME_DELIMITER", &idCfg.RoleCertFilenameDelimiter)
+	loadEnv("ROLECERT_DIR", &idCfg.roleCertDir)
+	loadEnv("ROLE_CERT_FILENAME_DELIMITER", &idCfg.roleCertFilenameDelimiter)
 	loadEnv("ROLE_CERT_KEY_FILE_OUTPUT", &idCfg.rawRoleCertKeyFileOutput)
 	loadEnv("ROLE_AUTH_HEADER", &idCfg.RoleAuthHeader)
 	loadEnv("TOKEN_TYPE", &idCfg.TokenType)
@@ -132,7 +137,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid DELAY_JITTER_SECONDS [%q], %w", idCfg.rawDelayJitterSeconds, err)
 	}
-	idCfg.RoleCertKeyFileOutput, err = strconv.ParseBool(idCfg.rawRoleCertKeyFileOutput)
+	idCfg.roleCertKeyFileOutput, err = strconv.ParseBool(idCfg.rawRoleCertKeyFileOutput)
 	if err != nil {
 		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %w", idCfg.rawRoleCertKeyFileOutput, err)
 	}
@@ -195,10 +200,10 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	// PodIP
 	// PodUID
 	f.StringVar(&idCfg.ServerCACert, "server-ca-cert", idCfg.ServerCACert, "path to CA certificate file to verify ZTS server certs")
-	f.StringVar(&idCfg.rawTargetDomainRoles, "target-domain-roles", idCfg.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idCfg.RoleCertFilenameDelimiter+"admin,sys.auth"+idCfg.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
-	f.StringVar(&idCfg.RoleCertDir, "rolecert-dir", idCfg.RoleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
-	// RoleCertFilenameDelimiter
-	f.BoolVar(&idCfg.RoleCertKeyFileOutput, "rolecert-key-file-output", idCfg.RoleCertKeyFileOutput, "output role certificate key file (true/false)")
+	f.StringVar(&idCfg.rawTargetDomainRoles, "target-domain-roles", idCfg.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idCfg.roleCertFilenameDelimiter+"admin,sys.auth"+idCfg.roleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
+	f.StringVar(&idCfg.roleCertDir, "rolecert-dir", idCfg.roleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
+	// roleCertFilenameDelimiter
+	f.BoolVar(&idCfg.roleCertKeyFileOutput, "rolecert-key-file-output", idCfg.roleCertKeyFileOutput, "output role certificate key file (true/false)")
 	// RoleAuthHeader
 	f.StringVar(&idCfg.TokenType, "token-type", idCfg.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
 	f.DurationVar(&idCfg.TokenRefresh, "token-refresh-interval", idCfg.TokenRefresh, "token refresh interval")
@@ -236,8 +241,9 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 		return fmt.Errorf("Invalid MODE/mode [%q], %w", idCfg.rawMode, err)
 	}
 
+	// TODO: Delete me the following three lines, once TokenTargetDomainRoles is parsed as derived state:
 	if idCfg.rawTargetDomainRoles != "" {
-		idCfg.RoleCertTargetDomainRoles, idCfg.TokenTargetDomainRoles = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
+		_, idCfg.TokenTargetDomainRoles = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
 	}
 	return err
 }
@@ -266,15 +272,6 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		Logger:          log.Debugf,
 		PollInterval:    pollInterval,
 	})
-
-	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
-	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
-	if idCfg.ProviderService == "" && !idCfg.RoleCertKeyFileOutput {
-		// if role certificate issuing is enabled, warn user about the mismatch problem
-		if idCfg.rawTargetDomainRoles != "" && idCfg.RoleCertDir != "" {
-			log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idCfg.KeyFile)
-		}
-	}
 
 	// During the init flow if X.509 cert(and key) already exists,
 	//   - someone is attempting to run init after a pod has been started
