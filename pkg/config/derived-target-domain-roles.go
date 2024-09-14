@@ -45,7 +45,6 @@ func (idCfg *IdentityConfig) derivedTargetDomainRoles() error {
 	for _, domainRole := range elements {
 		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
 
-		// The entire specified string is considered as the domain name, and no role is specified:
 		if err == nil {
 			// TargetDomainRoles for RoleCert will only be applicable if both the domain and role are set:
 			roleCertDomainRoles = append(roleCertDomainRoles, DomainRole{
@@ -53,6 +52,7 @@ func (idCfg *IdentityConfig) derivedTargetDomainRoles() error {
 				Role:   targetRole,
 			})
 		} else {
+			// The entire specified string is considered as the domain name, and no role is specified:
 			targetDomain = domainRole
 			targetRole = ""
 			log.Debugf("TARGET_DOMAIN_ROLES[%s] does not contain ':role', so it will be treated as a domain name.", domainRole)
