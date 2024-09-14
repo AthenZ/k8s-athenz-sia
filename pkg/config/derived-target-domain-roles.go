@@ -27,12 +27,11 @@ type DerivedTargetDomainRoles struct {
 	// Tokens    []DomainRole
 }
 
-// derivedTargetDomainRoles sets the DerivedTargetDomainRoles with given rawTargetDomainRoles.
-// rawTargetDomainRoles is a simple string, and therefore it is separated by commas.
-// If the input string does not contain ":role",
-// the entire string is considered as the Athenz Domain and the Athenz Role is set to an empty string.
-// If the input string does contain ":role",
-// the string is split into two parts: the Athenz Domain and the Athenz Role.
+// derivedTargetDomainRoles sets the DerivedTargetDomainRoles with the given rawTargetDomainRoles.
+// rawTargetDomainRoles is a comma-separated string of targetDomainRoles.
+// Each targetDomainRole may or may not contain the delimiter ":role".
+// If a targetDomainRole does not contain ":role", the entire string is considered as the Athenz Domain, and the Athenz Role is set to an empty string.
+// If a targetDomainRole contains ":role", the string is split into two parts: the Athenz Domain and the Athenz Role.
 func (idCfg *IdentityConfig) derivedTargetDomainRoles() error {
 	elements := strings.Split(idCfg.rawTargetDomainRoles, ",") // TODO: Rename me to targetDomainRoles (OR, drs)
 	roleCertDomainRoles := make([]DomainRole, 0, len(elements))
