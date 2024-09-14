@@ -27,12 +27,12 @@ type DerivedTargetDomainRoles struct {
 	// Tokens    []DomainRole
 }
 
-// derivedTargetDomainRoles first reads given target-domain-roles in raw type,
-// and it parses into DomainRole type, and insert into derived state of fetching role certificates related configuration.
-// each targetDomainRole is separated by commas.
+// derivedTargetDomainRoles sets the DerivedTargetDomainRoles with given rawTargetDomainRoles.
+// rawTargetDomainRoles is a simple string, and therefore it is separated by commas.
 // If the input string does not contain ":role",
-// the entire string is considered as the domain and the role is set to an empty string.
-// All successfully split pairs are stored in the domainRoles slice.
+// the entire string is considered as the Athenz Domain and the Athenz Role is set to an empty string.
+// If the input string does contain ":role",
+// the string is split into two parts: the Athenz Domain and the Athenz Role.
 func (idCfg *IdentityConfig) derivedTargetDomainRoles() error {
 	drs := strings.Split(idCfg.rawTargetDomainRoles, ",") // drs=domainRoles
 
