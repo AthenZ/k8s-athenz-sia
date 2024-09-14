@@ -30,24 +30,24 @@ type IdentityConfig struct {
 	ServiceCert     DerivedServiceCert
 	providerService string
 	//
-	DNSSuffix              string
-	Refresh                time.Duration
+	DNSSuffix              string        // TODO: Migrate me
+	Refresh                time.Duration // TODO: Migrate me
 	DelayJitterSeconds     int64
-	KeyFile                string
-	CertFile               string
-	CaCertFile             string
-	IntermediateCertBundle string
-	Backup                 string
-	CertSecret             string
-	Namespace              string
-	AthenzDomain           string
-	AthenzPrefix           string
-	AthenzSuffix           string
-	ServiceAccount         string
-	SaTokenFile            string
-	PodIP                  net.IP
-	PodUID                 string
-	PodName                string
+	KeyFile                string // TODO: Migrate me
+	CertFile               string // TODO: Migrate me
+	CaCertFile             string // TODO: Migrate me
+	IntermediateCertBundle string // TODO: Migrate me
+	Backup                 string // TODO: Migrate me
+	CertSecret             string // TODO: Migrate me
+	Namespace              string // TODO: Migrate me
+	AthenzDomain           string // TODO: Migrate me
+	AthenzPrefix           string // TODO: Migrate me
+	AthenzSuffix           string // TODO: Migrate me
+	ServiceAccount         string // TODO: Migrate me
+	SaTokenFile            string // TODO: Migrate me
+	PodIP                  net.IP // TODO: Migrate me
+	PodUID                 string // TODO: Migrate me
+	PodName                string // TODO: Migrate me
 	Reloader               *util.CertReloader
 	ServerCACert           string // TODO: Rename me back to ServerCACert or migrate to derived state
 
