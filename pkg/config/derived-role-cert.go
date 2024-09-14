@@ -55,10 +55,10 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 		Dir:               dir,
 		TargetDomainRoles: idCfg.targetDomainRoles.roleCerts,
 		Delimiter:         idCfg.roleCertFilenameDelimiter,
-		Format:            dir + "/{{domain}}{{delimiter}}{{role}}.cert.pem",
+		Format:            dir + "{{domain}}{{delimiter}}{{role}}.cert.pem",
 		KeyFormat: func() string {
 			if idCfg.roleCertKeyFileOutput {
-				return dir + "/{{domain}}{{delimiter}}{{role}}.key.pem"
+				return dir + "{{domain}}{{delimiter}}{{role}}.key.pem"
 			}
 			return "" // means no separate key file output feature enabled
 		}(),
