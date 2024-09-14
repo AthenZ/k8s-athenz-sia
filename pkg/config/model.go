@@ -47,7 +47,7 @@ type IdentityConfig struct {
 	PodName                string
 	Reloader               *util.CertReloader
 	ServerCACert           string
-	TokenTargetDomainRoles []DomainRole
+	TokenTargetDomainRoles []DomainRole // TODO: Will be migrated into DerivedTargetDomainRoles
 	TargetDomainRoles      DerivedTargetDomainRoles
 	// RoleCerts Derived State and its related fields:
 	RoleCert                  DerivedRoleCert
