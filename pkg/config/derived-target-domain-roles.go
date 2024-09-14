@@ -59,7 +59,7 @@ func (idCfg *IdentityConfig) derivedTargetDomainRoles() error {
 	}
 
 	idCfg.TokenTargetDomainRoles = tokenDomainRoles // TODO: Delete me and refactor by using the type DerivedTargetDomainRoles below:
-	idCfg.TargetDomainRoles = DerivedTargetDomainRoles{
+	idCfg.targetDomainRoles = DerivedTargetDomainRoles{
 		RoleCerts: roleCertDomainRoles,
 		// Tokens: tokenDomainRoles,
 	}
