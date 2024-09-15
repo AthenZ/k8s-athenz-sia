@@ -35,16 +35,16 @@ type IdentityConfig struct {
 	CaCertFile             string
 	IntermediateCertBundle string
 	Backup                 string
-	CertSecret             string
-	Namespace              string
+	CertSecret             string // TODO: To k8s-derived-config
+	Namespace              string // TODO: To k8s-derived-config
 	AthenzDomain           string
 	AthenzPrefix           string
 	AthenzSuffix           string
-	ServiceAccount         string
+	ServiceAccount         string // TODO: To k8s-derived-config
 	SaTokenFile            string
-	PodIP                  net.IP
-	PodUID                 string
-	PodName                string
+	PodIP                  net.IP // TODO: To k8s-derived-config
+	PodUID                 string // TODO: To k8s-derived-config
+	PodName                string // TODO: To k8s-derived-config
 	Reloader               *util.CertReloader
 	ServerCACert           string
 	TokenTargetDomainRoles []DomainRole             // TODO: Will be migrated into DerivedTargetDomainRoles
