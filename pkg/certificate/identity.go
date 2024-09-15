@@ -269,8 +269,8 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 	}
 
 	var intermediateCerts string
-	if h.idCfg.IntermediateCertBundle != "" {
-		intermediateCertBundle, err := roleCertClient.GetCertificateAuthorityBundle(zts.SimpleName(h.idCfg.IntermediateCertBundle))
+	if h.idCfg.ServiceCert.File.CertBundle != "" {
+		intermediateCertBundle, err := roleCertClient.GetCertificateAuthorityBundle(zts.SimpleName(h.idCfg.ServiceCert.File.CertBundle))
 		if err != nil || intermediateCertBundle == nil || intermediateCertBundle.Certs == "" {
 			return nil, nil, fmt.Errorf("GetCertificateAuthorityBundle failed for role certificate, err: %v", err)
 		}

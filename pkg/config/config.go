@@ -79,7 +79,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("KEY_FILE", &idCfg.keyFile)
 	loadEnv("CERT_FILE", &idCfg.certFile)
 	loadEnv("CA_CERT_FILE", &idCfg.caCertFile)
-	loadEnv("INTERMEDIATE_CERT_BUNDLE", &idCfg.IntermediateCertBundle)
+	loadEnv("INTERMEDIATE_CERT_BUNDLE", &idCfg.intermediateCertBundle)
 	loadEnv("BACKUP", &idCfg.backup)
 	loadEnv("CERT_SECRET", &idCfg.certSecret)
 	loadEnv("NAMESPACE", &idCfg.Namespace)

@@ -45,7 +45,7 @@ type IdentityConfig struct {
 	keyFile                string
 	certFile               string
 	caCertFile             string
-	IntermediateCertBundle string // TODO: Migrate me
+	intermediateCertBundle string
 	backup                 string
 	athenzDomain           string
 	athenzPrefix           string

@@ -76,7 +76,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		keyFile:                   "",
 		certFile:                  "",
 		caCertFile:                "",
-		IntermediateCertBundle:    DEFAULT_INTERMEDIATE_CERT_BUNDLE,
+		intermediateCertBundle:    DEFAULT_INTERMEDIATE_CERT_BUNDLE,
 		backup:                    "",
 		certSecret:                "",
 		Namespace:                 "",

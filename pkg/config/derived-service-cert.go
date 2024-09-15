@@ -23,9 +23,10 @@ import (
 )
 
 type File struct {
-	Cert   string
-	Key    string
-	CaCert string
+	Cert       string
+	Key        string
+	CaCert     string
+	CertBundle string
 }
 
 type K8sSecretBackup struct {
@@ -63,9 +64,10 @@ type DerivedServiceCert struct {
 // derivedServiceCertConfig ... // TODO
 func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 	idCfg.ServiceCert.File = File{
-		Cert:   idCfg.certFile,
-		Key:    idCfg.keyFile,
-		CaCert: idCfg.caCertFile,
+		Cert:       idCfg.certFile,
+		Key:        idCfg.keyFile,
+		CaCert:     idCfg.caCertFile,
+		CertBundle: idCfg.intermediateCertBundle,
 	}
 	idCfg.ServiceCert.K8sSecretBackup = K8sSecretBackup{
 		Use:        idCfg.certSecret != "" && strings.Contains(idCfg.backup, "read"),
