@@ -18,9 +18,9 @@ package config
 import "net"
 
 type Pod struct {
-	Ip  net.IP
-	Uid string
-	// Name string
+	Ip   net.IP
+	Uid  string
+	Name string
 }
 
 type Secret struct {
@@ -41,8 +41,9 @@ func (idCfg *IdentityConfig) derivedK8sConfig() error {
 		Ns: idCfg.namespace,
 		Sa: idCfg.serviceAccount,
 		Pod: Pod{
-			Ip:  idCfg.podIP,
-			Uid: idCfg.podUID,
+			Ip:   idCfg.podIP,
+			Uid:  idCfg.podUID,
+			Name: idCfg.podName,
 		},
 		Secret: Secret{
 			BackupCert: idCfg.certSecret,

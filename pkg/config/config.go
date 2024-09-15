@@ -90,7 +90,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("SA_TOKEN_FILE", &idCfg.SaTokenFile)
 	loadEnv("POD_IP", &idCfg.rawPodIP)
 	loadEnv("POD_UID", &idCfg.podUID)
-	loadEnv("POD_NAME", &idCfg.PodName)
+	loadEnv("POD_NAME", &idCfg.podName)
 	loadEnv("SERVER_CA_CERT", &idCfg.ServerCACert)
 	loadEnv("TARGET_DOMAIN_ROLES", &idCfg.rawTargetDomainRoles)
 	loadEnv("ROLECERT_DIR", &idCfg.roleCertDir)
