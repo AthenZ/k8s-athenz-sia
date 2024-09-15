@@ -27,6 +27,7 @@ type Secret struct {
 	BackupCert string
 }
 
+// Please follow the official "SHORTNAMES" for k8s-api-resources:
 type DerivedK8s struct {
 	Ns     string // Namespace
 	Sa     string // Service Account
