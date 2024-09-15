@@ -31,12 +31,13 @@ type IdentityConfig struct {
 	Refresh            time.Duration
 	DelayJitterSeconds int64
 	// TODO: move me to the derived state for kubernetes resource related fields
-	podIP       net.IP
-	podUID      string
-	PodName     string // TODO: Migrate me for token file (Migrate for k8s related derived state)
-	Namespace   string // TODO: Migrate me  (Migrate for k8s related derived state)
-	saTokenFile string
-	certSecret  string // TODO: Rename me to secret related to secret
+	podIP          net.IP
+	podUID         string
+	PodName        string // TODO: To k8s-derived-config
+	Namespace      string // TODO: To k8s-derived-config
+	saTokenFile    string // TODO: To k8s-derived-config
+	certSecret     string // TODO: To k8s-derived-config
+	ServiceAccount string // TODO: To k8s-derived-config
 	// ServiceCert Derived State and its related fields:
 	ServiceCert            DerivedServiceCert
 	providerService        string
@@ -49,7 +50,6 @@ type IdentityConfig struct {
 	athenzDomain           string
 	athenzPrefix           string
 	athenzSuffix           string
-	ServiceAccount         string // TODO: Migrate me once derived-token-config is done
 	Reloader               *util.CertReloader
 	ServerCACert           string // TODO: Rename me back to ServerCACert or migrate to derived state
 
