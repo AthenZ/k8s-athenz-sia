@@ -24,7 +24,7 @@ type Pod struct {
 }
 
 type Secret struct {
-	BackupCert string
+	BackupCert string // Name of the secret to backup the service-certificate
 }
 
 // Please follow the official "SHORTNAMES" for k8s-api-resources:
