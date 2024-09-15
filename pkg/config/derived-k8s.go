@@ -17,6 +17,7 @@ package config
 
 type DerivedK8s struct {
 	Ns string // Namespace
+	Sa string // Service Account
 }
 
 // derivedK8sConfig reads given configuration and sets the derived state of k8s-related configuration.
@@ -24,6 +25,7 @@ func (idCfg *IdentityConfig) derivedK8sConfig() error {
 
 	idCfg.K8s = DerivedK8s{
 		Ns: idCfg.namespace,
+		Sa: idCfg.serviceAccount,
 	}
 
 	return nil

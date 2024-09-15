@@ -31,8 +31,9 @@ type IdentityConfig struct {
 	Refresh            time.Duration
 	DelayJitterSeconds int64
 	// Kubernetes related fields:
-	K8s       DerivedK8s
-	namespace string // TODO: To k8s-derived-config
+	K8s            DerivedK8s
+	namespace      string // TODO: To k8s-derived-config
+	serviceAccount string // TODO: To k8s-derived-config
 	//
 	KeyFile                string
 	CertFile               string
@@ -43,7 +44,6 @@ type IdentityConfig struct {
 	AthenzDomain           string
 	AthenzPrefix           string
 	AthenzSuffix           string
-	ServiceAccount         string // TODO: To k8s-derived-config
 	SaTokenFile            string
 	PodIP                  net.IP // TODO: To k8s-derived-config
 	PodUID                 string // TODO: To k8s-derived-config

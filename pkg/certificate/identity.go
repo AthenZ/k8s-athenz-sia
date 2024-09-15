@@ -100,7 +100,7 @@ func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error)
 	client.AddCredentials("User-Agent", config.USER_AGENT)
 
 	domain := extutil.NamespaceToDomain(idCfg.K8s.Ns, idCfg.AthenzPrefix, idCfg.AthenzDomain, idCfg.AthenzSuffix)
-	service := extutil.ServiceAccountToService(idCfg.ServiceAccount)
+	service := extutil.ServiceAccountToService(idCfg.K8s.Sa)
 
 	csrOptions, err := PrepareIdentityCsrOptions(idCfg, domain, service)
 	if err != nil {

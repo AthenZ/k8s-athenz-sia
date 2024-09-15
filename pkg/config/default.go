@@ -83,7 +83,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		AthenzDomain:              "",
 		AthenzPrefix:              "",
 		AthenzSuffix:              "",
-		ServiceAccount:            "",
+		serviceAccount:            "",
 		SaTokenFile:               "",
 		PodIP:                     nil,
 		PodUID:                    "",

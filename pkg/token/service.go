@@ -99,7 +99,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		return nil, err
 	}
 
-	saService := extutil.ServiceAccountToService(idCfg.ServiceAccount)
+	saService := extutil.ServiceAccountToService(idCfg.K8s.Sa)
 	if saService == "" {
 		// TODO: get service from svc cert
 		// https://github.com/AthenZ/athenz/blob/73b25572656f289cce501b4c2fe78f86656082e7/libs/go/athenzutils/principal.go

@@ -86,7 +86,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("ATHENZ_DOMAIN", &idCfg.AthenzDomain)
 	loadEnv("ATHENZ_PREFIX", &idCfg.AthenzPrefix)
 	loadEnv("ATHENZ_SUFFIX", &idCfg.AthenzSuffix)
-	loadEnv("SERVICEACCOUNT", &idCfg.ServiceAccount)
+	loadEnv("SERVICEACCOUNT", &idCfg.serviceAccount)
 	loadEnv("SA_TOKEN_FILE", &idCfg.SaTokenFile)
 	loadEnv("POD_IP", &idCfg.rawPodIP)
 	loadEnv("POD_UID", &idCfg.PodUID)
