@@ -29,9 +29,7 @@ type File struct {
 }
 
 type CopperArgosMode struct {
-	Provider string // provider service name
-	// certPath         string
-	// keyPath          string
+	Provider          string // provider service name
 	AthenzDomainName  string
 	AthenzServiceName string
 	DnsSuffix         string // DNS suffix for the service certificate
@@ -41,8 +39,7 @@ type CopperArgosMode struct {
 }
 
 type ThirdPartyCertMode struct {
-	// certPath         string
-	// keyPath          string
+	// TODO:
 }
 
 type K8sSecretCertMode struct {
