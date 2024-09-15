@@ -23,12 +23,20 @@ import (
 )
 
 // IdentityConfig from cmd line args
+// TODO: Move raw out of this Config struct (requires discussion)
 type IdentityConfig struct {
 	// Core ENVs:
 	Init               bool
 	Endpoint           string
 	Refresh            time.Duration
 	DelayJitterSeconds int64
+	// TODO: move me to the derived state for kubernetes resource related fields
+	podIP       net.IP
+	podUID      string
+	PodName     string // TODO: Migrate me for token file
+	Namespace   string // TODO: Migrate me
+	saTokenFile string
+	CertSecret  string // TODO: Migrate me (For k8s secret) TODO: Rename me to secret related to secret
 	// ServiceCert Derived State and its related fields:
 	ServiceCert            DerivedServiceCert
 	providerService        string
@@ -38,16 +46,10 @@ type IdentityConfig struct {
 	caCertFile             string
 	IntermediateCertBundle string // TODO: Migrate me
 	Backup                 string // TODO: Migrate me (For k8s secret)
-	CertSecret             string // TODO: Migrate me (For k8s secret)
-	Namespace              string // TODO: Migrate me
 	athenzDomain           string
 	athenzPrefix           string
 	athenzSuffix           string
 	ServiceAccount         string // TODO: Migrate me once derived-token-config is done
-	saTokenFile            string
-	podIP                  net.IP
-	podUID                 string
-	PodName                string // TODO: Migrate me for token file
 	Reloader               *util.CertReloader
 	ServerCACert           string // TODO: Rename me back to ServerCACert or migrate to derived state
 
