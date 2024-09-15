@@ -32,12 +32,12 @@ type IdentityConfig struct {
 	DelayJitterSeconds int64
 	// Kubernetes related fields:
 	K8s            DerivedK8s
-	namespace      string // TODO: To k8s-derived-config
-	serviceAccount string // TODO: To k8s-derived-config
-	podIP          net.IP // TODO: To k8s-derived-config
-	podUID         string // TODO: To k8s-derived-config
-	podName        string // TODO: To k8s-derived-config
-	certSecret     string // TODO: To k8s-derived-config
+	namespace      string
+	serviceAccount string
+	podIP          net.IP
+	podUID         string
+	podName        string
+	certSecret     string
 	//
 	KeyFile                string
 	CertFile               string
