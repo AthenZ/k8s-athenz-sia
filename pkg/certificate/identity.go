@@ -169,7 +169,7 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 		return nil, nil, fmt.Errorf("Failed to generate key and csr, err: %v", err)
 	}
 
-	saToken, err := os.ReadFile(h.idCfg.SaTokenFile)
+	saToken, err := os.ReadFile(h.idCfg.ServiceCert.CopperArgos.SaTokenFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to read service account token file, err: %v", err)
 	}

@@ -87,7 +87,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("ATHENZ_PREFIX", &idCfg.AthenzPrefix)
 	loadEnv("ATHENZ_SUFFIX", &idCfg.AthenzSuffix)
 	loadEnv("SERVICEACCOUNT", &idCfg.ServiceAccount)
-	loadEnv("SA_TOKEN_FILE", &idCfg.SaTokenFile)
+	loadEnv("SA_TOKEN_FILE", &idCfg.saTokenFile)
 	loadEnv("POD_IP", &idCfg.rawPodIP)
 	loadEnv("POD_UID", &idCfg.PodUID)
 	loadEnv("POD_NAME", &idCfg.PodName)
@@ -195,7 +195,7 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	// AthenzPrefix
 	// AthenzSuffix
 	// ServiceAccount
-	f.StringVar(&idCfg.SaTokenFile, "sa-token-file", idCfg.SaTokenFile, "bound sa jwt token file location (required for identity certificate provisioning)")
+	f.StringVar(&idCfg.saTokenFile, "sa-token-file", idCfg.saTokenFile, "bound sa jwt token file location (required for identity certificate provisioning)")
 	// PodIP
 	// PodUID
 	f.StringVar(&idCfg.ServerCACert, "server-ca-cert", idCfg.ServerCACert, "path to CA certificate file to verify ZTS server certs")

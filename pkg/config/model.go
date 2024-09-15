@@ -44,7 +44,7 @@ type IdentityConfig struct {
 	AthenzPrefix           string // TODO: Migrate me
 	AthenzSuffix           string // TODO: Migrate me
 	ServiceAccount         string // TODO: Migrate me
-	SaTokenFile            string // TODO: Migrate me
+	saTokenFile            string
 	PodIP                  net.IP // TODO: Migrate me
 	PodUID                 string // TODO: Migrate me
 	PodName                string // TODO: Migrate me
