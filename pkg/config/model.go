@@ -33,8 +33,8 @@ type IdentityConfig struct {
 	// TODO: move me to the derived state for kubernetes resource related fields
 	podIP       net.IP
 	podUID      string
-	PodName     string // TODO: Migrate me for token file
-	Namespace   string // TODO: Migrate me
+	PodName     string // TODO: Migrate me for token file (Migrate for k8s related derived state)
+	Namespace   string // TODO: Migrate me  (Migrate for k8s related derived state)
 	saTokenFile string
 	certSecret  string // TODO: Rename me to secret related to secret
 	// ServiceCert Derived State and its related fields:
