@@ -99,10 +99,7 @@ func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error)
 	// Add User-Agent header to ZTS client for fetching x509 certificate
 	client.AddCredentials("User-Agent", config.USER_AGENT)
 
-	domain := extutil.NamespaceToDomain(idCfg.Namespace, idCfg.AthenzPrefix, idCfg.AthenzDomain, idCfg.AthenzSuffix)
-	service := extutil.ServiceAccountToService(idCfg.ServiceAccount)
-
-	csrOptions, err := PrepareIdentityCsrOptions(idCfg, domain, service)
+	csrOptions, err := PrepareIdentityCsrOptions(idCfg, idCfg.ServiceCert.CopperArgos.AthenzDomainName, idCfg.ServiceCert.CopperArgos.AthenzServiceName)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +115,8 @@ func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error)
 	return &identityHandler{
 		idCfg:        idCfg,
 		client:       client,
-		domain:       domain,
-		service:      service,
+		domain:       idCfg.ServiceCert.CopperArgos.AthenzDomainName,
+		service:      idCfg.ServiceCert.CopperArgos.AthenzServiceName,
 		instanceID:   idCfg.PodUID,
 		csrOptions:   csrOptions,
 		secretClient: secretClient,

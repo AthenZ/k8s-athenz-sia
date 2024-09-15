@@ -83,9 +83,9 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("BACKUP", &idCfg.Backup)
 	loadEnv("CERT_SECRET", &idCfg.CertSecret)
 	loadEnv("NAMESPACE", &idCfg.Namespace)
-	loadEnv("ATHENZ_DOMAIN", &idCfg.AthenzDomain)
-	loadEnv("ATHENZ_PREFIX", &idCfg.AthenzPrefix)
-	loadEnv("ATHENZ_SUFFIX", &idCfg.AthenzSuffix)
+	loadEnv("ATHENZ_DOMAIN", &idCfg.athenzDomain)
+	loadEnv("ATHENZ_PREFIX", &idCfg.athenzPrefix)
+	loadEnv("ATHENZ_SUFFIX", &idCfg.athenzSuffix)
 	loadEnv("SERVICEACCOUNT", &idCfg.ServiceAccount)
 	loadEnv("SA_TOKEN_FILE", &idCfg.saTokenFile)
 	loadEnv("POD_IP", &idCfg.rawPodIP)
@@ -191,8 +191,8 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.Backup, "backup", idCfg.Backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
 	f.StringVar(&idCfg.CertSecret, "cert-secret", idCfg.CertSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
 	// Namespace
-	// AthenzDomain
-	// AthenzPrefix
+	// athenzDomain
+	// athenzPrefix
 	// AthenzSuffix
 	// ServiceAccount
 	f.StringVar(&idCfg.saTokenFile, "sa-token-file", idCfg.saTokenFile, "bound sa jwt token file location (required for identity certificate provisioning)")

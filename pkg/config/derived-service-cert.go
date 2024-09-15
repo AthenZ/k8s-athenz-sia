@@ -15,14 +15,20 @@
 // Package config defines all the configuration parameters. It reads configuration from environment variables and command-line arguments.
 package config
 
-import "strings"
+import (
+	"strings"
+
+	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
+)
 
 type CopperArgosMode struct {
 	Provider string // provider service name
 	// certPath         string
 	// keyPath          string
-	DnsSuffix   string // DNS suffix for the service certificate
-	SaTokenFile string // service account token that is used as identityd document for CopperArgos
+	AthenzDomainName  string
+	AthenzServiceName string
+	DnsSuffix         string // DNS suffix for the service certificate
+	SaTokenFile       string // service account token that is used as identityd document for CopperArgos
 }
 
 type ThirdPartyCertMode struct {
@@ -45,9 +51,11 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 
 	if idCfg.providerService != "" {
 		idCfg.ServiceCert.CopperArgos = &CopperArgosMode{
-			Provider:    idCfg.providerService,
-			DnsSuffix:   idCfg.dnsSuffix,
-			SaTokenFile: idCfg.saTokenFile,
+			Provider:          idCfg.providerService,
+			AthenzDomainName:  extutil.NamespaceToDomain(idCfg.Namespace, idCfg.athenzPrefix, idCfg.athenzDomain, idCfg.athenzSuffix),
+			AthenzServiceName: extutil.ServiceAccountToService(idCfg.ServiceAccount),
+			DnsSuffix:         idCfg.dnsSuffix,
+			SaTokenFile:       idCfg.saTokenFile,
 		}
 	} else if idCfg.KeyFile != "" && idCfg.CertFile != "" { // meaning third-party cert is provided, instead of using CopperArgos
 		idCfg.ServiceCert.LocalCert = &ThirdPartyCertMode{}

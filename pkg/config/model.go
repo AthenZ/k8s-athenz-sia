@@ -37,12 +37,12 @@ type IdentityConfig struct {
 	CertFile               string // TODO: Migrate me
 	CaCertFile             string // TODO: Migrate me
 	IntermediateCertBundle string // TODO: Migrate me
-	Backup                 string // TODO: Migrate me
-	CertSecret             string // TODO: Migrate me
+	Backup                 string // TODO: Migrate me (For k8s secret)
+	CertSecret             string // TODO: Migrate me (For k8s secret)
 	Namespace              string // TODO: Migrate me
-	AthenzDomain           string // TODO: Migrate me
-	AthenzPrefix           string // TODO: Migrate me
-	AthenzSuffix           string // TODO: Migrate me
+	athenzDomain           string
+	athenzPrefix           string
+	athenzSuffix           string
 	ServiceAccount         string // TODO: Migrate me
 	saTokenFile            string
 	PodIP                  net.IP // TODO: Migrate me
