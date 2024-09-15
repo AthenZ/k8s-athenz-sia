@@ -24,20 +24,22 @@ import (
 
 // IdentityConfig from cmd line args
 type IdentityConfig struct {
-	Init                   bool
-	Endpoint               string
-	ProviderService        string
-	DNSSuffix              string
-	Refresh                time.Duration
-	DelayJitterSeconds     int64
-	K8s                    DerivedK8s
+	Init               bool
+	Endpoint           string
+	ProviderService    string
+	DNSSuffix          string
+	Refresh            time.Duration
+	DelayJitterSeconds int64
+	// Kubernetes related fields:
+	K8s       DerivedK8s
+	namespace string // TODO: To k8s-derived-config
+	//
 	KeyFile                string
 	CertFile               string
 	CaCertFile             string
 	IntermediateCertBundle string
 	Backup                 string
 	CertSecret             string // TODO: To k8s-derived-config
-	Namespace              string // TODO: To k8s-derived-config
 	AthenzDomain           string
 	AthenzPrefix           string
 	AthenzSuffix           string

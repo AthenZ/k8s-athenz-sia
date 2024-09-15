@@ -80,8 +80,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// initialize token cache with placeholder
 	tt := newType(idCfg.TokenType)
 	tokenExpiryInSecond := int(idCfg.TokenExpiry.Seconds())
-	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
-	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
+	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.K8s.Ns, idCfg.PodName)
+	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.K8s.Ns, idCfg.PodName)
 	for _, dr := range idCfg.TokenTargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
 		// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."

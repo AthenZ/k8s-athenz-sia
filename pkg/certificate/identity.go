@@ -99,7 +99,7 @@ func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error)
 	// Add User-Agent header to ZTS client for fetching x509 certificate
 	client.AddCredentials("User-Agent", config.USER_AGENT)
 
-	domain := extutil.NamespaceToDomain(idCfg.Namespace, idCfg.AthenzPrefix, idCfg.AthenzDomain, idCfg.AthenzSuffix)
+	domain := extutil.NamespaceToDomain(idCfg.K8s.Ns, idCfg.AthenzPrefix, idCfg.AthenzDomain, idCfg.AthenzSuffix)
 	service := extutil.ServiceAccountToService(idCfg.ServiceAccount)
 
 	csrOptions, err := PrepareIdentityCsrOptions(idCfg, domain, service)
@@ -109,7 +109,7 @@ func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error)
 
 	var secretClient *k8s.SecretsClient
 	if idCfg.CertSecret != "" {
-		secretClient, err = k8s.NewSecretClient(idCfg.CertSecret, idCfg.Namespace)
+		secretClient, err = k8s.NewSecretClient(idCfg.CertSecret, idCfg.K8s.Ns)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to initialize kubernetes secret client, err: %v", err)
 		}

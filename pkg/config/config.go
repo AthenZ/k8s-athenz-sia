@@ -82,7 +82,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("INTERMEDIATE_CERT_BUNDLE", &idCfg.IntermediateCertBundle)
 	loadEnv("BACKUP", &idCfg.Backup)
 	loadEnv("CERT_SECRET", &idCfg.CertSecret)
-	loadEnv("NAMESPACE", &idCfg.Namespace)
+	loadEnv("NAMESPACE", &idCfg.namespace)
 	loadEnv("ATHENZ_DOMAIN", &idCfg.AthenzDomain)
 	loadEnv("ATHENZ_PREFIX", &idCfg.AthenzPrefix)
 	loadEnv("ATHENZ_SUFFIX", &idCfg.AthenzSuffix)
