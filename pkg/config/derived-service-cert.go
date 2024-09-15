@@ -28,6 +28,11 @@ type File struct {
 	CaCert string
 }
 
+type K8sSecretBackup struct {
+	Use        bool
+	SecretName string
+}
+
 type CopperArgosMode struct {
 	Provider          string // provider service name
 	AthenzDomainName  string
@@ -47,10 +52,11 @@ type K8sSecretCertMode struct {
 }
 
 type DerivedServiceCert struct {
-	File          File
-	CopperArgos   *CopperArgosMode    // disabled if nil
-	LocalCert     *ThirdPartyCertMode // disabled if nil
-	K8sSecretCert *K8sSecretCertMode  // disabled if nil
+	File            File
+	K8sSecretBackup K8sSecretBackup
+	CopperArgos     *CopperArgosMode    // disabled if nil
+	LocalCert       *ThirdPartyCertMode // disabled if nil
+	K8sSecretCert   *K8sSecretCertMode  // disabled if nil
 }
 
 // derivedServiceCertConfig ... // TODO
@@ -59,6 +65,10 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		Cert:   idCfg.certFile,
 		Key:    idCfg.keyFile,
 		CaCert: idCfg.caCertFile,
+	}
+	idCfg.ServiceCert.K8sSecretBackup = K8sSecretBackup{
+		Use:        idCfg.certSecret != "" && strings.Contains(idCfg.Backup, "read"),
+		SecretName: idCfg.certSecret,
 	}
 
 	if idCfg.providerService != "" {
@@ -73,7 +83,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		}
 	} else if idCfg.keyFile != "" && idCfg.certFile != "" { // meaning third-party cert is provided, instead of using CopperArgos
 		idCfg.ServiceCert.LocalCert = &ThirdPartyCertMode{}
-	} else if idCfg.CertSecret != "" && strings.Contains(idCfg.Backup, "read") { // use kubernetes secret mode
+	} else if idCfg.certSecret != "" && strings.Contains(idCfg.Backup, "read") { // use kubernetes secret mode
 		idCfg.ServiceCert.K8sSecretCert = &K8sSecretCertMode{}
 	}
 	// Empty ProviderService means the service cert feature is not enabled.

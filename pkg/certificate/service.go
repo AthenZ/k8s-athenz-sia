@@ -17,7 +17,6 @@ package certificate
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -149,16 +148,16 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		if err != nil {
 			log.Warnf("Error while requesting x509 certificate to identity provider: %s", err.Error())
 
-			if idCfg.CertSecret != "" && strings.Contains(idCfg.Backup, "write") {
-				log.Errorf("Failed to receive x509 certificate to update kubernetes secret[%s]: %s", idCfg.CertSecret, err.Error())
+			if idCfg.ServiceCert.K8sSecretBackup.Use {
+				log.Errorf("Failed to receive x509 certificate to update kubernetes secret[%s]: %s", idCfg.ServiceCert.K8sSecretBackup.SecretName, err.Error())
 				return
 			}
 		} else {
 			log.Info("Successfully received x509 certificate from identity provider")
 
-			if idCfg.CertSecret != "" && strings.Contains(idCfg.Backup, "write") {
+			if idCfg.ServiceCert.K8sSecretBackup.Use {
 
-				log.Infof("Attempting to save x509 certificate to kubernetes secret[%s]...", idCfg.CertSecret)
+				log.Infof("Attempting to save x509 certificate to kubernetes secret[%s]...", idCfg.ServiceCert.K8sSecretBackup.SecretName)
 
 				err = handler.ApplyX509CertToSecret(identity, keyPEM)
 				if err != nil {
@@ -168,7 +167,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 				log.Infof("Successfully saved x509 certificate to kubernetes secret")
 			} else {
-				log.Debugf("Skipping to save x509 certificate temporary backup to Kubernetes secret[%s]", idCfg.CertSecret)
+				log.Debugf("Skipping to save x509 certificate temporary backup to Kubernetes secret[%s]", idCfg.ServiceCert.K8sSecretBackup.SecretName)
 			}
 		}
 
@@ -228,8 +227,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
-			if idCfg.CertSecret != "" && strings.Contains(idCfg.Backup, "read") {
-				log.Infof("Attempting to load x509 certificate temporary backup from kubernetes secret[%s]...", idCfg.CertSecret)
+			if idCfg.ServiceCert.K8sSecretBackup.Use {
+				log.Infof("Attempting to load x509 certificate temporary backup from kubernetes secret[%s]...", idCfg.ServiceCert.K8sSecretBackup.SecretName)
 
 				k8sSecretBackupIdentity, k8sSecretBackupKeyPEM, err = handler.GetX509CertFromSecret()
 				if err != nil {
@@ -250,7 +249,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					}
 				}
 			} else {
-				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret[%s]", idCfg.CertSecret)
+				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret[%s]", idCfg.ServiceCert.K8sSecretBackup.SecretName)
 			}
 		}
 
@@ -334,7 +333,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 			}
 			for {
-				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.ServiceCert.File.Key, cs.idCfg.ServiceCert.File.Cert, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.Backup, cs.idCfg.CertSecret, cs.idCfg.Refresh)
+				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.ServiceCert.File.Key, cs.idCfg.ServiceCert.File.Cert, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.Backup, cs.idCfg.ServiceCert.K8sSecretBackup.SecretName, cs.idCfg.Refresh)
 
 				select {
 				case <-cs.shutdownChan:
@@ -343,7 +342,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				case <-t.C:
 					// skip refresh if context is done but Shutdown() is not called
 					if ctx.Err() != nil {
-						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.ServiceCert.File.Key, cs.idCfg.ServiceCert.File.Cert, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.Backup, cs.idCfg.CertSecret)
+						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.ServiceCert.File.Key, cs.idCfg.ServiceCert.File.Cert, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.Backup, cs.idCfg.ServiceCert.K8sSecretBackup.SecretName)
 						continue
 					}
 

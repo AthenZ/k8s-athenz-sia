@@ -36,7 +36,7 @@ type IdentityConfig struct {
 	PodName     string // TODO: Migrate me for token file
 	Namespace   string // TODO: Migrate me
 	saTokenFile string
-	CertSecret  string // TODO: Migrate me (For k8s secret) TODO: Rename me to secret related to secret
+	certSecret  string // TODO: Rename me to secret related to secret
 	// ServiceCert Derived State and its related fields:
 	ServiceCert            DerivedServiceCert
 	providerService        string
