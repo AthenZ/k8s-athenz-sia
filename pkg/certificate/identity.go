@@ -120,7 +120,7 @@ func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error)
 		client:       client,
 		domain:       domain,
 		service:      service,
-		instanceID:   idCfg.K8s.Pod.UID,
+		instanceID:   idCfg.K8s.Po.UID,
 		csrOptions:   csrOptions,
 		secretClient: secretClient,
 	}, nil
@@ -192,7 +192,7 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 			zts.ServiceName(h.idCfg.ProviderService),
 			zts.DomainName(h.domain),
 			zts.SimpleName(h.service),
-			zts.PathElement(h.idCfg.K8s.Pod.UID),
+			zts.PathElement(h.idCfg.K8s.Po.UID),
 			&zts.InstanceRefreshInformation{
 				AttestationData: string(saToken),
 				Csr:             string(csrPEM),
@@ -327,7 +327,7 @@ func (h *identityHandler) DeleteX509CertRecord() error {
 			zts.ServiceName(h.idCfg.ProviderService),
 			zts.DomainName(h.domain),
 			zts.SimpleName(h.service),
-			zts.PathElement(h.idCfg.K8s.Pod.UID),
+			zts.PathElement(h.idCfg.K8s.Po.UID),
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to call DeleteInstanceIdentity, err: %v", err)
@@ -370,7 +370,7 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 	sans := []string{
 		fmt.Sprintf("%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
 		fmt.Sprintf("*.%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
-		fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.K8s.Pod.UID, idCfg.DNSSuffix),
+		fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.K8s.Po.UID, idCfg.DNSSuffix),
 	}
 
 	subject := pkix.Name{
@@ -389,8 +389,8 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		},
 	}
 
-	if idCfg.K8s.Pod.IP != nil {
-		csrOptions.SANs.IPAddresses = []net.IP{idCfg.K8s.Pod.IP}
+	if idCfg.K8s.Po.IP != nil {
+		csrOptions.SANs.IPAddresses = []net.IP{idCfg.K8s.Po.IP}
 	}
 
 	return csrOptions, nil
@@ -441,8 +441,8 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 			},
 		}
 
-		if idCfg.K8s.Pod.IP != nil {
-			roleCsrOption.SANs.IPAddresses = []net.IP{idCfg.K8s.Pod.IP}
+		if idCfg.K8s.Po.IP != nil {
+			roleCsrOption.SANs.IPAddresses = []net.IP{idCfg.K8s.Po.IP}
 		}
 
 		roleCsrOptions = append(roleCsrOptions, roleCsrOption)

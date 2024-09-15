@@ -30,7 +30,7 @@ type Secret struct {
 type DerivedK8s struct {
 	Ns     string // Namespace
 	Sa     string // Service Account
-	Pod    Pod    // Pod
+	Po     Pod    // Pod
 	Secret Secret // Secret
 }
 
@@ -40,7 +40,7 @@ func (idCfg *IdentityConfig) derivedK8sConfig() error {
 	idCfg.K8s = DerivedK8s{
 		Ns: idCfg.namespace,
 		Sa: idCfg.serviceAccount,
-		Pod: Pod{
+		Po: Pod{
 			IP:   idCfg.podIP,
 			UID:  idCfg.podUID,
 			Name: idCfg.podName,
