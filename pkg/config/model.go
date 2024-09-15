@@ -38,21 +38,21 @@ type IdentityConfig struct {
 	saTokenFile    string // TODO: To k8s-derived-config
 	certSecret     string // TODO: To k8s-derived-config
 	ServiceAccount string // TODO: To k8s-derived-config
+	// X509 Configs:
+	dnsSuffix              string // TODO: CA.DnsSuffix  OR X509.DnsSuffix
+	caCertFile             string // TODO: CA.Cert       OR X509.CaCert
+	intermediateCertBundle string // TODO: CA.Bundle     OR X509.CertBundle
+	ServerCACert           string // TODO: CA.ServerCert OR X509.ServerCaCert
 	// ServiceCert Derived State and its related fields:
 	ServiceCert            DerivedServiceCert
 	providerService        string
-	dnsSuffix              string
 	keyFile                string
 	certFile               string
-	caCertFile             string
-	intermediateCertBundle string
 	backup                 string
 	athenzDomain           string
 	athenzPrefix           string
 	athenzSuffix           string
 	Reloader               *util.CertReloader
-	ServerCACert           string // TODO: Rename me back to ServerCACert or migrate to derived state
-
 	TokenTargetDomainRoles []DomainRole             // TODO: Will be migrated into DerivedTargetDomainRoles
 	targetDomainRoles      DerivedTargetDomainRoles // private as the derived state is used only within the config package
 	// RoleCerts Derived State and its related fields:
