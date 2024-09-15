@@ -123,8 +123,8 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	// parse values
 	var err error
 	if idCfg.rawPodIP != "" {
-		idCfg.PodIP = net.ParseIP(idCfg.rawPodIP)
-		if idCfg.PodIP == nil {
+		idCfg.podIP = net.ParseIP(idCfg.rawPodIP)
+		if idCfg.podIP == nil {
 			return fmt.Errorf("Invalid POD_IP [%q], %w", idCfg.rawPodIP, err)
 		}
 	}

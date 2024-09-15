@@ -389,8 +389,8 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		},
 	}
 
-	if idCfg.PodIP != nil {
-		csrOptions.SANs.IPAddresses = []net.IP{idCfg.PodIP}
+	if idCfg.K8s.Pod.Ip != nil {
+		csrOptions.SANs.IPAddresses = []net.IP{idCfg.K8s.Pod.Ip}
 	}
 
 	return csrOptions, nil
@@ -441,8 +441,8 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 			},
 		}
 
-		if idCfg.PodIP != nil {
-			roleCsrOption.SANs.IPAddresses = []net.IP{idCfg.PodIP}
+		if idCfg.K8s.Pod.Ip != nil {
+			roleCsrOption.SANs.IPAddresses = []net.IP{idCfg.K8s.Pod.Ip}
 		}
 
 		roleCsrOptions = append(roleCsrOptions, roleCsrOption)

@@ -34,6 +34,7 @@ type IdentityConfig struct {
 	K8s            DerivedK8s
 	namespace      string // TODO: To k8s-derived-config
 	serviceAccount string // TODO: To k8s-derived-config
+	podIP          net.IP // TODO: To k8s-derived-config
 	//
 	KeyFile                string
 	CertFile               string
@@ -45,7 +46,6 @@ type IdentityConfig struct {
 	AthenzPrefix           string
 	AthenzSuffix           string
 	SaTokenFile            string
-	PodIP                  net.IP // TODO: To k8s-derived-config
 	PodUID                 string // TODO: To k8s-derived-config
 	PodName                string // TODO: To k8s-derived-config
 	Reloader               *util.CertReloader
