@@ -31,6 +31,7 @@ type File struct {
 type K8sSecretBackup struct {
 	Use        bool
 	SecretName string
+	Mode       string // for log purpose only
 }
 
 type CopperArgosMode struct {
@@ -67,8 +68,9 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		CaCert: idCfg.caCertFile,
 	}
 	idCfg.ServiceCert.K8sSecretBackup = K8sSecretBackup{
-		Use:        idCfg.certSecret != "" && strings.Contains(idCfg.Backup, "read"),
+		Use:        idCfg.certSecret != "" && strings.Contains(idCfg.backup, "read"),
 		SecretName: idCfg.certSecret,
+		Mode:       idCfg.backup,
 	}
 
 	if idCfg.providerService != "" {
@@ -83,7 +85,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		}
 	} else if idCfg.keyFile != "" && idCfg.certFile != "" { // meaning third-party cert is provided, instead of using CopperArgos
 		idCfg.ServiceCert.LocalCert = &ThirdPartyCertMode{}
-	} else if idCfg.certSecret != "" && strings.Contains(idCfg.Backup, "read") { // use kubernetes secret mode
+	} else if idCfg.certSecret != "" && strings.Contains(idCfg.backup, "read") { // use kubernetes secret mode
 		idCfg.ServiceCert.K8sSecretCert = &K8sSecretCertMode{}
 	}
 	// Empty ProviderService means the service cert feature is not enabled.
