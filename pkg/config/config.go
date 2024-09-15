@@ -76,9 +76,9 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("DNS_SUFFIX", &idCfg.dnsSuffix)
 	loadEnv("REFRESH_INTERVAL", &idCfg.rawRefresh)
 	loadEnv("DELAY_JITTER_SECONDS", &idCfg.rawDelayJitterSeconds)
-	loadEnv("KEY_FILE", &idCfg.KeyFile)
-	loadEnv("CERT_FILE", &idCfg.CertFile)
-	loadEnv("CA_CERT_FILE", &idCfg.CaCertFile)
+	loadEnv("KEY_FILE", &idCfg.keyFile)
+	loadEnv("CERT_FILE", &idCfg.certFile)
+	loadEnv("CA_CERT_FILE", &idCfg.caCertFile)
 	loadEnv("INTERMEDIATE_CERT_BUNDLE", &idCfg.IntermediateCertBundle)
 	loadEnv("BACKUP", &idCfg.Backup)
 	loadEnv("CERT_SECRET", &idCfg.CertSecret)
@@ -184,9 +184,9 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.dnsSuffix, "dns-suffix", idCfg.dnsSuffix, "DNS Suffix for x509 identity/role certificates (required for identity/role certificate provisioning)")
 	f.DurationVar(&idCfg.Refresh, "refresh-interval", idCfg.Refresh, "certificate refresh interval")
 	f.Int64Var(&idCfg.DelayJitterSeconds, "delay-jitter-seconds", idCfg.DelayJitterSeconds, "delay boot with random jitter within the specified seconds (0 to disable)")
-	f.StringVar(&idCfg.KeyFile, "key", idCfg.KeyFile, "key file for the certificate (required)")
-	f.StringVar(&idCfg.CertFile, "cert", idCfg.CertFile, "certificate file to identity a service (required)")
-	f.StringVar(&idCfg.CaCertFile, "out-ca-cert", idCfg.CaCertFile, "CA certificate file to write")
+	f.StringVar(&idCfg.keyFile, "key", idCfg.keyFile, "key file for the certificate (required)")
+	f.StringVar(&idCfg.certFile, "cert", idCfg.certFile, "certificate file to identity a service (required)")
+	f.StringVar(&idCfg.caCertFile, "out-ca-cert", idCfg.caCertFile, "CA certificate file to write")
 	// IntermediateCertBundle
 	f.StringVar(&idCfg.Backup, "backup", idCfg.Backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
 	f.StringVar(&idCfg.CertSecret, "cert-secret", idCfg.CertSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
@@ -262,8 +262,8 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 	idCfg.Reloader, err = util.NewCertReloader(util.ReloadConfig{
 		Init:            idCfg.Init,
 		ProviderService: idCfg.providerService,
-		KeyFile:         idCfg.KeyFile,
-		CertFile:        idCfg.CertFile,
+		KeyFile:         idCfg.keyFile,
+		CertFile:        idCfg.certFile,
 		Logger:          log.Debugf,
 		PollInterval:    pollInterval,
 	})
@@ -278,17 +278,17 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 	// To avoid this, we fail the current run with an error to force SYNC the status on the pod resource and let
 	// the subsequent retry for the init container to attempt to get a new certificate from the identity provider.
 	if idCfg.Init && err == nil && idCfg.ServiceCert.CopperArgos != nil {
-		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", idCfg.CertFile)
+		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", idCfg.certFile)
 		cert, err := idCfg.Reloader.GetLatestCertificate()
 		if err != nil {
 			log.Infof("[X.509 Certificate] Subject: %v, DNS SANs: %v, IPs: %v", cert.Leaf.Subject, cert.Leaf.DNSNames, cert.Leaf.IPAddresses)
 		}
 		log.Infof("Deleting the existing key and cert...")
-		if err := os.Remove(idCfg.CertFile); err != nil {
-			log.Errorf("Error deleting %s file: %s", idCfg.CertFile, err.Error())
+		if err := os.Remove(idCfg.certFile); err != nil {
+			log.Errorf("Error deleting %s file: %s", idCfg.certFile, err.Error())
 		}
-		if err := os.Remove(idCfg.KeyFile); err != nil {
-			log.Errorf("Error deleting %s file: %s", idCfg.KeyFile, err.Error())
+		if err := os.Remove(idCfg.keyFile); err != nil {
+			log.Errorf("Error deleting %s file: %s", idCfg.keyFile, err.Error())
 		}
 		return errors.New("Deleted X.509 certificate that already existed.")
 	}

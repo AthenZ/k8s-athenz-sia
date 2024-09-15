@@ -22,6 +22,12 @@ import (
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
+type File struct {
+	Cert   string
+	Key    string
+	CaCert string
+}
+
 type CopperArgosMode struct {
 	Provider string // provider service name
 	// certPath         string
@@ -44,6 +50,7 @@ type K8sSecretCertMode struct {
 }
 
 type DerivedServiceCert struct {
+	File          File
 	CopperArgos   *CopperArgosMode    // disabled if nil
 	LocalCert     *ThirdPartyCertMode // disabled if nil
 	K8sSecretCert *K8sSecretCertMode  // disabled if nil
@@ -51,6 +58,11 @@ type DerivedServiceCert struct {
 
 // derivedServiceCertConfig ... // TODO
 func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
+	idCfg.ServiceCert.File = File{
+		Cert:   idCfg.certFile,
+		Key:    idCfg.keyFile,
+		CaCert: idCfg.caCertFile,
+	}
 
 	if idCfg.providerService != "" {
 		idCfg.ServiceCert.CopperArgos = &CopperArgosMode{
@@ -62,7 +74,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 			PodUID:            idCfg.podUID,
 			PodIP:             idCfg.podIP,
 		}
-	} else if idCfg.KeyFile != "" && idCfg.CertFile != "" { // meaning third-party cert is provided, instead of using CopperArgos
+	} else if idCfg.keyFile != "" && idCfg.certFile != "" { // meaning third-party cert is provided, instead of using CopperArgos
 		idCfg.ServiceCert.LocalCert = &ThirdPartyCertMode{}
 	} else if idCfg.CertSecret != "" && strings.Contains(idCfg.Backup, "read") { // use kubernetes secret mode
 		idCfg.ServiceCert.K8sSecretCert = &K8sSecretCertMode{}

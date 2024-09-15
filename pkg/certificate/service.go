@@ -84,20 +84,20 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				}
 				log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
 					x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
-				log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), idCfg.CertFile)
-				if err := w.AddBytes(idCfg.CertFile, 0644, leafPEM); err != nil {
+				log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), idCfg.ServiceCert.File.Cert)
+				if err := w.AddBytes(idCfg.ServiceCert.File.Cert, 0644, leafPEM); err != nil {
 					return fmt.Errorf("unable to save x509 cert: %w", err)
 				}
-				log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idCfg.KeyFile)
-				if err := w.AddBytes(idCfg.KeyFile, 0644, keyPEM); err != nil {
+				log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idCfg.ServiceCert.File.Key)
+				if err := w.AddBytes(idCfg.ServiceCert.File.Key, 0644, keyPEM); err != nil {
 					return fmt.Errorf("unable to save x509 key: %w", err)
 				}
 			}
 
 			caCertPEM := []byte(identity.X509CACertificatePEM)
-			if len(caCertPEM) != 0 && idCfg.CaCertFile != "" {
-				log.Debugf("Saving x509 cacert[%d bytes] at %s", len(caCertPEM), idCfg.CaCertFile)
-				if err := w.AddBytes(idCfg.CaCertFile, 0644, caCertPEM); err != nil {
+			if len(caCertPEM) != 0 && idCfg.ServiceCert.File.CaCert != "" {
+				log.Debugf("Saving x509 cacert[%d bytes] at %s", len(caCertPEM), idCfg.ServiceCert.File.CaCert)
+				if err := w.AddBytes(idCfg.ServiceCert.File.CaCert, 0644, caCertPEM); err != nil {
 					return fmt.Errorf("unable to save x509 cacert: %w", err)
 				}
 			}
@@ -206,7 +206,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					log.Errorf("Failed to update x509 certificate into certificate reloader: %s", errUpdate.Error())
 				}
 			}
-		} else if idCfg.KeyFile != "" && idCfg.CertFile != "" {
+		} else if idCfg.ServiceCert.File.Key != "" && idCfg.ServiceCert.File.Cert != "" {
 			log.Debug("Attempting to load x509 certificate from cert reloader...")
 			localFileKeyPEM, localFileCertPEM, err := idCfg.Reloader.GetLatestKeyAndCert()
 			if err != nil {
@@ -224,7 +224,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				keyPEM = localFileKeyPEM
 			}
 		} else {
-			log.Debugf("Skipping to request/load x509 certificate: identity provider[], key[%s], cert[%s]", idCfg.KeyFile, idCfg.CertFile)
+			log.Debugf("Skipping to request/load x509 certificate: identity provider[], key[%s], cert[%s]", idCfg.ServiceCert.File.Key, idCfg.ServiceCert.File.Cert)
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
@@ -284,9 +284,9 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		err = writeFiles()
 		if err != nil {
 			if forceInitIdentity != nil || forceInitKeyPEM != nil {
-				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCert.TargetDomainRoles)
+				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idCfg.ServiceCert.File.Key, idCfg.ServiceCert.File.Cert, idCfg.RoleCert.TargetDomainRoles)
 			} else {
-				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCert.TargetDomainRoles)
+				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idCfg.ServiceCert.File.Key, idCfg.ServiceCert.File.Cert, idCfg.RoleCert.TargetDomainRoles)
 			}
 		}
 
@@ -334,7 +334,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 			}
 			for {
-				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.Backup, cs.idCfg.CertSecret, cs.idCfg.Refresh)
+				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.ServiceCert.File.Key, cs.idCfg.ServiceCert.File.Cert, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.Backup, cs.idCfg.CertSecret, cs.idCfg.Refresh)
 
 				select {
 				case <-cs.shutdownChan:
@@ -343,7 +343,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				case <-t.C:
 					// skip refresh if context is done but Shutdown() is not called
 					if ctx.Err() != nil {
-						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.Backup, cs.idCfg.CertSecret)
+						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.ServiceCert.File.Key, cs.idCfg.ServiceCert.File.Cert, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.Backup, cs.idCfg.CertSecret)
 						continue
 					}
 

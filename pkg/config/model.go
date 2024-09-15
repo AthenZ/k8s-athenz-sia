@@ -24,18 +24,18 @@ import (
 
 // IdentityConfig from cmd line args
 type IdentityConfig struct {
-	Init     bool
-	Endpoint string
+	// Core ENVs:
+	Init               bool
+	Endpoint           string
+	Refresh            time.Duration
+	DelayJitterSeconds int64
 	// ServiceCert Derived State and its related fields:
-	ServiceCert     DerivedServiceCert
-	providerService string
-	//
+	ServiceCert            DerivedServiceCert
+	providerService        string
 	dnsSuffix              string
-	Refresh                time.Duration // TODO: Migrate me
-	DelayJitterSeconds     int64
-	KeyFile                string // TODO: Migrate me
-	CertFile               string // TODO: Migrate me
-	CaCertFile             string // TODO: Migrate me
+	keyFile                string
+	certFile               string
+	caCertFile             string
 	IntermediateCertBundle string // TODO: Migrate me
 	Backup                 string // TODO: Migrate me (For k8s secret)
 	CertSecret             string // TODO: Migrate me (For k8s secret)
@@ -43,7 +43,7 @@ type IdentityConfig struct {
 	athenzDomain           string
 	athenzPrefix           string
 	athenzSuffix           string
-	ServiceAccount         string // TODO: Migrate me
+	ServiceAccount         string // TODO: Migrate me once derived-token-config is done
 	saTokenFile            string
 	podIP                  net.IP
 	podUID                 string

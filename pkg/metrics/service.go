@@ -69,8 +69,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		SystemdSocket: false,
 		ConfigFile:    "",
 		Files: []string{
-			idCfg.CertFile,
-			idCfg.CaCertFile,
+			idCfg.ServiceCert.File.Cert,
+			idCfg.ServiceCert.File.CaCert,
 		},
 		Directories:           []string{},
 		YAMLs:                 []string{},
