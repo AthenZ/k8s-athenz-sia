@@ -89,7 +89,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("SERVICEACCOUNT", &idCfg.ServiceAccount)
 	loadEnv("SA_TOKEN_FILE", &idCfg.saTokenFile)
 	loadEnv("POD_IP", &idCfg.rawPodIP)
-	loadEnv("POD_UID", &idCfg.PodUID)
+	loadEnv("POD_UID", &idCfg.podUID)
 	loadEnv("POD_NAME", &idCfg.PodName)
 	loadEnv("SERVER_CA_CERT", &idCfg.ServerCACert)
 	loadEnv("TARGET_DOMAIN_ROLES", &idCfg.rawTargetDomainRoles)
@@ -123,8 +123,8 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	// parse values
 	var err error
 	if idCfg.rawPodIP != "" {
-		idCfg.PodIP = net.ParseIP(idCfg.rawPodIP)
-		if idCfg.PodIP == nil {
+		idCfg.podIP = net.ParseIP(idCfg.rawPodIP)
+		if idCfg.podIP == nil {
 			return fmt.Errorf("Invalid POD_IP [%q], %w", idCfg.rawPodIP, err)
 		}
 	}

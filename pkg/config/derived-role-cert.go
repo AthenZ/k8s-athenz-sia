@@ -16,6 +16,7 @@
 package config
 
 import (
+	"net"
 	"strings"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -31,6 +32,7 @@ type DerivedRoleCert struct {
 	KeyFormat string
 	Delimiter string // delimiter to separate domain and role name in the file name.
 	DnsSuffix string // DNS suffix for the role certificate
+	PodIP     net.IP
 }
 
 // derivedRoleCertConfig reads given configuration and sets the derived state of fetching role certificates related configuration.
@@ -63,6 +65,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 		}(),
 		Delimiter: idCfg.roleCertFilenameDelimiter,
 		DnsSuffix: idCfg.dnsSuffix,
+		PodIP:     idCfg.podIP,
 	}
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.

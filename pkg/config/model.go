@@ -45,9 +45,9 @@ type IdentityConfig struct {
 	athenzSuffix           string
 	ServiceAccount         string // TODO: Migrate me
 	saTokenFile            string
-	PodIP                  net.IP // TODO: Migrate me
-	PodUID                 string // TODO: Migrate me
-	PodName                string // TODO: Migrate me
+	podIP                  net.IP
+	podUID                 string
+	PodName                string // TODO: Migrate me for token file
 	Reloader               *util.CertReloader
 	ServerCACert           string // TODO: Rename me back to ServerCACert or migrate to derived state
 

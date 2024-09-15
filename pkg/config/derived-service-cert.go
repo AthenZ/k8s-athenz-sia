@@ -16,6 +16,7 @@
 package config
 
 import (
+	"net"
 	"strings"
 
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
@@ -29,6 +30,8 @@ type CopperArgosMode struct {
 	AthenzServiceName string
 	DnsSuffix         string // DNS suffix for the service certificate
 	SaTokenFile       string // service account token that is used as identityd document for CopperArgos
+	PodUID            string
+	PodIP             net.IP
 }
 
 type ThirdPartyCertMode struct {
@@ -56,6 +59,8 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 			AthenzServiceName: extutil.ServiceAccountToService(idCfg.ServiceAccount),
 			DnsSuffix:         idCfg.dnsSuffix,
 			SaTokenFile:       idCfg.saTokenFile,
+			PodUID:            idCfg.podUID,
+			PodIP:             idCfg.podIP,
 		}
 	} else if idCfg.KeyFile != "" && idCfg.CertFile != "" { // meaning third-party cert is provided, instead of using CopperArgos
 		idCfg.ServiceCert.LocalCert = &ThirdPartyCertMode{}
