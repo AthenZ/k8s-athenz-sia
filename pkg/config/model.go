@@ -30,7 +30,7 @@ type IdentityConfig struct {
 	DNSSuffix          string
 	Refresh            time.Duration
 	DelayJitterSeconds int64
-	// Kubernetes related fields:
+	// Kubernetes Derived State and its related fields:
 	K8s            DerivedK8s
 	namespace      string
 	serviceAccount string
