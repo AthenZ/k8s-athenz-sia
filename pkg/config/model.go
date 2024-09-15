@@ -35,13 +35,13 @@ type IdentityConfig struct {
 	namespace      string // TODO: To k8s-derived-config
 	serviceAccount string // TODO: To k8s-derived-config
 	podIP          net.IP // TODO: To k8s-derived-config
+	certSecret     string // TODO: To k8s-derived-config
 	//
 	KeyFile                string
 	CertFile               string
 	CaCertFile             string
 	IntermediateCertBundle string
 	Backup                 string
-	CertSecret             string // TODO: To k8s-derived-config
 	AthenzDomain           string
 	AthenzPrefix           string
 	AthenzSuffix           string

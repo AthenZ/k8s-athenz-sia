@@ -23,10 +23,15 @@ type Pod struct {
 	// Name string
 }
 
+type Secret struct {
+	BackupCert string
+}
+
 type DerivedK8s struct {
-	Ns  string // Namespace
-	Sa  string // Service Account
-	Pod Pod    // Pod
+	Ns     string // Namespace
+	Sa     string // Service Account
+	Pod    Pod    // Pod
+	Secret Secret // Secret
 }
 
 // derivedK8sConfig reads given configuration and sets the derived state of k8s-related configuration.
@@ -37,6 +42,9 @@ func (idCfg *IdentityConfig) derivedK8sConfig() error {
 		Sa: idCfg.serviceAccount,
 		Pod: Pod{
 			Ip: idCfg.podIP,
+		},
+		Secret: Secret{
+			BackupCert: idCfg.certSecret,
 		},
 	}
 

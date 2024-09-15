@@ -108,8 +108,8 @@ func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error)
 	}
 
 	var secretClient *k8s.SecretsClient
-	if idCfg.CertSecret != "" {
-		secretClient, err = k8s.NewSecretClient(idCfg.CertSecret, idCfg.K8s.Ns)
+	if idCfg.K8s.Secret.BackupCert != "" {
+		secretClient, err = k8s.NewSecretClient(idCfg.K8s.Secret.BackupCert, idCfg.K8s.Ns)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to initialize kubernetes secret client, err: %v", err)
 		}
