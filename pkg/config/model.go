@@ -35,7 +35,7 @@ type IdentityConfig struct {
 	namespace      string // TODO: To k8s-derived-config
 	serviceAccount string // TODO: To k8s-derived-config
 	podIP          net.IP // TODO: To k8s-derived-config
-	PodUID         string // TODO: To k8s-derived-config
+	podUID         string // TODO: To k8s-derived-config
 	PodName        string // TODO: To k8s-derived-config
 	certSecret     string // TODO: To k8s-derived-config
 	//

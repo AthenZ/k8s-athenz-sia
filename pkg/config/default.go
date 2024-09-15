@@ -86,7 +86,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		serviceAccount:            "",
 		SaTokenFile:               "",
 		podIP:                     nil,
-		PodUID:                    "",
+		podUID:                    "",
 		PodName:                   "",
 		Reloader:                  nil,
 		ServerCACert:              "",

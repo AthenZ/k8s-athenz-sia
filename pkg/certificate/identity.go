@@ -120,7 +120,7 @@ func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error)
 		client:       client,
 		domain:       domain,
 		service:      service,
-		instanceID:   idCfg.PodUID,
+		instanceID:   idCfg.K8s.Pod.Uid,
 		csrOptions:   csrOptions,
 		secretClient: secretClient,
 	}, nil
@@ -192,7 +192,7 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 			zts.ServiceName(h.idCfg.ProviderService),
 			zts.DomainName(h.domain),
 			zts.SimpleName(h.service),
-			zts.PathElement(h.idCfg.PodUID),
+			zts.PathElement(h.idCfg.K8s.Pod.Uid),
 			&zts.InstanceRefreshInformation{
 				AttestationData: string(saToken),
 				Csr:             string(csrPEM),
@@ -327,7 +327,7 @@ func (h *identityHandler) DeleteX509CertRecord() error {
 			zts.ServiceName(h.idCfg.ProviderService),
 			zts.DomainName(h.domain),
 			zts.SimpleName(h.service),
-			zts.PathElement(h.idCfg.PodUID),
+			zts.PathElement(h.idCfg.K8s.Pod.Uid),
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to call DeleteInstanceIdentity, err: %v", err)
@@ -370,7 +370,7 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 	sans := []string{
 		fmt.Sprintf("%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
 		fmt.Sprintf("*.%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
-		fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.PodUID, idCfg.DNSSuffix),
+		fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.K8s.Pod.Uid, idCfg.DNSSuffix),
 	}
 
 	subject := pkix.Name{
