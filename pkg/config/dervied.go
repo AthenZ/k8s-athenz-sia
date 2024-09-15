@@ -18,6 +18,10 @@ package config
 // loadDerivedConfig loads functions from files with prefix "derived-" under /pkg/config
 // The order matters, and the earlier function may affect the later function. Unconsidered change may cause unexpected behavior.
 func (idCfg *IdentityConfig) loadDerivedConfig() error {
+	if err := idCfg.derivedK8sConfig(); err != nil {
+		return err
+	}
+
 	// TODO:
 	// if err := idCfg.derivedServiceCert(); err != nil {
 	// 	return err
