@@ -34,8 +34,8 @@ type IdentityConfig struct {
 	CertFile               string
 	CaCertFile             string
 	IntermediateCertBundle string
-	Backup                 string
-	CertSecret             string
+	backup                 string
+	certSecret             string
 	Namespace              string
 	AthenzDomain           string
 	AthenzPrefix           string
@@ -47,6 +47,7 @@ type IdentityConfig struct {
 	PodName                string
 	Reloader               *util.CertReloader
 	ServerCACert           string
+	K8sSecretBackup        DerivedK8sSecretBackup
 	TokenTargetDomainRoles []DomainRole             // TODO: Will be migrated into DerivedTargetDomainRoles
 	targetDomainRoles      DerivedTargetDomainRoles // private as the derived state is used only within the config package
 	// RoleCerts Derived State and its related fields:
