@@ -26,7 +26,7 @@ import (
 type IdentityConfig struct {
 	Init                   bool
 	Endpoint               string
-	ProviderService        string
+	providerService        string
 	DNSSuffix              string
 	Refresh                time.Duration
 	DelayJitterSeconds     int64
@@ -34,12 +34,12 @@ type IdentityConfig struct {
 	CertFile               string
 	CaCertFile             string
 	IntermediateCertBundle string
-	Backup                 string
-	CertSecret             string
+	backup                 string
+	certSecret             string
 	Namespace              string
-	AthenzDomain           string
-	AthenzPrefix           string
-	AthenzSuffix           string
+	athenzDomain           string
+	athenzPrefix           string
+	athenzSuffix           string
 	ServiceAccount         string
 	SaTokenFile            string
 	PodIP                  net.IP
@@ -47,6 +47,8 @@ type IdentityConfig struct {
 	PodName                string
 	Reloader               *util.CertReloader
 	ServerCACert           string
+	K8sSecretBackup        DerivedK8sSecretBackup
+	ServiceCert            DerivedServiceCert
 	TokenTargetDomainRoles []DomainRole             // TODO: Will be migrated into DerivedTargetDomainRoles
 	targetDomainRoles      DerivedTargetDomainRoles // private as the derived state is used only within the config package
 	// RoleCerts Derived State and its related fields:

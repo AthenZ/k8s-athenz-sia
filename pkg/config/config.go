@@ -72,7 +72,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 
 	loadEnv("MODE", &idCfg.rawMode)
 	loadEnv("ENDPOINT", &idCfg.Endpoint)
-	loadEnv("PROVIDER_SERVICE", &idCfg.ProviderService)
+	loadEnv("PROVIDER_SERVICE", &idCfg.providerService)
 	loadEnv("DNS_SUFFIX", &idCfg.DNSSuffix)
 	loadEnv("REFRESH_INTERVAL", &idCfg.rawRefresh)
 	loadEnv("DELAY_JITTER_SECONDS", &idCfg.rawDelayJitterSeconds)
@@ -80,12 +80,12 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("CERT_FILE", &idCfg.CertFile)
 	loadEnv("CA_CERT_FILE", &idCfg.CaCertFile)
 	loadEnv("INTERMEDIATE_CERT_BUNDLE", &idCfg.IntermediateCertBundle)
-	loadEnv("BACKUP", &idCfg.Backup)
-	loadEnv("CERT_SECRET", &idCfg.CertSecret)
+	loadEnv("BACKUP", &idCfg.backup)
+	loadEnv("CERT_SECRET", &idCfg.certSecret)
 	loadEnv("NAMESPACE", &idCfg.Namespace)
-	loadEnv("ATHENZ_DOMAIN", &idCfg.AthenzDomain)
-	loadEnv("ATHENZ_PREFIX", &idCfg.AthenzPrefix)
-	loadEnv("ATHENZ_SUFFIX", &idCfg.AthenzSuffix)
+	loadEnv("ATHENZ_DOMAIN", &idCfg.athenzDomain)
+	loadEnv("ATHENZ_PREFIX", &idCfg.athenzPrefix)
+	loadEnv("ATHENZ_SUFFIX", &idCfg.athenzSuffix)
 	loadEnv("SERVICEACCOUNT", &idCfg.ServiceAccount)
 	loadEnv("SA_TOKEN_FILE", &idCfg.SaTokenFile)
 	loadEnv("POD_IP", &idCfg.rawPodIP)
@@ -182,7 +182,7 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 
 	f.StringVar(&idCfg.rawMode, "mode", idCfg.rawMode, "mode, must be one of init or refresh")
 	f.StringVar(&idCfg.Endpoint, "endpoint", idCfg.Endpoint, "Athenz ZTS endpoint (required for identity/role certificate and token provisioning)")
-	f.StringVar(&idCfg.ProviderService, "provider-service", idCfg.ProviderService, "Identity Provider service (required for identity certificate provisioning)")
+	f.StringVar(&idCfg.providerService, "provider-service", idCfg.providerService, "Identity Provider service (required for identity certificate provisioning)")
 	f.StringVar(&idCfg.DNSSuffix, "dns-suffix", idCfg.DNSSuffix, "DNS Suffix for x509 identity/role certificates (required for identity/role certificate provisioning)")
 	f.DurationVar(&idCfg.Refresh, "refresh-interval", idCfg.Refresh, "certificate refresh interval")
 	f.Int64Var(&idCfg.DelayJitterSeconds, "delay-jitter-seconds", idCfg.DelayJitterSeconds, "delay boot with random jitter within the specified seconds (0 to disable)")
@@ -190,8 +190,8 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.CertFile, "cert", idCfg.CertFile, "certificate file to identity a service (required)")
 	f.StringVar(&idCfg.CaCertFile, "out-ca-cert", idCfg.CaCertFile, "CA certificate file to write")
 	// IntermediateCertBundle
-	f.StringVar(&idCfg.Backup, "backup", idCfg.Backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
-	f.StringVar(&idCfg.CertSecret, "cert-secret", idCfg.CertSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
+	f.StringVar(&idCfg.backup, "backup", idCfg.backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
+	f.StringVar(&idCfg.certSecret, "cert-secret", idCfg.certSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
 	// Namespace
 	// AthenzDomain
 	// AthenzPrefix
@@ -265,7 +265,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 	}
 	idCfg.Reloader, err = util.NewCertReloader(util.ReloadConfig{
 		Init:            idCfg.Init,
-		ProviderService: idCfg.ProviderService,
+		ProviderService: idCfg.providerService,
 		KeyFile:         idCfg.KeyFile,
 		CertFile:        idCfg.CertFile,
 		Logger:          log.Debugf,
@@ -281,7 +281,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 	// to the kube and kubelet APIs. So, we might end up getting an X.509 certificate with the old pod IP.
 	// To avoid this, we fail the current run with an error to force SYNC the status on the pod resource and let
 	// the subsequent retry for the init container to attempt to get a new certificate from the identity provider.
-	if idCfg.Init && err == nil && idCfg.ProviderService != "" {
+	if idCfg.Init && err == nil && idCfg.providerService != "" {
 		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", idCfg.CertFile)
 		cert, err := idCfg.Reloader.GetLatestCertificate()
 		if err != nil {
