@@ -27,7 +27,7 @@ type DerivedK8sSecretBackup struct {
 	// Ns       string // Namespace that your Secret is stored in
 }
 
-// derivedK8sSecretBackupConfig // TODO: write me
+// derivedK8sSecretBackupConfig stores whether to use K8s Secret as backup for service cert.
 func (idCfg *IdentityConfig) derivedK8sSecretBackupConfig() error {
 	// default:
 	idCfg.K8sSecretBackup = DerivedK8sSecretBackup{
