@@ -223,7 +223,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				identity = localFileIdentity
 				keyPEM = localFileKeyPEM
 			}
-		} else {
+		} else { // We are not immediately returning an error here, as there is a chance that the kubernetes secret backup is enabled:
 			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idCfg.ServiceCert.CopperArgos.Provider, idCfg.KeyFile, idCfg.CertFile)
 		}
 
@@ -258,7 +258,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 			return fmt.Errorf("Failed to prepare x509 certificate")
 		}
 
-		if k8sSecretBackupIdentity != nil && len(k8sSecretBackupKeyPEM) != 0 && idCfg.ServiceCert.CopperArgos.Provider != "" {
+		if k8sSecretBackupIdentity != nil && len(k8sSecretBackupKeyPEM) != 0 && idCfg.ServiceCert.CopperArgos.Use {
 			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idCfg.ServiceCert.CopperArgos.Provider)
 			err, forceInitIdentity, forceInitKeyPEM = identityProvisioningRequest(true)
 			if err != nil {

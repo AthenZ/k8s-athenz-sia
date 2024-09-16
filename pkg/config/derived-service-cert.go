@@ -26,21 +26,20 @@ type CopperArgosMode struct {
 	AthenzServiceName string
 }
 
-type ThirdPartyCertMode struct {
-	Use bool
-}
-
-type K8sSecretCertMode struct {
+type LocalCertMode struct {
 	Use bool
 }
 
 type DerivedServiceCert struct {
-	CopperArgos   CopperArgosMode    // disabled if nil
-	LocalCert     ThirdPartyCertMode // disabled if nil
-	K8sSecretCert K8sSecretCertMode  // disabled if nil
+	CopperArgos CopperArgosMode
+	LocalCert   LocalCertMode // Use 3rd party provided service cert instead of CopperArgos
 }
 
-// derivedServiceCertConfig ... // TODO
+// derivedServiceCertConfig reads given configuration and sets the derived state of preparing service cert under the follow modes:
+// - CopperArgos: Use CopperArgos Mode
+// - LocalCert: Use 3rd party provided service cert instead of CopperArgos
+// Also, there is a hidden mode where k8s-athenz-sia prepares service-cert with k8s-secret mode, but the state is managed in DerivedK8sSecretBackup instead,
+// as the backup mode can be used for every mode, if enabled.
 func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 	// default:
 	idCfg.ServiceCert = DerivedServiceCert{
@@ -50,8 +49,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 			AthenzDomainName:  "",
 			AthenzServiceName: "",
 		},
-		LocalCert:     ThirdPartyCertMode{Use: false},
-		K8sSecretCert: K8sSecretCertMode{Use: false},
+		LocalCert: LocalCertMode{Use: false},
 	}
 
 	if idCfg.providerService != "" {
@@ -61,12 +59,14 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 			AthenzDomainName:  extutil.NamespaceToDomain(idCfg.Namespace, idCfg.athenzPrefix, idCfg.athenzDomain, idCfg.athenzSuffix),
 			AthenzServiceName: extutil.ServiceAccountToService(idCfg.ServiceAccount),
 		}
-	} else if idCfg.KeyFile != "" && idCfg.CertFile != "" { // meaning third-party cert is provided, instead of using CopperArgos
-		idCfg.ServiceCert.LocalCert = ThirdPartyCertMode{Use: true}
-	} else if idCfg.K8sSecretBackup.UseRead { // use kubernetes secret mode
-		idCfg.ServiceCert.K8sSecretCert = K8sSecretCertMode{Use: true}
+		return nil // Use CopperArgos Mode
 	}
-	// Empty ProviderService means the service cert feature is not enabled.
+
+	// k8s-athenz-sia uses third-party service certificate, instead of using CopperArgos:
+	if idCfg.KeyFile != "" && idCfg.CertFile != "" {
+		idCfg.ServiceCert.LocalCert = LocalCertMode{Use: true}
+		return nil // Use LocalCert Mode
+	}
 
 	return nil
 }
