@@ -58,7 +58,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		idCfg.ServiceCert.CopperArgos = CopperArgosMode{
 			Use:               true,
 			Provider:          idCfg.providerService,
-			AthenzDomainName:  extutil.NamespaceToDomain(idCfg.Namespace, idCfg.AthenzPrefix, idCfg.AthenzDomain, idCfg.AthenzSuffix),
+			AthenzDomainName:  extutil.NamespaceToDomain(idCfg.Namespace, idCfg.athenzPrefix, idCfg.athenzDomain, idCfg.athenzSuffix),
 			AthenzServiceName: extutil.ServiceAccountToService(idCfg.ServiceAccount),
 		}
 	} else if idCfg.KeyFile != "" && idCfg.CertFile != "" { // meaning third-party cert is provided, instead of using CopperArgos

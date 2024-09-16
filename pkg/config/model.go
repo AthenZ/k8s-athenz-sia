@@ -37,9 +37,9 @@ type IdentityConfig struct {
 	backup                 string
 	certSecret             string
 	Namespace              string
-	AthenzDomain           string
-	AthenzPrefix           string
-	AthenzSuffix           string
+	athenzDomain           string
+	athenzPrefix           string
+	athenzSuffix           string
 	ServiceAccount         string
 	SaTokenFile            string
 	PodIP                  net.IP
