@@ -22,10 +22,11 @@ func (idCfg *IdentityConfig) loadDerivedConfig() error {
 		return err
 	}
 
-	// TODO:
-	// if err := idCfg.derivedServiceCert(); err != nil {
-	// 	return err
-	// }
+	// depends on the following:
+	// - derivedK8sSecretBackupConfig()
+	if err := idCfg.derivedServiceCertConfig(); err != nil {
+		return err
+	}
 
 	if err := idCfg.derivedTargetDomainRoles(); err != nil {
 		return err
