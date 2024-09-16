@@ -35,7 +35,7 @@ type IdentityConfig struct {
 	CaCertFile             string
 	IntermediateCertBundle string
 	backup                 string
-	CertSecret             string
+	certSecret             string
 	Namespace              string
 	AthenzDomain           string
 	AthenzPrefix           string
