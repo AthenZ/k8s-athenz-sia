@@ -25,6 +25,7 @@ type DerivedK8sSecretBackup struct {
 	UseWrite bool
 	Secret   string // Secret name that your service cert is stored in
 	// Ns       string // Namespace that your Secret is stored in
+	Raw string // Raw string of the backup config: "", "read", "write", "read,write"; Used for log purpose only
 }
 
 // derivedK8sSecretBackupConfig stores whether to use K8s Secret as backup for service cert.
@@ -36,6 +37,7 @@ func (idCfg *IdentityConfig) derivedK8sSecretBackupConfig() error {
 		UseWrite: false,
 		Secret:   "",
 		// Ns:       "",
+		Raw: "",
 	}
 
 	if idCfg.certSecret == "" {
@@ -48,6 +50,7 @@ func (idCfg *IdentityConfig) derivedK8sSecretBackupConfig() error {
 		UseWrite: strings.Contains(idCfg.backup, "write"),
 		Secret:   idCfg.certSecret,
 		// Ns:       idCfg.Namespace,
+		Raw: idCfg.backup,
 	}
 	return nil
 }

@@ -334,7 +334,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 			}
 			for {
-				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.K8sSecretBackup.UseWrite, cs.idCfg.K8sSecretBackup.Secret, cs.idCfg.Refresh)
+				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret, cs.idCfg.Refresh)
 
 				select {
 				case <-cs.shutdownChan:
@@ -343,7 +343,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				case <-t.C:
 					// skip refresh if context is done but Shutdown() is not called
 					if ctx.Err() != nil {
-						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.K8sSecretBackup.UseWrite, cs.idCfg.K8sSecretBackup.Secret)
+						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret)
 						continue
 					}
 
