@@ -44,6 +44,7 @@ type IdentityConfig struct {
 	intermediateCertBundle string // TODO: CA.Bundle     OR X509.CertBundle
 	ServerCACert           string // TODO: CA.ServerCert OR X509.ServerCaCert
 	// ServiceCert Derived State and its related fields:
+	K8sSecretBackup        DerivedK8sSecretBackup
 	ServiceCert            DerivedServiceCert
 	providerService        string
 	keyFile                string
