@@ -80,7 +80,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("CERT_FILE", &idCfg.CertFile)
 	loadEnv("CA_CERT_FILE", &idCfg.CaCertFile)
 	loadEnv("INTERMEDIATE_CERT_BUNDLE", &idCfg.IntermediateCertBundle)
-	loadEnv("BACKUP", &idCfg.Backup)
+	loadEnv("BACKUP", &idCfg.backup)
 	loadEnv("CERT_SECRET", &idCfg.CertSecret)
 	loadEnv("NAMESPACE", &idCfg.Namespace)
 	loadEnv("ATHENZ_DOMAIN", &idCfg.AthenzDomain)
@@ -188,7 +188,7 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.CertFile, "cert", idCfg.CertFile, "certificate file to identity a service (required)")
 	f.StringVar(&idCfg.CaCertFile, "out-ca-cert", idCfg.CaCertFile, "CA certificate file to write")
 	// IntermediateCertBundle
-	f.StringVar(&idCfg.Backup, "backup", idCfg.Backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
+	f.StringVar(&idCfg.backup, "backup", idCfg.backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
 	f.StringVar(&idCfg.CertSecret, "cert-secret", idCfg.CertSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
 	// Namespace
 	// AthenzDomain
