@@ -177,7 +177,7 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 	var id *zts.InstanceIdentity
 	if h.idCfg.Init || forceInit {
 		id, _, err = h.client.PostInstanceRegisterInformation(&zts.InstanceRegisterInformation{
-			Provider:        zts.ServiceName(h.idCfg.ProviderService),
+			Provider:        zts.ServiceName(h.idCfg.ServiceCert.CopperArgos.Provider),
 			Domain:          zts.DomainName(h.domain),
 			Service:         zts.SimpleName(h.service),
 			AttestationData: string(saToken),
@@ -189,7 +189,7 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 
 	} else {
 		id, err = h.client.PostInstanceRefreshInformation(
-			zts.ServiceName(h.idCfg.ProviderService),
+			zts.ServiceName(h.idCfg.ServiceCert.CopperArgos.Provider),
 			zts.DomainName(h.domain),
 			zts.SimpleName(h.service),
 			zts.PathElement(h.idCfg.PodUID),
@@ -324,7 +324,7 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 func (h *identityHandler) DeleteX509CertRecord() error {
 	if !h.idCfg.Init {
 		err := h.client.DeleteInstanceIdentity(
-			zts.ServiceName(h.idCfg.ProviderService),
+			zts.ServiceName(h.idCfg.ServiceCert.CopperArgos.Provider),
 			zts.DomainName(h.domain),
 			zts.SimpleName(h.service),
 			zts.PathElement(h.idCfg.PodUID),
@@ -355,8 +355,8 @@ func (h *identityHandler) InstanceID() string {
 // PrepareIdentityCsrOptions prepares csrOptions for an X.509 certificate
 func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service string) (*util.CSROptions, error) {
 
-	if idCfg.ProviderService == "" {
-		log.Debugf("Skipping to prepare csr with provider service[%s]", idCfg.ProviderService)
+	if idCfg.ServiceCert.CopperArgos.Provider == "" {
+		log.Debugf("Skipping to prepare csr with provider service[%s]", idCfg.ServiceCert.CopperArgos.Provider)
 		return nil, nil
 	}
 
@@ -377,7 +377,7 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		Country:            []string{config.DEFAULT_COUNTRY},
 		Province:           []string{config.DEFAULT_PROVINCE},
 		Organization:       []string{config.DEFAULT_ORGANIZATION},
-		OrganizationalUnit: []string{idCfg.ProviderService},
+		OrganizationalUnit: []string{idCfg.ServiceCert.CopperArgos.Provider},
 		CommonName:         fmt.Sprintf("%s.%s", domain, service),
 	}
 
