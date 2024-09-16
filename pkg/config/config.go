@@ -277,7 +277,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 	// to the kube and kubelet APIs. So, we might end up getting an X.509 certificate with the old pod IP.
 	// To avoid this, we fail the current run with an error to force SYNC the status on the pod resource and let
 	// the subsequent retry for the init container to attempt to get a new certificate from the identity provider.
-	if idCfg.Init && err == nil && idCfg.ServiceCert.CopperArgos != nil {
+	if idCfg.Init && err == nil && idCfg.providerService != ""{
 		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", idCfg.certFile)
 		cert, err := idCfg.Reloader.GetLatestCertificate()
 		if err != nil {
