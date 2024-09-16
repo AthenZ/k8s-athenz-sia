@@ -54,11 +54,10 @@ type K8sSecretCertMode struct {
 }
 
 type DerivedServiceCert struct {
-	File            File
-	K8sSecretBackup K8sSecretBackup
-	CopperArgos     *CopperArgosMode    // disabled if nil
-	LocalCert       *ThirdPartyCertMode // disabled if nil
-	K8sSecretCert   *K8sSecretCertMode  // disabled if nil
+	File          File
+	CopperArgos   *CopperArgosMode    // disabled if nil
+	LocalCert     *ThirdPartyCertMode // disabled if nil
+	K8sSecretCert *K8sSecretCertMode  // disabled if nil
 }
 
 // derivedServiceCertConfig ... // TODO
@@ -68,11 +67,6 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		Key:        idCfg.keyFile,
 		CaCert:     idCfg.caCertFile,
 		CertBundle: idCfg.intermediateCertBundle,
-	}
-	idCfg.ServiceCert.K8sSecretBackup = K8sSecretBackup{
-		Use:        idCfg.certSecret != "" && strings.Contains(idCfg.backup, "read"),
-		SecretName: idCfg.certSecret,
-		Mode:       idCfg.backup,
 	}
 
 	if idCfg.providerService != "" {

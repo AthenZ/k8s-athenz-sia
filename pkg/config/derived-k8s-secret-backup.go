@@ -30,7 +30,13 @@ type DerivedK8sSecretBackup struct {
 // derivedK8sSecretBackupConfig // TODO: write me
 func (idCfg *IdentityConfig) derivedK8sSecretBackupConfig() error {
 	// default:
-	idCfg.K8sSecretBackup.Use = false
+	idCfg.K8sSecretBackup = DerivedK8sSecretBackup{
+		Use:      false,
+		UseRead:  false,
+		UseWrite: false,
+		Secret:   "",
+		Ns:       "",
+	}
 
 	if idCfg.certSecret == "" {
 		return nil // disabled
