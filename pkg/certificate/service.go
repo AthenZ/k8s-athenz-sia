@@ -44,7 +44,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	// TODO: This log should be moved to derived-service-cert.go
-	if idCfg.ServiceCert.CopperArgos.Use {
+	if !idCfg.ServiceCert.CopperArgos.Use {
 		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idCfg.ServiceCert.CopperArgos.Provider)
 	}
 
