@@ -45,7 +45,7 @@ type IdentityConfig struct {
 	PodIP                  net.IP
 	PodUID                 string
 	PodName                string
-	Reloader               *util.CertReloader // TODO: Maybe move to the ServiceCert.ThirdPartyCertMode?
+	Reloader               *util.CertReloader
 	ServerCACert           string
 	K8sSecretBackup        DerivedK8sSecretBackup
 	ServiceCert            DerivedServiceCert
