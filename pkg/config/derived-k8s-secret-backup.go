@@ -40,7 +40,7 @@ func (idCfg *IdentityConfig) derivedK8sSecretBackupConfig() error {
 		Raw: "",
 	}
 
-	if idCfg.certSecret == "" {
+	if idCfg.certSecret == "" || idCfg.backup == "" {
 		return nil // disabled
 	}
 
