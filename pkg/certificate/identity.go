@@ -352,7 +352,7 @@ func (h *identityHandler) InstanceID() string {
 // PrepareIdentityCsrOptions prepares csrOptions for an X.509 certificate
 func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service string) (*util.CSROptions, error) {
 
-	if idCfg.ServiceCert.CopperArgos.Provider == "" {
+	if !idCfg.ServiceCert.CopperArgos.Use {
 		log.Debugf("Skipping to prepare csr with provider service[%s]", idCfg.ServiceCert.CopperArgos.Provider)
 		return nil, nil
 	}
