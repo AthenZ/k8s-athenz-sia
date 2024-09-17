@@ -155,7 +155,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		Handler:   newHandlerFunc(ts, idCfg.TokenServerTimeout),
 		TLSConfig: nil,
 	}
-	if idCfg.TokenServer.Tls != nil {
+	if idCfg.TokenServer.Tls != nil { // if TLS enabled:
 		tokenServer.TLSConfig, err = NewTLSConfig(idCfg.TokenServer.Tls.CaPath, idCfg.TokenServer.Tls.CertPath, idCfg.TokenServer.Tls.KeyPath)
 		if err != nil {
 			return nil, err
