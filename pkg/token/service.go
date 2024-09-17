@@ -51,7 +51,9 @@ type tokenService struct {
 	ztsClient *zts.ZTSClient
 	saService string
 
-	tokenRESTAPI        bool
+	tokenRESTAPI bool
+	// used for the Token Server
+	tokenType           mode
 	tokenRefresh        time.Duration
 	tokenExpiryInSecond int
 	roleAuthHeader      string
@@ -70,13 +72,15 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Info("Skipped token provider initiation")
 		return nil, nil
 	}
-	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
-	enableWriteFiles := idCfg.AccessToken.Use || idCfg.RoleToken.Use
-	if !enableWriteFiles {
-		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.AccessToken.Dir)
+	if !idCfg.AccessToken.Use {
+		log.Debugf("Skipping to write access token files to directory with empty TOKEN_DIR [%s]", idCfg.AccessToken.Dir)
+	}
+	if !idCfg.RoleToken.Use {
+		log.Debugf("Skipping to write role token files to directory with empty TOKEN_DIR [%s]", idCfg.RoleToken.Dir)
 	}
 
 	// initialize token cache with placeholder
+	tt := newType(idCfg.TokenType)
 	tokenExpiryInSecond := int(idCfg.TokenExpiry.Seconds())
 	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
 	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
@@ -121,6 +125,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		ztsClient:           ztsClient,
 		saService:           saService,
 		tokenRESTAPI:        idCfg.TokenServerRESTAPI,
+		tokenType:           tt,
 		tokenRefresh:        idCfg.TokenRefresh,
 		tokenExpiryInSecond: tokenExpiryInSecond,
 		roleAuthHeader:      idCfg.RoleAuthHeader,
@@ -132,7 +137,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
 	// If it is in refresh mode, when requesting tokens using the REST API for the domains and roles specified in TARGET_DOMAIN_ROLES,
 	// the cache is updated to ensure a cache hit from the first request.
-	if !idCfg.Init || enableWriteFiles {
+	if !idCfg.Init || idCfg.AccessToken.Use || idCfg.RoleToken.Use {
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
 		for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT) {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
@@ -144,7 +149,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServerAddr)
 		return ts, nil
 	}
-	if idCfg.TokenServerAddr == "" || (!idCfg.AccessToken.Use && !idCfg.RoleToken.Use) {
+	if idCfg.TokenServerAddr == "" || tt == 0 {
 		log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TokenType)
 		return ts, nil
 	}

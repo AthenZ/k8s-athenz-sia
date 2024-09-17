@@ -231,12 +231,12 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 
 		if ts.tokenRESTAPI {
 			// sidecar API (server requests' Body is always non-nil)
-			if ts.idCfg.RoleToken.Use && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
+			if ts.tokenType&mROLE_TOKEN != 0 && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
 				postRoleToken(ts, w, r)
 				return
 			}
 
-			if ts.idCfg.AccessToken.Use && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
+			if ts.tokenType&mACCESS_TOKEN != 0 && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
 				postAccessToken(ts, w, r)
 				return
 			}
@@ -260,13 +260,13 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 			// TODO: Since the specifications are not yet decided, the value of WriteFileRequired is undetermined.
 			// TODO: Maybe we need to separate the cache keys for RT and AT?
 			k := CacheKey{Domain: domain, Role: role, MinExpiry: ts.tokenExpiryInSecond}
-			if ts.idCfg.AccessToken.Use {
+			if ts.tokenType&mACCESS_TOKEN != 0 {
 				k, aToken = ts.accessTokenCache.Search(k)
 				if aToken == nil {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 				}
 			}
-			if ts.idCfg.RoleToken.Use {
+			if ts.tokenType&mROLE_TOKEN != 0 {
 				k, rToken = ts.roleTokenCache.Search(k)
 				if rToken == nil {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
@@ -310,8 +310,7 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		// TODO: Since the specifications are not yet decided, the log message is undetermined.
-		log.Debugf("Returning %s for domain[%s], role[%s]", ts.idCfg.TokenType, domain, role)
+		log.Debugf("Returning %d for domain[%s], role[%s]", ts.tokenType, domain, role)
 		io.WriteString(w, string(response))
 	}
 

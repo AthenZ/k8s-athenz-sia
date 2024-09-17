@@ -25,8 +25,7 @@ type DerivedRoleToken struct {
 }
 
 // // derivedAccessToken ... TODO: Comment
-func (idCfg *IdentityConfig) derivedRoleToken() error {
-	// TODO: Write
+func (idCfg *IdentityConfig) derivedRoleTokenConfig() error {
 	idCfg.AccessToken.Use = false
 
 	if len(idCfg.targetDomainRoles.tokens) == 0 || idCfg.tokenDir == "" || strings.Contains(idCfg.TokenType, "roletoken") {
