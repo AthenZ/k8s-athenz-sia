@@ -397,6 +397,7 @@ func (ts *tokenService) updateAndWriteFileTokenWithRetry(ctx context.Context, ma
 	return backoff.RetryNotify(operation, newExponentialBackOff(ctx, maxElapsedTime), notifyOnErr)
 }
 
+// TODO: Why is this d, not ts?
 func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 	updateAndWriteFileAccessToken := func(key CacheKey) error {
 		_, err := d.requestTokenToZts(key, mACCESS_TOKEN, "daemon_access_token_update")
@@ -431,6 +432,7 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 }
 
 // writeFile outputs given token (AT or RT) as file
+// TODO: Why is this d, not ts?
 func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 	w := util.NewWriter()
 	tokenType := ""
