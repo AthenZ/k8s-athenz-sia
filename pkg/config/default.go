@@ -99,7 +99,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		RoleAuthHeader:            DEFAULT_ROLE_AUTH_HEADER,
 		TokenType:                 "accesstoken",
 		TokenRefresh:              DEFAULT_TOKEN_REFRESH,
-		TokenExpiry:               DEFAULT_TOKEN_EXPIRY,
+		tokenExpiry:               DEFAULT_TOKEN_EXPIRY,
 		TokenServerAddr:           "",
 		TokenServerRESTAPI:        false,
 		TokenServerTimeout:        DEFAULT_TOKEN_SERVER_TIMEOUT,

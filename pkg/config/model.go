@@ -61,12 +61,12 @@ type IdentityConfig struct {
 	// Shared fields for server and writing files:
 	TokenType string
 	//WriteToken Derived State and its related fields:
-	WriteToken DerivedToken // TODO: rename me later
-	tokenDir   string
+	WriteToken  DerivedToken // TODO: rename me later
+	tokenDir    string
+	tokenExpiry time.Duration
 	//
 	RoleAuthHeader         string
 	TokenRefresh           time.Duration
-	TokenExpiry            time.Duration
 	TokenServerAddr        string
 	TokenServerRESTAPI     bool
 	TokenServerTimeout     time.Duration
