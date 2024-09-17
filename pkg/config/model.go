@@ -49,7 +49,6 @@ type IdentityConfig struct {
 	ServerCACert           string
 	K8sSecretBackup        DerivedK8sSecretBackup
 	ServiceCert            DerivedServiceCert
-	TokenTargetDomainRoles []DomainRole             // TODO: Will be migrated into DerivedTargetDomainRoles
 	targetDomainRoles      DerivedTargetDomainRoles // private as the derived state is used only within the config package
 	// RoleCerts Derived State and its related fields:
 	RoleCert                  DerivedRoleCert
@@ -58,6 +57,11 @@ type IdentityConfig struct {
 	roleCertKeyFileOutput     bool
 	roleCertNamingFormat      string
 	roleCertKeyNamingFormat   string
+	//
+	// Token Derived State and its related fields:
+	AccessToken DerivedAccessToken
+	RoleToken   DerivedRoleToken
+	tokenDir    string
 	//
 	RoleAuthHeader         string
 	TokenType              string
@@ -69,7 +73,6 @@ type IdentityConfig struct {
 	TokenServerTLSCAPath   string
 	TokenServerTLSCertPath string
 	TokenServerTLSKeyPath  string
-	TokenDir               string
 	MetricsServerAddr      string
 	HealthCheckAddr        string
 	HealthCheckEndpoint    string

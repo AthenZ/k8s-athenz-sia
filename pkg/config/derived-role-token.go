@@ -17,7 +17,7 @@ package config
 
 import "strings"
 
-type DerivedAccessToken struct {
+type DerivedRoleToken struct {
 	Use               bool         // if fetching access token as files is enabled (de facto standard)
 	Dir               string       // directory to store access token. Usually one, but can be multiple
 	TargetDomainRoles []DomainRole // domain roles to fetch access tokens
@@ -25,11 +25,11 @@ type DerivedAccessToken struct {
 }
 
 // // derivedAccessToken ... TODO: Comment
-func (idCfg *IdentityConfig) derivedAccessToken() error {
+func (idCfg *IdentityConfig) derivedRoleToken() error {
 	// TODO: Write
 	idCfg.AccessToken.Use = false
 
-	if len(idCfg.targetDomainRoles.tokens) == 0 || idCfg.tokenDir == "" || strings.Contains(idCfg.TokenType, "accesstoken") {
+	if len(idCfg.targetDomainRoles.tokens) == 0 || idCfg.tokenDir == "" || strings.Contains(idCfg.TokenType, "roletoken") {
 		return nil // disabled
 	}
 

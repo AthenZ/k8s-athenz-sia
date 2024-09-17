@@ -52,8 +52,6 @@ type tokenService struct {
 	saService string
 
 	tokenRESTAPI        bool
-	tokenType           mode
-	tokenDir            string
 	tokenRefresh        time.Duration
 	tokenExpiryInSecond int
 	roleAuthHeader      string
@@ -64,6 +62,7 @@ type tokenService struct {
 
 	shutdownDelay   time.Duration
 	shutdownTimeout time.Duration
+	idCfg           *config.IdentityConfig
 }
 
 func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
@@ -72,25 +71,25 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		return nil, nil
 	}
 	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
-	enableWriteFiles := idCfg.TokenDir != ""
+	enableWriteFiles := idCfg.AccessToken.Use || idCfg.RoleToken.Use
 	if !enableWriteFiles {
-		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.TokenDir)
+		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.AccessToken.Dir)
 	}
 
 	// initialize token cache with placeholder
-	tt := newType(idCfg.TokenType)
 	tokenExpiryInSecond := int(idCfg.TokenExpiry.Seconds())
 	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
 	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
-	for _, dr := range idCfg.TokenTargetDomainRoles {
-		domain, role := dr.Domain, dr.Role
-		// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."
-		if tt&mACCESS_TOKEN != 0 {
-			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}, &AccessToken{})
+	if idCfg.AccessToken.Use {
+		for _, dr := range idCfg.AccessToken.TargetDomainRoles {
+			domain, role := dr.Domain, dr.Role
+			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: idCfg.AccessToken.Use}, &AccessToken{})
 		}
-		// TODO: Rewrite the following if statement as "if tt.isRoleTokenEnabled()..."
-		if tt&mROLE_TOKEN != 0 {
-			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}, &RoleToken{})
+	}
+	if idCfg.RoleToken.Use {
+		for _, dr := range idCfg.RoleToken.TargetDomainRoles {
+			domain, role := dr.Domain, dr.Role
+			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: idCfg.RoleToken.Use}, &AccessToken{})
 		}
 	}
 
@@ -122,8 +121,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		ztsClient:           ztsClient,
 		saService:           saService,
 		tokenRESTAPI:        idCfg.TokenServerRESTAPI,
-		tokenType:           tt,
-		tokenDir:            idCfg.TokenDir,
 		tokenRefresh:        idCfg.TokenRefresh,
 		tokenExpiryInSecond: tokenExpiryInSecond,
 		roleAuthHeader:      idCfg.RoleAuthHeader,
@@ -147,7 +144,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServerAddr)
 		return ts, nil
 	}
-	if idCfg.TokenServerAddr == "" || tt == 0 {
+	if idCfg.TokenServerAddr == "" || (!idCfg.AccessToken.Use && !idCfg.RoleToken.Use) {
 		log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TokenType)
 		return ts, nil
 	}
@@ -406,7 +403,7 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 		// File output processing
 		domain, role := key.Domain, key.Role
 		token := d.accessTokenCache.Load(key)
-		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
+		outPath := filepath.Join(d.idCfg.AccessToken.Dir, domain+d.idCfg.AccessToken.Delimiter+role+".accesstoken")
 		return d.writeFile(token, outPath, mACCESS_TOKEN)
 	}
 	updateAndWriteFileRoleToken := func(key CacheKey) error {
@@ -417,7 +414,7 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 		// File output processing
 		domain, role := key.Domain, key.Role
 		token := d.roleTokenCache.Load(key)
-		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
+		outPath := filepath.Join(d.idCfg.RoleToken.Dir, domain+d.idCfg.RoleToken.Delimiter+role+".roletoken")
 		return d.writeFile(token, outPath, mROLE_TOKEN)
 	}
 	switch tt {
