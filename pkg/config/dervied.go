@@ -45,6 +45,12 @@ func (idCfg *IdentityConfig) loadDerivedConfig() error {
 		return err
 	}
 
+	// depends on the following:
+	// - derivedTargetDomainRoles()
+	if err := idCfg.derivedTokenServerConfig(); err != nil {
+		return err
+	}
+
 	// TODO:
 	// depends on the following:
 	// - derivedTargetDomainRoles()

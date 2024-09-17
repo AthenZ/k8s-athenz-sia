@@ -133,6 +133,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
 	// If it is in refresh mode, when requesting tokens using the REST API for the domains and roles specified in TARGET_DOMAIN_ROLES,
 	// the cache is updated to ensure a cache hit from the first request.
+	// TODO: Wanna  refactor the below: !idCfg.Init || idCfg.WriteToken.Use
 	if !idCfg.Init || idCfg.WriteToken.Use {
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
 		for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT) {
@@ -145,21 +146,22 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServerAddr)
 		return ts, nil
 	}
-	if idCfg.TokenServerAddr == "" || tt == 0 {
+	if !idCfg.TokenServer.Use {
 		log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TokenType)
 		return ts, nil
 	}
 	tokenServer := &http.Server{
-		Addr:      idCfg.TokenServerAddr,
+		Addr:      idCfg.TokenServer.Address,
 		Handler:   newHandlerFunc(ts, idCfg.TokenServerTimeout),
 		TLSConfig: nil,
 	}
-	if idCfg.TokenServerTLSCertPath != "" && idCfg.TokenServerTLSKeyPath != "" {
-		tokenServer.TLSConfig, err = NewTLSConfig(idCfg.TokenServerTLSCAPath, idCfg.TokenServerTLSCertPath, idCfg.TokenServerTLSKeyPath)
+	if idCfg.TokenServer.Tls != nil {
+		tokenServer.TLSConfig, err = NewTLSConfig(idCfg.TokenServer.Tls.CaPath, idCfg.TokenServer.Tls.CertPath, idCfg.TokenServer.Tls.KeyPath)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	ts.tokenServer = tokenServer
 
 	return ts, nil

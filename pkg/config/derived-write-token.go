@@ -53,7 +53,7 @@ func (idCfg *IdentityConfig) derivedTokenConfig() error {
 		UseRT:             strings.Contains(idCfg.TokenType, "roletoken"),
 		Dir:               idCfg.tokenDir,
 		TargetDomainRoles: []DomainRole{},
-		ExpirySeconds:     int(idCfg.TokenExpiry.Seconds()),
+		ExpirySeconds:     int(idCfg.tokenExpiry.Seconds()),
 	}
 
 	return nil

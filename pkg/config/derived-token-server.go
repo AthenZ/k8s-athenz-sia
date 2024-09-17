@@ -15,13 +15,19 @@
 // Package config defines all the configuration parameters. It reads configuration from environment variables and command-line arguments.
 package config
 
-import "strings"
+import (
+	"strings"
+)
 
+type Tls struct {
+	CaPath   string // optional
+	CertPath string
+	KeyPath  string
+}
 type DerivedTokenServer struct {
-	Use           bool
-	UseAT         bool // if fetching access token as files is enabled
-	UseRT         bool // if fetching role token as files is enabled
-	ExpirySeconds int  // ExpirySeconds is the number of seconds before the token expires
+	Use     bool
+	Address string // server address i.e) "http://localhost:4443"
+	Tls     *Tls   // tls configuration if enabled; nil if disabled
 }
 
 // TODO: Use idCfg.targetDomainRoles.TokenTargetDomainRoles
@@ -30,28 +36,40 @@ type DerivedTokenServer struct {
 func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
 	// TODO: Write
 	// default (disabled):
-	idCfg.WriteToken = DerivedToken{
-		Use:               false,
-		UseAT:             false,
-		UseRT:             false,
-		Dir:               "",
-		TargetDomainRoles: []DomainRole{},
+	idCfg.TokenServer = DerivedTokenServer{
+		Use:     false,
+		Address: "",
 	}
 
-	// TODO: Apply the following instead?:
-	// if idCfg.TokenDir == ""  || idCfg.TokenType == "" {
-	if idCfg.tokenDir == "" {
+	if idCfg.Init {
+		// log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServerAddr)
+		return nil
+	}
+
+	if idCfg.TokenServerAddr == "" {
+		// log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TokenType)
+		return nil
+	}
+
+	if !strings.Contains(idCfg.TokenType, "accesstoken") && !strings.Contains(idCfg.TokenType, "roletoken") {
+		// log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TokenType)
 		return nil
 	}
 
 	// Enable from now on:
-	idCfg.WriteToken = DerivedToken{
-		Use:               true,
-		UseAT:             strings.Contains(idCfg.TokenType, "accesstoken"),
-		UseRT:             strings.Contains(idCfg.TokenType, "roletoken"),
-		Dir:               idCfg.tokenDir,
-		TargetDomainRoles: []DomainRole{},
-		ExpirySeconds:     int(idCfg.tokenExpiry.Seconds()),
+	idCfg.TokenServer = DerivedTokenServer{
+		Use:     true,
+		Address: idCfg.TokenServerAddr,
+		Tls: func() *Tls {
+			if idCfg.tokenServerTLSCertPath == "" || idCfg.tokenServerTLSKeyPath == "" {
+				return nil
+			}
+			return &Tls{
+				CaPath:   idCfg.tokenServerTLSCAPath, // optional, can be empty ""
+				CertPath: idCfg.tokenServerTLSCertPath,
+				KeyPath:  idCfg.tokenServerTLSKeyPath,
+			}
+		}(),
 	}
 
 	return nil

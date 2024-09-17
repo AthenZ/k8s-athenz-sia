@@ -65,14 +65,16 @@ type IdentityConfig struct {
 	tokenDir    string
 	tokenExpiry time.Duration
 	//
+	TokenServer DerivedTokenServer
+	//
 	RoleAuthHeader         string
 	TokenRefresh           time.Duration
 	TokenServerAddr        string
 	TokenServerRESTAPI     bool
 	TokenServerTimeout     time.Duration
-	TokenServerTLSCAPath   string
-	TokenServerTLSCertPath string
-	TokenServerTLSKeyPath  string
+	tokenServerTLSCAPath   string // TODO: Move to the top
+	tokenServerTLSCertPath string // TODO: Move to the top
+	tokenServerTLSKeyPath  string // TODO: Move to the top
 	MetricsServerAddr      string
 	HealthCheckAddr        string
 	HealthCheckEndpoint    string
