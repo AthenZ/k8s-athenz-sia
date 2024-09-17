@@ -125,11 +125,13 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
 	// If it is in refresh mode, when requesting tokens using the REST API for the domains and roles specified in TARGET_DOMAIN_ROLES,
 	// the cache is updated to ensure a cache hit from the first request.
-	// TODO: Maybe !idCfg.Init || idCfg.TokenFile.Use()
 	if !idCfg.Init || idCfg.TokenFile.AccessToken.Use || idCfg.TokenFile.RoleToken.Use {
-		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
-		for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT) {
+		errs := ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT)
+		for _, err := range errs {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
+		}
+		if len(errs) != 0 && idCfg.Init {
+			return nil, fmt.Errorf("Unable to write token files for init mode")
 		}
 	}
 
