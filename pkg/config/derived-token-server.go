@@ -34,7 +34,6 @@ type DerivedTokenServer struct {
 
 // derivedTokenServerConfig ... // TODO: Comment
 func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
-	// TODO: Write
 	// default (disabled):
 	idCfg.TokenServer = DerivedTokenServer{
 		Use:     false,
