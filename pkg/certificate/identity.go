@@ -399,7 +399,7 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 	var roleCsrOptions []util.CSROptions
 
 	if !idCfg.RoleCert.Use {
-		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], output directory[%s]", idCfg.RoleCert.TargetDomainRoles, idCfg.RoleCert.Dir)
+		log.Debugf("Skipping to prepare csr for role certificates with target roles[%s], filename format[%s]", idCfg.RoleCert.TargetDomainRoles, idCfg.RoleCert.Format)
 		return nil, nil
 	}
 

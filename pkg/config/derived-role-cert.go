@@ -16,14 +16,14 @@
 package config
 
 import (
-	"strings"
+	"fmt"
+	"path/filepath"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
 type DerivedRoleCert struct {
 	Use               bool         // if fetching role certificate is enabled (de facto standard)
-	Dir               string       // directory to store role certificates. // TODO: This might be deleted later
 	TargetDomainRoles []DomainRole // domain roles to fetch role certificates for
 	Format            string       // format for role certificate file output (i.e. /var/run/athenz/rolecerts/{{domain}}:role.{{role}}.cert.pem).
 	// format for role certificate key file output (i.e. /var/run/athenz/rolecerts/{{domain}}:role.{{role}}.key.pem)
@@ -43,20 +43,38 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 		return nil // disabled
 	}
 
-	if idCfg.roleCertDir == "" {
+	if idCfg.roleCertDir == "" && idCfg.roleCertNamingFormat == "" {
 		return nil // disabled
+	}
+	// If both the RoleCert settings and the NamingFormat settings are configured redundantly, an error will be returned.
+	if idCfg.roleCertDir != "" && idCfg.roleCertNamingFormat != "" {
+		return fmt.Errorf("Both ROLECERT_DIR[%s] and ROLE_CERT_NAMING_FORMAT[%s] are set. Please ensure only one of these is specified to avoid conflicts.", idCfg.roleCertDir, idCfg.roleCertNamingFormat)
+	}
+	if idCfg.roleCertDir != "" && idCfg.roleCertKeyNamingFormat != "" {
+		return fmt.Errorf("Both ROLECERT_DIR[%s] and ROLE_CERT_KEY_NAMING_FORMAT[%s] are set. Please ensure only one of these is specified to avoid conflicts.", idCfg.roleCertDir, idCfg.roleCertKeyNamingFormat)
+	}
+	// If RoleCertKeyFileOutput is enabled, RoleCertKeyNamingFormat or RoleCertDir must be set.
+	if idCfg.roleCertKeyFileOutput && idCfg.roleCertKeyNamingFormat == "" && idCfg.roleCertDir == "" {
+		return fmt.Errorf("ROLE_CERT_KEY_FILE_OUTPUT[%t] is enabled but ROLE_CERT_KEY_NAMING_FORMAT[%s] and ROLECERT_DIR[%s] are not set. Please ensure that either ROLE_CERT_KEY_NAMING_FORMAT or ROLECERT_DIR is set.", idCfg.roleCertKeyFileOutput, idCfg.roleCertKeyNamingFormat, idCfg.roleCertDir)
 	}
 
 	// Enabled from now on:
-	dir := strings.TrimSuffix(idCfg.roleCertDir, "/") + "/" // making sure it always ends with `/`
 	idCfg.RoleCert = DerivedRoleCert{
 		Use:               true,
-		Dir:               dir,
 		TargetDomainRoles: idCfg.targetDomainRoles.roleCerts,
-		Format:            dir + "{{domain}}{{delimiter}}{{role}}.cert.pem",
+		Format: func() string {
+			if idCfg.roleCertDir == "" {
+				return idCfg.roleCertNamingFormat
+			}
+			return filepath.Join(idCfg.roleCertDir, "{{domain}}{{delimiter}}{{role}}"+".cert.pem")
+		}(),
 		KeyFormat: func() string {
+			if idCfg.roleCertDir == "" {
+				return idCfg.roleCertKeyNamingFormat
+			}
+			// If only RoleCertDir is defined, fixed values will be assigned to format and keyFormat:
 			if idCfg.roleCertKeyFileOutput {
-				return dir + "{{domain}}{{delimiter}}{{role}}.key.pem"
+				return filepath.Join(idCfg.roleCertDir, "{{domain}}{{delimiter}}{{role}}"+".key.pem")
 			}
 			return "" // means no separate key file output feature enabled
 		}(),
@@ -65,7 +83,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
 	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
-	if idCfg.providerService == "" && !idCfg.roleCertKeyFileOutput {
+	if !idCfg.ServiceCert.CopperArgos.Use && idCfg.RoleCert.KeyFormat == "" {
 		// if role certificate issuing is enabled, warn user about the mismatch problem
 		log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idCfg.KeyFile)
 	}

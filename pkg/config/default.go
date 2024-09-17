@@ -94,6 +94,8 @@ func DefaultIdentityConfig() *IdentityConfig {
 		roleCertDir:               "",
 		roleCertFilenameDelimiter: DEFAULT_ROLE_CERT_FILENAME_DELIMITER,
 		roleCertKeyFileOutput:     false,
+		roleCertNamingFormat:      "",
+		roleCertKeyNamingFormat:   "",
 		RoleAuthHeader:            DEFAULT_ROLE_AUTH_HEADER,
 		TokenType:                 "accesstoken",
 		TokenRefresh:              DEFAULT_TOKEN_REFRESH,

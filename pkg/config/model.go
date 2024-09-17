@@ -56,6 +56,8 @@ type IdentityConfig struct {
 	roleCertDir               string
 	roleCertFilenameDelimiter string
 	roleCertKeyFileOutput     bool
+	roleCertNamingFormat      string
+	roleCertKeyNamingFormat   string
 	//
 	RoleAuthHeader         string
 	TokenType              string

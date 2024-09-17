@@ -50,7 +50,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// TODO: This log should be moved to derived-role-cert.go
 	if !idCfg.RoleCert.Use {
-		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idCfg.RoleCert.TargetDomainRoles, idCfg.RoleCert.Dir)
+		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], filename format[%s]", idCfg.RoleCert.TargetDomainRoles, idCfg.RoleCert.Format)
 	}
 
 	handler, err := InitIdentityHandler(idCfg)
@@ -103,11 +103,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		}
 
 		if roleCerts != nil {
-			// Create the directory before saving role certificates
-			if err := extutil.CreateDirectory(idCfg.RoleCert.Dir); err != nil {
-				return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
-			}
-
 			for _, rolecert := range roleCerts {
 				roleCertPEM := []byte(rolecert.X509Certificate)
 				if len(roleCertPEM) != 0 {
@@ -118,6 +113,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					if err != nil {
 						return fmt.Errorf("failed to generate path for role cert with format [%s], domain [%s], role [%s], delimiter [%s]: %w", idCfg.RoleCert.Format, rolecert.Domain, rolecert.Role, idCfg.RoleCert.Delimiter, err)
 					}
+					// Create the directory before saving role certificates
+					if err := extutil.CreateDirectory(outPath); err != nil {
+						return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
+					}
 					log.Debugf("Saving x509 role cert[%d bytes] at [%s]", len(roleCertPEM), outPath)
 					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {
 						return fmt.Errorf("unable to save x509 role cert: %w", err)
@@ -127,6 +126,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 						outKeyPath, err := extutil.GeneratePath(idCfg.RoleCert.KeyFormat, rolecert.Domain, rolecert.Role, idCfg.RoleCert.Delimiter)
 						if err != nil {
 							return fmt.Errorf("failed to generate path for role cert key with format [%s], domain [%s], role [%s], delimiter [%s]: %w", idCfg.RoleCert.KeyFormat, rolecert.Domain, rolecert.Role, idCfg.RoleCert.Delimiter, err)
+						}
+						// Create the directory before saving role certificates keys
+						if err := extutil.CreateDirectory(outKeyPath); err != nil {
+							return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
 						}
 						log.Debugf("Saving x509 role cert key[%d bytes] at [%s]", len(roleKeyPEM), outKeyPath)
 						if err := w.AddBytes(outKeyPath, 0644, roleKeyPEM); err != nil {
