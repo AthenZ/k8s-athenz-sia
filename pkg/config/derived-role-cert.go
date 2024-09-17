@@ -48,39 +48,42 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	}
 	// If both the RoleCert settings and the NamingFormat settings are configured redundantly, an error will be returned.
 	if idCfg.roleCertDir != "" && idCfg.roleCertNamingFormat != "" {
-		return fmt.Errorf("RoleCertDir and RoleCertNamingFormat are both set: RoleCertDir %s, RoleCertNamingFormat %s", idCfg.roleCertDir, idCfg.roleCertNamingFormat)
+		return fmt.Errorf("Both ROLECERT_DIR[%s] and ROLE_CERT_NAMING_FORMAT[%s] are set. Please ensure only one of these is specified to avoid conflicts.", idCfg.roleCertDir, idCfg.roleCertNamingFormat)
 	}
 	if idCfg.roleCertDir != "" && idCfg.roleCertKeyNamingFormat != "" {
-		return fmt.Errorf("RoleCertDir and RoleCertKeyNamingFormat are both set: RoleCertDir %s, RoleCertKeyNamingFormat %s", idCfg.roleCertDir, idCfg.roleCertKeyNamingFormat)
+		return fmt.Errorf("Both ROLECERT_DIR[%s] and ROLE_CERT_KEY_NAMING_FORMAT[%s] are set. Please ensure only one of these is specified to avoid conflicts.", idCfg.roleCertDir, idCfg.roleCertKeyNamingFormat)
 	}
 	// If RoleCertKeyFileOutput is enabled, RoleCertKeyNamingFormat or RoleCertDir must be set.
 	if idCfg.roleCertKeyFileOutput && idCfg.roleCertKeyNamingFormat == "" && idCfg.roleCertDir == "" {
-		return fmt.Errorf("RoleCertKeyFileOutput is enabled but RoleCertKeyNamingFormat and RoleCertDir are not set")
+		return fmt.Errorf("ROLE_CERT_KEY_FILE_OUTPUT[%s] is enabled but ROLE_CERT_KEY_NAMING_FORMAT[%s] and ROLECERT_DIR[%s] are not set. Please ensure that either ROLE_CERT_KEY_NAMING_FORMAT or ROLECERT_DIR is set.", idCfg.roleCertKeyFileOutput, idCfg.roleCertKeyNamingFormat, idCfg.roleCertDir)
 	}
 
 	// Enabled from now on:
-	var format, keyFormat string
-	if idCfg.roleCertDir == "" {
-		format = idCfg.roleCertNamingFormat
-		keyFormat = idCfg.roleCertKeyNamingFormat
-	} else {
-		// If only RoleCertDir is defined, fixed values will be assigned to format and keyFormat:
-		format = filepath.Join(idCfg.roleCertDir, "{{domain}}{{delimiter}}{{role}}"+".cert.pem")
-		if idCfg.roleCertKeyFileOutput {
-			keyFormat = filepath.Join(idCfg.roleCertDir, "{{domain}}{{delimiter}}{{role}}"+".key.pem")
-		}
-	}
 	idCfg.RoleCert = DerivedRoleCert{
 		Use:               true,
 		TargetDomainRoles: idCfg.targetDomainRoles.roleCerts,
-		Format:            format,
-		KeyFormat:         keyFormat,
-		Delimiter:         idCfg.roleCertFilenameDelimiter,
+		Format: func() string {
+			if idCfg.roleCertDir == "" {
+				return idCfg.roleCertNamingFormat
+			}
+			return filepath.Join(idCfg.roleCertDir, "{{domain}}{{delimiter}}{{role}}"+".cert.pem")
+		}(),
+		KeyFormat: func() string {
+			if idCfg.roleCertDir == "" {
+				return idCfg.roleCertKeyNamingFormat
+			}
+			// If only RoleCertDir is defined, fixed values will be assigned to format and keyFormat:
+			if idCfg.roleCertKeyFileOutput {
+				return filepath.Join(idCfg.roleCertDir, "{{domain}}{{delimiter}}{{role}}"+".key.pem")
+			}
+			return "" // means no separate key file output feature enabled
+		}(),
+		Delimiter: idCfg.roleCertFilenameDelimiter,
 	}
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
 	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
-	if idCfg.providerService == "" && idCfg.RoleCert.KeyFormat == "" {
+	if !idCfg.ServiceCert.CopperArgos.Use && idCfg.RoleCert.KeyFormat == "" {
 		// if role certificate issuing is enabled, warn user about the mismatch problem
 		log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idCfg.KeyFile)
 	}

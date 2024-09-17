@@ -34,6 +34,7 @@ func (idCfg *IdentityConfig) loadDerivedConfig() error {
 
 	// depends on the following:
 	// - derivedTargetDomainRoles()
+	// - derivedServiceCertConfig()
 	if err := idCfg.derivedRoleCertConfig(); err != nil {
 		return err
 	}
