@@ -100,7 +100,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		TokenType:                 "accesstoken",
 		TokenRefresh:              DEFAULT_TOKEN_REFRESH,
 		tokenExpiry:               DEFAULT_TOKEN_EXPIRY,
-		TokenServerAddr:           "",
+		tokenServerAddr:           "",
 		TokenServerRESTAPI:        false,
 		TokenServerTimeout:        DEFAULT_TOKEN_SERVER_TIMEOUT,
 		tokenServerTLSCAPath:      "",

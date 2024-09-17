@@ -143,11 +143,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// create token server
 	if idCfg.Init {
-		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServerAddr)
+		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServer.Address)
 		return ts, nil
 	}
 	if !idCfg.TokenServer.Use {
-		log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TokenType)
+		log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServer.Address, idCfg.TokenType)
 		return ts, nil
 	}
 	tokenServer := &http.Server{

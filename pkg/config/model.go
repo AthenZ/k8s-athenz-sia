@@ -69,7 +69,7 @@ type IdentityConfig struct {
 	//
 	RoleAuthHeader         string
 	TokenRefresh           time.Duration
-	TokenServerAddr        string
+	tokenServerAddr        string
 	TokenServerRESTAPI     bool
 	TokenServerTimeout     time.Duration
 	tokenServerTLSCAPath   string // TODO: Move to the top

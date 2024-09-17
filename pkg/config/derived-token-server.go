@@ -46,7 +46,7 @@ func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
 		return nil
 	}
 
-	if idCfg.TokenServerAddr == "" {
+	if idCfg.tokenServerAddr == "" {
 		// log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TokenType)
 		return nil
 	}
@@ -59,7 +59,7 @@ func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
 	// Enable from now on:
 	idCfg.TokenServer = DerivedTokenServer{
 		Use:     true,
-		Address: idCfg.TokenServerAddr,
+		Address: idCfg.tokenServerAddr,
 		Tls: func() *Tls {
 			if idCfg.tokenServerTLSCertPath == "" || idCfg.tokenServerTLSKeyPath == "" {
 				return nil
