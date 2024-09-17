@@ -55,7 +55,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	}
 	// If RoleCertKeyFileOutput is enabled, RoleCertKeyNamingFormat or RoleCertDir must be set.
 	if idCfg.roleCertKeyFileOutput && idCfg.roleCertKeyNamingFormat == "" && idCfg.roleCertDir == "" {
-		return fmt.Errorf("ROLE_CERT_KEY_FILE_OUTPUT[%s] is enabled but ROLE_CERT_KEY_NAMING_FORMAT[%s] and ROLECERT_DIR[%s] are not set. Please ensure that either ROLE_CERT_KEY_NAMING_FORMAT or ROLECERT_DIR is set.", idCfg.roleCertKeyFileOutput, idCfg.roleCertKeyNamingFormat, idCfg.roleCertDir)
+		return fmt.Errorf("ROLE_CERT_KEY_FILE_OUTPUT[%t] is enabled but ROLE_CERT_KEY_NAMING_FORMAT[%s] and ROLECERT_DIR[%s] are not set. Please ensure that either ROLE_CERT_KEY_NAMING_FORMAT or ROLECERT_DIR is set.", idCfg.roleCertKeyFileOutput, idCfg.roleCertKeyNamingFormat, idCfg.roleCertDir)
 	}
 
 	// Enabled from now on:
