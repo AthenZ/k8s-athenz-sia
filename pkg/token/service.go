@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"runtime/metrics"
 	"sync"
 	"sync/atomic"
@@ -51,19 +50,10 @@ type tokenService struct {
 	ztsClient *zts.ZTSClient
 	saService string
 
-	tokenRESTAPI        bool
-	tokenType           mode
-	tokenDir            string
-	tokenRefresh        time.Duration
-	tokenExpiryInSecond int
-	roleAuthHeader      string
-
-	useTokenServer     bool
 	tokenServer        *http.Server
 	tokenServerRunning bool
 
-	shutdownDelay   time.Duration
-	shutdownTimeout time.Duration
+	idCfg *config.IdentityConfig
 }
 
 func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
@@ -71,26 +61,26 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Info("Skipped token provider initiation")
 		return nil, nil
 	}
-	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
-	enableWriteFiles := idCfg.TokenDir != ""
-	if !enableWriteFiles {
-		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.TokenDir)
+
+	if !idCfg.Token.WriteFile.AccessToken.Use {
+		log.Debugf("Skipping to write access token files to directory with empty TOKEN_DIR [%s]", idCfg.Token.WriteFile.AccessToken.Dir)
+	}
+	if !idCfg.Token.WriteFile.RoleToken.Use {
+		log.Debugf("Skipping to write role token files to directory with empty TOKEN_DIR [%s]", idCfg.Token.WriteFile.RoleToken.Dir)
 	}
 
 	// initialize token cache with placeholder
-	tt := newType(idCfg.TokenType)
-	tokenExpiryInSecond := int(idCfg.TokenExpiry.Seconds())
+	tokenExpiryInSecond := idCfg.Token.TokenExpiryInSecond
 	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
 	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
-	for _, dr := range idCfg.TokenTargetDomainRoles {
+
+	for _, dr := range idCfg.Token.TargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
-		// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."
-		if tt&mACCESS_TOKEN != 0 {
-			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}, &AccessToken{})
+		if idCfg.Token.WriteFile.AccessToken.Use || idCfg.Token.Server.UseAccessToken {
+			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: idCfg.Token.WriteFile.AccessToken.Use}, &AccessToken{})
 		}
-		// TODO: Rewrite the following if statement as "if tt.isRoleTokenEnabled()..."
-		if tt&mROLE_TOKEN != 0 {
-			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}, &RoleToken{})
+		if idCfg.Token.WriteFile.RoleToken.Use || idCfg.Token.Server.UseRoleToken {
+			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond, WriteFileRequired: idCfg.Token.WriteFile.RoleToken.Use}, &RoleToken{})
 		}
 	}
 
@@ -116,26 +106,17 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// setup token service
 	ts := &tokenService{
-		shutdownChan:        make(chan struct{}, 1),
-		accessTokenCache:    accessTokenCache,
-		roleTokenCache:      roleTokenCache,
-		ztsClient:           ztsClient,
-		saService:           saService,
-		tokenRESTAPI:        idCfg.TokenServerRESTAPI,
-		tokenType:           tt,
-		tokenDir:            idCfg.TokenDir,
-		tokenRefresh:        idCfg.TokenRefresh,
-		tokenExpiryInSecond: tokenExpiryInSecond,
-		roleAuthHeader:      idCfg.RoleAuthHeader,
-		useTokenServer:      idCfg.UseTokenServer,
-		shutdownDelay:       idCfg.ShutdownDelay,
-		shutdownTimeout:     idCfg.ShutdownTimeout,
+		shutdownChan:     make(chan struct{}, 1),
+		accessTokenCache: accessTokenCache,
+		roleTokenCache:   roleTokenCache,
+		ztsClient:        ztsClient,
+		saService:        saService,
 	}
 
 	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
 	// If it is in refresh mode, when requesting tokens using the REST API for the domains and roles specified in TARGET_DOMAIN_ROLES,
 	// the cache is updated to ensure a cache hit from the first request.
-	if !idCfg.Init || enableWriteFiles {
+	if !idCfg.Init || idCfg.Token.WriteFile.Use {
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
 		for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT) {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
@@ -143,21 +124,13 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	// create token server
-	if idCfg.Init {
-		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServerAddr)
-		return ts, nil
-	}
-	if idCfg.TokenServerAddr == "" || tt == 0 {
-		log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TokenType)
-		return ts, nil
-	}
 	tokenServer := &http.Server{
-		Addr:      idCfg.TokenServerAddr,
-		Handler:   newHandlerFunc(ts, idCfg.TokenServerTimeout),
+		Addr:      idCfg.Token.Server.TokenServerAddr,
+		Handler:   newHandlerFunc(ts, idCfg.Token.Server.TokenServerTimeout),
 		TLSConfig: nil,
 	}
-	if idCfg.TokenServerTLSCertPath != "" && idCfg.TokenServerTLSKeyPath != "" {
-		tokenServer.TLSConfig, err = NewTLSConfig(idCfg.TokenServerTLSCAPath, idCfg.TokenServerTLSCertPath, idCfg.TokenServerTLSKeyPath)
+	if idCfg.Token.Server.TLS.Use {
+		tokenServer.TLSConfig, err = NewTLSConfig(idCfg.Token.Server.TLS.CA, idCfg.Token.Server.TLS.Cert, idCfg.Token.Server.TLS.Key)
 		if err != nil {
 			return nil, err
 		}
@@ -201,15 +174,15 @@ func (ts *tokenService) Start(ctx context.Context) error {
 	}
 
 	// refreshes tokens periodically
-	if ts.tokenRefresh > 0 {
-		t := time.NewTicker(ts.tokenRefresh)
+	if ts.idCfg.Token.TokenRefresh > 0 {
+		t := time.NewTicker(ts.idCfg.Token.TokenRefresh)
 		ts.shutdownWg.Add(1)
 		go func() {
 			defer t.Stop()
 			defer ts.shutdownWg.Done()
 
 			for {
-				log.Infof("Will refresh cached tokens within %s", ts.tokenRefresh.String())
+				log.Infof("Will refresh cached tokens within %s", ts.idCfg.Token.TokenRefresh.String())
 
 				select {
 				case <-ts.shutdownChan:
@@ -223,7 +196,7 @@ func (ts *tokenService) Start(ctx context.Context) error {
 					}
 
 					// backoff retry until TOKEN_REFRESH_INTERVAL / 4 OR context is done
-					for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, ts.tokenRefresh/4) {
+					for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, ts.idCfg.Token.TokenRefresh/4) {
 						log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 					}
 				}
@@ -261,10 +234,10 @@ func (ts *tokenService) Shutdown() {
 	close(ts.shutdownChan)
 
 	if ts.tokenServer != nil && ts.tokenServerRunning {
-		log.Infof("Delaying token provider server shutdown for %s to shutdown gracefully ...", ts.shutdownDelay.String())
-		time.Sleep(ts.shutdownDelay)
+		log.Infof("Delaying token provider server shutdown for %s to shutdown gracefully ...", ts.idCfg.Token.Server.ShutdownDelay.String())
+		time.Sleep(ts.idCfg.Token.Server.ShutdownDelay)
 
-		ctx, cancel := context.WithTimeout(context.Background(), ts.shutdownTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), ts.idCfg.Token.Server.ShutdownTimeout)
 		defer cancel()
 		ts.tokenServer.SetKeepAlivesEnabled(false)
 		if err := ts.tokenServer.Shutdown(ctx); err != nil {
@@ -406,7 +379,10 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 		// File output processing
 		domain, role := key.Domain, key.Role
 		token := d.accessTokenCache.Load(key)
-		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
+		outPath, err := extutil.GeneratePath(d.idCfg.Token.WriteFile.AccessToken.Format, domain, role, d.idCfg.Token.WriteFile.AccessToken.Delimiter)
+		if err != nil {
+			return fmt.Errorf("failed to generate path for access token with format [%s], domain [%s], role [%s], delimiter [%s]: %w", d.idCfg.Token.WriteFile.AccessToken.Format, domain, role, d.idCfg.Token.WriteFile.AccessToken.Delimiter, err)
+		}
 		return d.writeFile(token, outPath, mACCESS_TOKEN)
 	}
 	updateAndWriteFileRoleToken := func(key CacheKey) error {
@@ -417,7 +393,10 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 		// File output processing
 		domain, role := key.Domain, key.Role
 		token := d.roleTokenCache.Load(key)
-		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
+		outPath, err := extutil.GeneratePath(d.idCfg.Token.WriteFile.RoleToken.Format, domain, role, d.idCfg.Token.WriteFile.RoleToken.Delimiter)
+		if err != nil {
+			return fmt.Errorf("failed to generate path for role token with format [%s], domain [%s], role [%s], delimiter [%s]: %w", d.idCfg.Token.WriteFile.RoleToken.Format, domain, role, d.idCfg.Token.WriteFile.RoleToken.Delimiter, err)
+		}
 		return d.writeFile(token, outPath, mROLE_TOKEN)
 	}
 	switch tt {

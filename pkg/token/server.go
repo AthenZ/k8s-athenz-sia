@@ -90,8 +90,8 @@ func postRoleToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	// if rtRequest.MaxExpiry != nil && *rtRequest.MaxExpiry > 0{
 	// 	k.MaxExpiry = *rtRequest.MaxExpiry
 	// }
-	if k.MinExpiry == 0 && ts.tokenExpiryInSecond > 0 {
-		k.MinExpiry = ts.tokenExpiryInSecond
+	if k.MinExpiry == 0 && ts.idCfg.Token.TokenExpiryInSecond > 0 {
+		k.MinExpiry = ts.idCfg.Token.TokenExpiryInSecond
 	}
 
 	// cache lookup (token TTL must >= 1 minute)
@@ -173,8 +173,8 @@ func postAccessToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	if atRequest.Expiry != nil && *atRequest.Expiry > 0 {
 		k.MaxExpiry = *atRequest.Expiry
 	}
-	if k.MaxExpiry == 0 && ts.tokenExpiryInSecond > 0 {
-		k.MaxExpiry = ts.tokenExpiryInSecond
+	if k.MaxExpiry == 0 && ts.idCfg.Token.TokenExpiryInSecond > 0 {
+		k.MaxExpiry = ts.idCfg.Token.TokenExpiryInSecond
 	}
 
 	// cache lookup (token TTL must >= 1 minute)
@@ -229,20 +229,20 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 			}
 		}()
 
-		if ts.tokenRESTAPI {
+		if ts.idCfg.Token.Server.UseRESTAPI {
 			// sidecar API (server requests' Body is always non-nil)
-			if ts.tokenType&mROLE_TOKEN != 0 && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
+			if ts.idCfg.Token.Server.UseRoleToken && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
 				postRoleToken(ts, w, r)
 				return
 			}
 
-			if ts.tokenType&mACCESS_TOKEN != 0 && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
+			if ts.idCfg.Token.Server.UseAccessToken && r.RequestURI == "/accesstoken" && r.Method == http.MethodPost {
 				postAccessToken(ts, w, r)
 				return
 			}
 		}
 
-		if !ts.useTokenServer {
+		if !ts.idCfg.Token.Server.UseTokenServer {
 			w.WriteHeader(http.StatusNotFound)
 			io.WriteString(w, string("404 page not found"))
 			return
@@ -259,14 +259,14 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 		} else {
 			// TODO: Since the specifications are not yet decided, the value of WriteFileRequired is undetermined.
 			// TODO: Maybe we need to separate the cache keys for RT and AT?
-			k := CacheKey{Domain: domain, Role: role, MinExpiry: ts.tokenExpiryInSecond}
-			if ts.tokenType&mACCESS_TOKEN != 0 {
+			k := CacheKey{Domain: domain, Role: role, MinExpiry: ts.idCfg.Token.TokenExpiryInSecond}
+			if ts.idCfg.Token.Server.UseAccessToken {
 				k, aToken = ts.accessTokenCache.Search(k)
 				if aToken == nil {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 				}
 			}
-			if ts.tokenType&mROLE_TOKEN != 0 {
+			if ts.idCfg.Token.Server.UseRoleToken {
 				k, rToken = ts.roleTokenCache.Search(k)
 				if rToken == nil {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
@@ -301,7 +301,7 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 		}
 		if rToken != nil {
 			rt := rToken.Raw()
-			w.Header().Set(ts.roleAuthHeader, rt)
+			w.Header().Set(ts.idCfg.Token.Server.RoleAuthHeader, rt)
 			resJSON["roletoken"] = rt
 		}
 		response, err := json.Marshal(resJSON)
@@ -311,7 +311,8 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 			return
 		}
 
-		log.Debugf("Returning %d for domain[%s], role[%s]", ts.tokenType, domain, role)
+		// TODO: Since the specifications are not yet decided,the log message is undetermined.
+		log.Debugf("Returning token for domain[%s], role[%s]", domain, role)
 		io.WriteString(w, string(response))
 	}
 
