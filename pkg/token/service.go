@@ -71,26 +71,24 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Info("Skipped token provider initiation")
 		return nil, nil
 	}
-	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
-	enableWriteFiles := idCfg.TokenDir != ""
-	if !enableWriteFiles {
-		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.TokenDir)
+
+	if idCfg.WriteToken.Use {
+		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.WriteToken.Dir)
 	}
 
 	// initialize token cache with placeholder
 	tt := newType(idCfg.TokenType)
-	tokenExpiryInSecond := int(idCfg.TokenExpiry.Seconds())
 	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
 	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
 	for _, dr := range idCfg.TokenTargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
 		// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."
 		if tt&mACCESS_TOKEN != 0 {
-			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}, &AccessToken{})
+			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: idCfg.WriteToken.ExpirySeconds, WriteFileRequired: idCfg.WriteToken.UseAT}, &AccessToken{})
 		}
-		// TODO: Rewrite the following if statement as "if tt.isRoleTokenEnabled()..."
+		// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."
 		if tt&mROLE_TOKEN != 0 {
-			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond, WriteFileRequired: enableWriteFiles}, &RoleToken{})
+			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: idCfg.WriteToken.ExpirySeconds, WriteFileRequired: idCfg.WriteToken.UseRT}, &RoleToken{})
 		}
 	}
 
@@ -123,9 +121,9 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		saService:           saService,
 		tokenRESTAPI:        idCfg.TokenServerRESTAPI,
 		tokenType:           tt,
-		tokenDir:            idCfg.TokenDir,
+		tokenDir:            idCfg.WriteToken.Dir,
 		tokenRefresh:        idCfg.TokenRefresh,
-		tokenExpiryInSecond: tokenExpiryInSecond,
+		tokenExpiryInSecond: idCfg.WriteToken.ExpirySeconds,
 		roleAuthHeader:      idCfg.RoleAuthHeader,
 		useTokenServer:      idCfg.UseTokenServer,
 		shutdownDelay:       idCfg.ShutdownDelay,
@@ -135,7 +133,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
 	// If it is in refresh mode, when requesting tokens using the REST API for the domains and roles specified in TARGET_DOMAIN_ROLES,
 	// the cache is updated to ensure a cache hit from the first request.
-	if !idCfg.Init || enableWriteFiles {
+	if !idCfg.Init || idCfg.WriteToken.Use {
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
 		for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT) {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())

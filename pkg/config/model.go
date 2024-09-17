@@ -58,9 +58,13 @@ type IdentityConfig struct {
 	roleCertKeyFileOutput     bool
 	roleCertNamingFormat      string
 	roleCertKeyNamingFormat   string
+	// Shared fields for server and writing files:
+	TokenType string
+	//WriteToken Derived State and its related fields:
+	WriteToken DerivedToken // TODO: rename me later
+	tokenDir   string
 	//
 	RoleAuthHeader         string
-	TokenType              string
 	TokenRefresh           time.Duration
 	TokenExpiry            time.Duration
 	TokenServerAddr        string
@@ -69,7 +73,6 @@ type IdentityConfig struct {
 	TokenServerTLSCAPath   string
 	TokenServerTLSCertPath string
 	TokenServerTLSKeyPath  string
-	TokenDir               string
 	MetricsServerAddr      string
 	HealthCheckAddr        string
 	HealthCheckEndpoint    string
