@@ -16,18 +16,18 @@
 package config
 
 import (
+	"path/filepath"
 	"strings"
 )
 
 type TokenFileConfig struct {
-	Use bool
-	// TODO: Add Format
-	// Format    string
+	Use       bool
+	Format    string
 	Delimiter string
 }
 
 type DerivedTokenFile struct {
-	Dir         string
+	Dir         string // TODO: This might be deleted later
 	AccessToken TokenFileConfig
 	RoleToken   TokenFileConfig
 }
@@ -38,13 +38,13 @@ func (idCfg *IdentityConfig) derivedTokenFileConfig() error {
 	idCfg.TokenFile = DerivedTokenFile{
 		Dir: "",
 		AccessToken: TokenFileConfig{
-			Use: false,
-			// Format:    "",
+			Use:       false,
+			Format:    "",
 			Delimiter: "",
 		},
 		RoleToken: TokenFileConfig{
-			Use: false,
-			// Format:    "",
+			Use:       false,
+			Format:    "",
 			Delimiter: "",
 		},
 	}
@@ -62,14 +62,14 @@ func (idCfg *IdentityConfig) derivedTokenFileConfig() error {
 			// disabled
 			if !strings.Contains(idCfg.TokenType, "accesstoken") {
 				return TokenFileConfig{
-					Use: false,
-					// Format:    "",
+					Use:       false,
+					Format:    "",
 					Delimiter: "",
 				}
 			}
 			return TokenFileConfig{
-				Use: true,
-				// Format:    filepath.Join(idCfg.TokenDir, "{{domain}}{{delimiter}}{{role}}.accesstoken"),
+				Use:       true,
+				Format:    filepath.Join(idCfg.tokenDir, "{{domain}}{{delimiter}}{{role}}.accesstoken"),
 				Delimiter: ":role.",
 			}
 
@@ -78,14 +78,14 @@ func (idCfg *IdentityConfig) derivedTokenFileConfig() error {
 			// disabled
 			if !strings.Contains(idCfg.TokenType, "roletoken") {
 				return TokenFileConfig{
-					Use: false,
-					// Format:    "",
+					Use:       false,
+					Format:    "",
 					Delimiter: "",
 				}
 			}
 			return TokenFileConfig{
-				Use: true,
-				// Format:    filepath.Join(idCfg.TokenDir, "{{domain}}{{delimiter}}{{role}}.roletoken"),
+				Use:       true,
+				Format:    filepath.Join(idCfg.tokenDir, "{{domain}}{{delimiter}}{{role}}.roletoken"),
 				Delimiter: ":role.",
 			}
 		}(),

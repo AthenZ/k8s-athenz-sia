@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"runtime/metrics"
 	"sync"
 	"sync/atomic"
@@ -402,7 +401,10 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 		// File output processing
 		domain, role := key.Domain, key.Role
 		token := d.accessTokenCache.Load(key)
-		outPath := filepath.Join(d.idCfg.TokenFile.Dir, domain+d.idCfg.TokenFile.AccessToken.Delimiter+role+".accesstoken")
+		outPath, err := extutil.GeneratePath(d.idCfg.TokenFile.AccessToken.Format, domain, role, d.idCfg.TokenFile.AccessToken.Delimiter)
+		if err != nil {
+			return fmt.Errorf("failed to generate path for access token with format [%s], domain [%s], role [%s], delimiter [%s]: %w", d.idCfg.TokenFile.AccessToken.Format, domain, role, d.idCfg.TokenFile.AccessToken.Delimiter, err)
+		}
 		return d.writeFile(token, outPath, mACCESS_TOKEN)
 	}
 	updateAndWriteFileRoleToken := func(key CacheKey) error {
@@ -413,7 +415,11 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 		// File output processing
 		domain, role := key.Domain, key.Role
 		token := d.roleTokenCache.Load(key)
-		outPath := filepath.Join(d.idCfg.TokenFile.Dir, domain+d.idCfg.TokenFile.RoleToken.Delimiter+role+".roletoken")
+		outPath, err := extutil.GeneratePath(d.idCfg.TokenFile.RoleToken.Format, domain, role, d.idCfg.TokenFile.RoleToken.Delimiter)
+		if err != nil {
+			return fmt.Errorf("failed to generate path for role token with format [%s], domain [%s], role [%s], delimiter [%s]: %w", d.idCfg.TokenFile.RoleToken.Format, domain, role, d.idCfg.TokenFile.RoleToken.Delimiter, err)
+		}
+
 		return d.writeFile(token, outPath, mROLE_TOKEN)
 	}
 	switch tt {
