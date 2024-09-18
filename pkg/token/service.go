@@ -137,21 +137,23 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	// create token server
+	// TODO: move to derived token file
 	if idCfg.Init {
-		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServerAddr)
+		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServer.Addr)
 		return ts, nil
 	}
-	if idCfg.TokenServerAddr == "" || tt == 0 {
-		log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServerAddr, idCfg.TokenType)
+	// TODO: move to derived token file
+	if !idCfg.TokenServer.Use {
+		log.Infof("Token server is disabled due to insufficient options: address[%s], token-type[%s]", idCfg.TokenServer.Addr, idCfg.TokenType)
 		return ts, nil
 	}
 	tokenServer := &http.Server{
-		Addr:      idCfg.TokenServerAddr,
-		Handler:   newHandlerFunc(ts, idCfg.TokenServerTimeout),
+		Addr:      idCfg.TokenServer.Addr,
+		Handler:   newHandlerFunc(ts, idCfg.TokenServer.ServerTimeout),
 		TLSConfig: nil,
 	}
-	if idCfg.TokenServerTLSCertPath != "" && idCfg.TokenServerTLSKeyPath != "" {
-		tokenServer.TLSConfig, err = NewTLSConfig(idCfg.TokenServerTLSCAPath, idCfg.TokenServerTLSCertPath, idCfg.TokenServerTLSKeyPath)
+	if idCfg.TokenServer.TLS.Use {
+		tokenServer.TLSConfig, err = NewTLSConfig(idCfg.TokenServer.TLS.CAPath, idCfg.TokenServer.TLS.CertPath, idCfg.TokenServer.TLS.KeyPath)
 		if err != nil {
 			return nil, err
 		}
@@ -255,10 +257,10 @@ func (ts *tokenService) Shutdown() {
 	close(ts.shutdownChan)
 
 	if ts.tokenServer != nil && ts.tokenServerRunning {
-		log.Infof("Delaying token provider server shutdown for %s to shutdown gracefully ...", ts.idCfg.ShutdownDelay.String())
-		time.Sleep(ts.idCfg.ShutdownDelay)
+		log.Infof("Delaying token provider server shutdown for %s to shutdown gracefully ...", ts.idCfg.TokenServer.ShutdownDelay.String())
+		time.Sleep(ts.idCfg.TokenServer.ShutdownDelay)
 
-		ctx, cancel := context.WithTimeout(context.Background(), ts.idCfg.ShutdownTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), ts.idCfg.TokenServer.ShutdownTimeout)
 		defer cancel()
 		ts.tokenServer.SetKeepAlivesEnabled(false)
 		if err := ts.tokenServer.Shutdown(ctx); err != nil {

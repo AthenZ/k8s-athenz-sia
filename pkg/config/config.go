@@ -98,16 +98,16 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("ROLE_CERT_KEY_FILE_OUTPUT", &idCfg.rawRoleCertKeyFileOutput)
 	loadEnv("ROLE_CERT_NAMING_FORMAT", &idCfg.roleCertNamingFormat)
 	loadEnv("ROLE_CERT_KEY_NAMING_FORMAT", &idCfg.roleCertKeyNamingFormat)
-	loadEnv("ROLE_AUTH_HEADER", &idCfg.RoleAuthHeader)
+	loadEnv("ROLE_AUTH_HEADER", &idCfg.roleAuthHeader)
 	loadEnv("TOKEN_TYPE", &idCfg.TokenType)
 	loadEnv("TOKEN_REFRESH_INTERVAL", &idCfg.rawTokenRefresh)
 	loadEnv("TOKEN_EXPIRY", &idCfg.rawTokenExpiry)
-	loadEnv("TOKEN_SERVER_ADDR", &idCfg.TokenServerAddr)
+	loadEnv("TOKEN_SERVER_ADDR", &idCfg.tokenServerAddr)
 	loadEnv("TOKEN_SERVER_REST_API", &idCfg.rawTokenServerRESTAPI)
 	loadEnv("TOKEN_SERVER_TIMEOUT", &idCfg.rawTokenServerTimeout)
-	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idCfg.TokenServerTLSCAPath)
-	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idCfg.TokenServerTLSCertPath)
-	loadEnv("TOKEN_SERVER_TLS_KEY_PATH", &idCfg.TokenServerTLSKeyPath)
+	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idCfg.tokenServerTLSCAPath)
+	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idCfg.tokenServerTLSCertPath)
+	loadEnv("TOKEN_SERVER_TLS_KEY_PATH", &idCfg.tokenServerTLSKeyPath)
 	loadEnv("TOKEN_DIR", &idCfg.tokenDir)
 	loadEnv("METRICS_SERVER_ADDR", &idCfg.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idCfg.rawDeleteInstanceID)
@@ -150,11 +150,11 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_EXPIRY [%q], %w", idCfg.rawTokenExpiry, err)
 	}
-	idCfg.TokenServerRESTAPI, err = strconv.ParseBool(idCfg.rawTokenServerRESTAPI)
+	idCfg.tokenServerRESTAPI, err = strconv.ParseBool(idCfg.rawTokenServerRESTAPI)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %w", idCfg.rawTokenServerRESTAPI, err)
 	}
-	idCfg.TokenServerTimeout, err = time.ParseDuration(idCfg.rawTokenServerTimeout)
+	idCfg.tokenServerTimeout, err = time.ParseDuration(idCfg.rawTokenServerTimeout)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_SERVER_TIMEOUT [%q], %w", idCfg.rawTokenServerTimeout, err)
 	}
@@ -162,15 +162,15 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid DELETE_INSTANCE_ID [%q], %w", idCfg.rawDeleteInstanceID, err)
 	}
-	idCfg.UseTokenServer, err = strconv.ParseBool(idCfg.rawUseTokenServer)
+	idCfg.useTokenServer, err = strconv.ParseBool(idCfg.rawUseTokenServer)
 	if err != nil {
 		return fmt.Errorf("Invalid USE_TOKEN_SERVER [%q], %w", idCfg.rawUseTokenServer, err)
 	}
-	idCfg.ShutdownTimeout, err = time.ParseDuration(idCfg.rawShutdownTimeout)
+	idCfg.shutdownTimeout, err = time.ParseDuration(idCfg.rawShutdownTimeout)
 	if err != nil {
 		return fmt.Errorf("Invalid SHUTDOWN_TIMEOUT [%q], %w", idCfg.rawShutdownTimeout, err)
 	}
-	idCfg.ShutdownDelay, err = time.ParseDuration(idCfg.rawShutdownDelay)
+	idCfg.shutdownDelay, err = time.ParseDuration(idCfg.rawShutdownDelay)
 	if err != nil {
 		return fmt.Errorf("Invalid SHUTDOWN_DELAY [%q], %w", idCfg.rawShutdownDelay, err)
 	}
@@ -211,17 +211,17 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.TokenType, "token-type", idCfg.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
 	f.DurationVar(&idCfg.TokenRefresh, "token-refresh-interval", idCfg.TokenRefresh, "token refresh interval")
 	f.DurationVar(&idCfg.TokenExpiry, "token-expiry", idCfg.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
-	f.StringVar(&idCfg.TokenServerAddr, "token-server-addr", idCfg.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
-	f.BoolVar(&idCfg.TokenServerRESTAPI, "token-server-rest-api", idCfg.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
-	f.DurationVar(&idCfg.TokenServerTimeout, "token-server-timeout", idCfg.TokenServerTimeout, "token server timeout (default 3s)")
-	f.StringVar(&idCfg.TokenServerTLSCAPath, "token-server-tls-ca-path", idCfg.TokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
-	f.StringVar(&idCfg.TokenServerTLSCertPath, "token-server-tls-cert-path", idCfg.TokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
-	f.StringVar(&idCfg.TokenServerTLSKeyPath, "token-server-tls-key-path", idCfg.TokenServerTLSKeyPath, "token server TLS certificate key path (if empty, disable TLS)")
+	f.StringVar(&idCfg.tokenServerAddr, "token-server-addr", idCfg.tokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
+	f.BoolVar(&idCfg.tokenServerRESTAPI, "token-server-rest-api", idCfg.tokenServerRESTAPI, "enable token server RESTful API (true/false)")
+	f.DurationVar(&idCfg.tokenServerTimeout, "token-server-timeout", idCfg.tokenServerTimeout, "token server timeout (default 3s)")
+	f.StringVar(&idCfg.tokenServerTLSCAPath, "token-server-tls-ca-path", idCfg.tokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
+	f.StringVar(&idCfg.tokenServerTLSCertPath, "token-server-tls-cert-path", idCfg.tokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
+	f.StringVar(&idCfg.tokenServerTLSKeyPath, "token-server-tls-key-path", idCfg.tokenServerTLSKeyPath, "token server TLS certificate key path (if empty, disable TLS)")
 	f.StringVar(&idCfg.tokenDir, "token-dir", idCfg.tokenDir, "directory to write token files")
 	f.StringVar(&idCfg.MetricsServerAddr, "metrics-server-addr", idCfg.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idCfg.DeleteInstanceID, "delete-instance-id", idCfg.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// Token Server
-	f.BoolVar(&idCfg.UseTokenServer, "use-token-server", idCfg.UseTokenServer, "enable token server (true/false)")
+	f.BoolVar(&idCfg.useTokenServer, "use-token-server", idCfg.useTokenServer, "enable token server (true/false)")
 	// log
 	f.StringVar(&idCfg.LogDir, "log-dir", idCfg.LogDir, "directory to store the log files")
 	f.StringVar(&idCfg.LogLevel, "log-level", idCfg.LogLevel, "logging level")
@@ -229,8 +229,8 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.HealthCheckAddr, "health-check-addr", idCfg.HealthCheckAddr, "HTTP server address to provide health check")
 	f.StringVar(&idCfg.HealthCheckEndpoint, "health-check-endpoint", idCfg.HealthCheckEndpoint, "HTTP server endpoint to provide health check")
 	// graceful shutdown option
-	f.DurationVar(&idCfg.ShutdownTimeout, "shutdown-timeout", idCfg.ShutdownTimeout, "graceful shutdown timeout")
-	f.DurationVar(&idCfg.ShutdownDelay, "shutdown-delay", idCfg.ShutdownDelay, "graceful shutdown delay")
+	f.DurationVar(&idCfg.shutdownTimeout, "shutdown-timeout", idCfg.shutdownTimeout, "graceful shutdown timeout")
+	f.DurationVar(&idCfg.shutdownDelay, "shutdown-delay", idCfg.shutdownDelay, "graceful shutdown delay")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
