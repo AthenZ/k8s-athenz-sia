@@ -63,23 +63,26 @@ type IdentityConfig struct {
 	TokenFile DerivedTokenFile
 	tokenDir  string
 	//
-	RoleAuthHeader         string
-	TokenType              string
-	TokenRefresh           time.Duration
-	TokenExpiry            time.Duration
-	TokenServerAddr        string
-	TokenServerRESTAPI     bool
-	TokenServerTimeout     time.Duration
-	TokenServerTLSCAPath   string
-	TokenServerTLSCertPath string
-	TokenServerTLSKeyPath  string
-	MetricsServerAddr      string
-	HealthCheckAddr        string
-	HealthCheckEndpoint    string
-	DeleteInstanceID       bool
-	UseTokenServer         bool
-	ShutdownTimeout        time.Duration
-	ShutdownDelay          time.Duration
+	// Token Server Derived State and its related fields:
+	TokenServer            DerivedTokenServer
+	roleAuthHeader         string
+	tokenServerAddr        string
+	tokenServerRESTAPI     bool
+	tokenServerTimeout     time.Duration
+	tokenServerTLSCAPath   string
+	tokenServerTLSCertPath string
+	tokenServerTLSKeyPath  string
+	useTokenServer         bool
+	shutdownTimeout        time.Duration
+	shutdownDelay          time.Duration
+	//
+	TokenRefresh        time.Duration
+	TokenExpiry         time.Duration
+	TokenType           string
+	MetricsServerAddr   string
+	HealthCheckAddr     string
+	HealthCheckEndpoint string
+	DeleteInstanceID    bool
 
 	LogDir   string
 	LogLevel string

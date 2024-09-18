@@ -51,10 +51,9 @@ func (idCfg *IdentityConfig) loadDerivedConfig() error {
 	}
 
 	// TODO:
-	// depends on the following:
-	// if err := idCfg.derivedTokenServerConfig(); err != nil {
-	// 	return err
-	// }
+	if err := idCfg.derivedTokenServerConfig(); err != nil {
+		return err
+	}
 
 	return nil
 }
