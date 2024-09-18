@@ -66,6 +66,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		return nil, nil
 	}
 	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
+	// TODO: move to derived token file
 	enableWriteFiles := idCfg.TokenCache.AccessToken.Use || idCfg.TokenCache.RoleToken.Use
 	if !enableWriteFiles {
 		// When file output is disabled, the Dir settings for the access token and role token will all be empty strings.
@@ -124,7 +125,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
 	// If it is in refresh mode, when requesting tokens using the REST API for the domains and roles specified in TARGET_DOMAIN_ROLES,
 	// the cache is updated to ensure a cache hit from the first request.
-	if !idCfg.Init || enableWriteFiles {
+	if !idCfg.Init || idCfg.TokenCache.AccessToken.Use || idCfg.TokenCache.RoleToken.Use {
 		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
 		for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT) {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
