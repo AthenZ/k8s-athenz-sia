@@ -29,7 +29,6 @@ type WriteFileConfig struct {
 }
 
 type DerivedTokenCache struct {
-	// Use               bool          // if fetching access token as files is enabled (de facto standard)
 	TargetDomainRoles []DomainRole  // domain roles to fetch tokens
 	Refresh           time.Duration // refresh interval
 	ExpirySeconds     int
