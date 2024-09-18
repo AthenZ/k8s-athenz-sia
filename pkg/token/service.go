@@ -131,7 +131,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 		}
 		if idCfg.Init && len(errs) != 0 {
-			return nil, fmt.Errorf("Unable to write token files: Athenz-sia deliberately fails to start if every token is not fetched during the init mode")
+			return nil, fmt.Errorf("Unable to write token files: %s deliberately fails to start if every token is not fetched during the init mode", config.APP_NAME)
 		}
 	}
 
