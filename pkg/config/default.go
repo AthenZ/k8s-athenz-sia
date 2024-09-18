@@ -102,7 +102,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		tokenExpiry:               DEFAULT_TOKEN_EXPIRY,
 		tokenServerAddr:           "",
 		TokenServerRESTAPI:        false,
-		TokenServerTimeout:        DEFAULT_TOKEN_SERVER_TIMEOUT,
+		tokenServerTimeout:        DEFAULT_TOKEN_SERVER_TIMEOUT,
 		tokenServerTLSCAPath:      "",
 		tokenServerTLSCertPath:    "",
 		tokenServerTLSKeyPath:     "",

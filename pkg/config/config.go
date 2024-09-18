@@ -154,7 +154,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %w", idCfg.rawTokenServerRESTAPI, err)
 	}
-	idCfg.TokenServerTimeout, err = time.ParseDuration(idCfg.rawTokenServerTimeout)
+	idCfg.tokenServerTimeout, err = time.ParseDuration(idCfg.rawTokenServerTimeout)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_SERVER_TIMEOUT [%q], %w", idCfg.rawTokenServerTimeout, err)
 	}
@@ -213,7 +213,7 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.DurationVar(&idCfg.tokenExpiry, "token-expiry", idCfg.tokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
 	f.StringVar(&idCfg.tokenServerAddr, "token-server-addr", idCfg.tokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
 	f.BoolVar(&idCfg.TokenServerRESTAPI, "token-server-rest-api", idCfg.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
-	f.DurationVar(&idCfg.TokenServerTimeout, "token-server-timeout", idCfg.TokenServerTimeout, "token server timeout (default 3s)")
+	f.DurationVar(&idCfg.tokenServerTimeout, "token-server-timeout", idCfg.tokenServerTimeout, "token server timeout (default 3s)")
 	f.StringVar(&idCfg.tokenServerTLSCAPath, "token-server-tls-ca-path", idCfg.tokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
 	f.StringVar(&idCfg.tokenServerTLSCertPath, "token-server-tls-cert-path", idCfg.tokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
 	f.StringVar(&idCfg.tokenServerTLSKeyPath, "token-server-tls-key-path", idCfg.tokenServerTLSKeyPath, "token server TLS certificate key path (if empty, disable TLS)")

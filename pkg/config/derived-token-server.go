@@ -17,6 +17,7 @@ package config
 
 import (
 	"strings"
+	"time"
 )
 
 type Tls struct {
@@ -26,8 +27,9 @@ type Tls struct {
 }
 type DerivedTokenServer struct {
 	Use     bool
-	Address string // server address i.e) "http://localhost:4443"
-	Tls     *Tls   // tls configuration if enabled; nil if disabled
+	Address string        // server address i.e) "http://localhost:4443"
+	Tls     *Tls          // tls configuration if enabled; nil if disabled
+	Timeout time.Duration // timeout in seconds
 }
 
 // TODO: Use idCfg.targetDomainRoles.TokenTargetDomainRoles
@@ -69,6 +71,7 @@ func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
 				KeyPath:  idCfg.tokenServerTLSKeyPath,
 			}
 		}(),
+		Timeout: time.Duration(idCfg.tokenServerTimeout),
 	}
 
 	return nil

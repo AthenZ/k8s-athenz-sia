@@ -152,7 +152,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 	tokenServer := &http.Server{
 		Addr:      idCfg.TokenServer.Address,
-		Handler:   newHandlerFunc(ts, idCfg.TokenServerTimeout),
+		Handler:   newHandlerFunc(ts, idCfg.TokenServer.Timeout),
 		TLSConfig: nil,
 	}
 	if idCfg.TokenServer.Tls != nil { // if TLS enabled:

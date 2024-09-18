@@ -59,7 +59,8 @@ type IdentityConfig struct {
 	roleCertNamingFormat      string
 	roleCertKeyNamingFormat   string
 	// Shared fields for server and writing files:
-	TokenType string
+	TokenType    string
+	TokenRefresh time.Duration
 	//WriteToken Derived State and its related fields:
 	WriteToken  DerivedToken // TODO: rename me later
 	tokenDir    string
@@ -68,10 +69,9 @@ type IdentityConfig struct {
 	TokenServer DerivedTokenServer
 	//
 	RoleAuthHeader         string
-	TokenRefresh           time.Duration
 	tokenServerAddr        string
 	TokenServerRESTAPI     bool
-	TokenServerTimeout     time.Duration
+	tokenServerTimeout     time.Duration
 	tokenServerTLSCAPath   string // TODO: Move to the top
 	tokenServerTLSCertPath string // TODO: Move to the top
 	tokenServerTLSKeyPath  string // TODO: Move to the top
