@@ -51,19 +51,13 @@ type tokenService struct {
 	ztsClient *zts.ZTSClient
 	saService string
 
-	tokenRESTAPI        bool
-	tokenType           mode
-	tokenDir            string
-	tokenRefresh        time.Duration
+	idCfg *config.IdentityConfig
+	// TODO: move to derived token
 	tokenExpiryInSecond int
-	roleAuthHeader      string
+	tokenType           mode
 
-	useTokenServer     bool
 	tokenServer        *http.Server
 	tokenServerRunning bool
-
-	shutdownDelay   time.Duration
-	shutdownTimeout time.Duration
 }
 
 func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
@@ -121,15 +115,9 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		roleTokenCache:      roleTokenCache,
 		ztsClient:           ztsClient,
 		saService:           saService,
-		tokenRESTAPI:        idCfg.TokenServerRESTAPI,
+		idCfg:               idCfg,
 		tokenType:           tt,
-		tokenDir:            idCfg.TokenDir,
-		tokenRefresh:        idCfg.TokenRefresh,
 		tokenExpiryInSecond: tokenExpiryInSecond,
-		roleAuthHeader:      idCfg.RoleAuthHeader,
-		useTokenServer:      idCfg.UseTokenServer,
-		shutdownDelay:       idCfg.ShutdownDelay,
-		shutdownTimeout:     idCfg.ShutdownTimeout,
 	}
 
 	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
@@ -201,15 +189,15 @@ func (ts *tokenService) Start(ctx context.Context) error {
 	}
 
 	// refreshes tokens periodically
-	if ts.tokenRefresh > 0 {
-		t := time.NewTicker(ts.tokenRefresh)
+	if ts.idCfg.TokenRefresh > 0 {
+		t := time.NewTicker(ts.idCfg.TokenRefresh)
 		ts.shutdownWg.Add(1)
 		go func() {
 			defer t.Stop()
 			defer ts.shutdownWg.Done()
 
 			for {
-				log.Infof("Will refresh cached tokens within %s", ts.tokenRefresh.String())
+				log.Infof("Will refresh cached tokens within %s", ts.idCfg.TokenRefresh.String())
 
 				select {
 				case <-ts.shutdownChan:
@@ -223,7 +211,7 @@ func (ts *tokenService) Start(ctx context.Context) error {
 					}
 
 					// backoff retry until TOKEN_REFRESH_INTERVAL / 4 OR context is done
-					for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, ts.tokenRefresh/4) {
+					for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, ts.idCfg.TokenRefresh/4) {
 						log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 					}
 				}
@@ -261,10 +249,10 @@ func (ts *tokenService) Shutdown() {
 	close(ts.shutdownChan)
 
 	if ts.tokenServer != nil && ts.tokenServerRunning {
-		log.Infof("Delaying token provider server shutdown for %s to shutdown gracefully ...", ts.shutdownDelay.String())
-		time.Sleep(ts.shutdownDelay)
+		log.Infof("Delaying token provider server shutdown for %s to shutdown gracefully ...", ts.idCfg.ShutdownDelay.String())
+		time.Sleep(ts.idCfg.ShutdownDelay)
 
-		ctx, cancel := context.WithTimeout(context.Background(), ts.shutdownTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), ts.idCfg.ShutdownTimeout)
 		defer cancel()
 		ts.tokenServer.SetKeepAlivesEnabled(false)
 		if err := ts.tokenServer.Shutdown(ctx); err != nil {
@@ -406,7 +394,7 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 		// File output processing
 		domain, role := key.Domain, key.Role
 		token := d.accessTokenCache.Load(key)
-		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".accesstoken")
+		outPath := filepath.Join(d.idCfg.TokenDir, domain+":role."+role+".accesstoken")
 		return d.writeFile(token, outPath, mACCESS_TOKEN)
 	}
 	updateAndWriteFileRoleToken := func(key CacheKey) error {
@@ -417,7 +405,7 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 		// File output processing
 		domain, role := key.Domain, key.Role
 		token := d.roleTokenCache.Load(key)
-		outPath := filepath.Join(d.tokenDir, domain+":role."+role+".roletoken")
+		outPath := filepath.Join(d.idCfg.TokenDir, domain+":role."+role+".roletoken")
 		return d.writeFile(token, outPath, mROLE_TOKEN)
 	}
 	switch tt {

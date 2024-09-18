@@ -229,7 +229,7 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 			}
 		}()
 
-		if ts.tokenRESTAPI {
+		if ts.idCfg.TokenServerRESTAPI {
 			// sidecar API (server requests' Body is always non-nil)
 			if ts.tokenType&mROLE_TOKEN != 0 && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
 				postRoleToken(ts, w, r)
@@ -242,7 +242,7 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 			}
 		}
 
-		if !ts.useTokenServer {
+		if !ts.idCfg.UseTokenServer {
 			w.WriteHeader(http.StatusNotFound)
 			io.WriteString(w, string("404 page not found"))
 			return
@@ -301,7 +301,7 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 		}
 		if rToken != nil {
 			rt := rToken.Raw()
-			w.Header().Set(ts.roleAuthHeader, rt)
+			w.Header().Set(ts.idCfg.RoleAuthHeader, rt)
 			resJSON["roletoken"] = rt
 		}
 		response, err := json.Marshal(resJSON)
