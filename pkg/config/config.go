@@ -142,11 +142,11 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %w", idCfg.rawRoleCertKeyFileOutput, err)
 	}
-	idCfg.tokenRefresh, err = time.ParseDuration(idCfg.rawTokenRefresh)
+	idCfg.TokenRefresh, err = time.ParseDuration(idCfg.rawTokenRefresh)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_REFRESH_INTERVAL [%q], %w", idCfg.rawTokenRefresh, err)
 	}
-	idCfg.tokenExpiry, err = time.ParseDuration(idCfg.rawTokenExpiry)
+	idCfg.TokenExpiry, err = time.ParseDuration(idCfg.rawTokenExpiry)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_EXPIRY [%q], %w", idCfg.rawTokenExpiry, err)
 	}
@@ -209,8 +209,8 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.roleCertKeyNamingFormat, "role-cert-key-naming-format", idCfg.roleCertKeyNamingFormat, "The file name format when outputting the role cert key to a file")
 	// RoleAuthHeader
 	f.StringVar(&idCfg.TokenType, "token-type", idCfg.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
-	f.DurationVar(&idCfg.tokenRefresh, "token-refresh-interval", idCfg.tokenRefresh, "token refresh interval")
-	f.DurationVar(&idCfg.tokenExpiry, "token-expiry", idCfg.tokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
+	f.DurationVar(&idCfg.TokenRefresh, "token-refresh-interval", idCfg.TokenRefresh, "token refresh interval")
+	f.DurationVar(&idCfg.TokenExpiry, "token-expiry", idCfg.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
 	f.StringVar(&idCfg.TokenServerAddr, "token-server-addr", idCfg.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
 	f.BoolVar(&idCfg.TokenServerRESTAPI, "token-server-rest-api", idCfg.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
 	f.DurationVar(&idCfg.TokenServerTimeout, "token-server-timeout", idCfg.TokenServerTimeout, "token server timeout (default 3s)")
@@ -249,8 +249,8 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 
 func (idCfg *IdentityConfig) validateAndInit() (err error) {
 
-	if idCfg.tokenExpiry != 0 && idCfg.tokenRefresh >= idCfg.tokenExpiry {
-		return fmt.Errorf("Invalid TokenRefresh[%s] >= TokenExpiry[%s]", idCfg.tokenRefresh.String(), idCfg.tokenExpiry.String())
+	if idCfg.TokenExpiry != 0 && idCfg.TokenRefresh >= idCfg.TokenExpiry {
+		return fmt.Errorf("Invalid TokenRefresh[%s] >= TokenExpiry[%s]", idCfg.TokenRefresh.String(), idCfg.TokenExpiry.String())
 	}
 
 	// TODO: clarify unused logic

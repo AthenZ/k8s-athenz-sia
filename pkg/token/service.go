@@ -51,8 +51,10 @@ type tokenService struct {
 	ztsClient *zts.ZTSClient
 	saService string
 
-	idCfg     *config.IdentityConfig
-	tokenType mode
+	idCfg *config.IdentityConfig
+	// TODO: move to derived token
+	tokenExpiryInSecond int
+	tokenType           mode
 
 	tokenServer        *http.Server
 	tokenServerRunning bool
@@ -72,17 +74,18 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// initialize token cache with placeholder
 	tt := newType(idCfg.TokenType)
+	tokenExpiryInSecond := int(idCfg.TokenExpiry.Seconds())
 	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
 	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
-	for _, dr := range idCfg.TokenCache.TargetDomainRoles {
+	for _, dr := range idCfg.TokenTargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
 		// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."
 		if tt&mACCESS_TOKEN != 0 {
-			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: idCfg.TokenCache.ExpirySeconds, WriteFileRequired: idCfg.TokenCache.AccessToken.Use}, &AccessToken{})
+			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: idCfg.TokenCache.AccessToken.Use}, &AccessToken{})
 		}
 		// TODO: Rewrite the following if statement as "if tt.isRoleTokenEnabled()..."
 		if tt&mROLE_TOKEN != 0 {
-			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: idCfg.TokenCache.ExpirySeconds, WriteFileRequired: idCfg.TokenCache.RoleToken.Use}, &RoleToken{})
+			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond, WriteFileRequired: idCfg.TokenCache.RoleToken.Use}, &RoleToken{})
 		}
 	}
 
@@ -108,13 +111,14 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// setup token service
 	ts := &tokenService{
-		shutdownChan:     make(chan struct{}, 1),
-		accessTokenCache: accessTokenCache,
-		roleTokenCache:   roleTokenCache,
-		ztsClient:        ztsClient,
-		saService:        saService,
-		idCfg:            idCfg,
-		tokenType:        tt,
+		shutdownChan:        make(chan struct{}, 1),
+		accessTokenCache:    accessTokenCache,
+		roleTokenCache:      roleTokenCache,
+		ztsClient:           ztsClient,
+		saService:           saService,
+		idCfg:               idCfg,
+		tokenType:           tt,
+		tokenExpiryInSecond: tokenExpiryInSecond,
 	}
 
 	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
@@ -186,15 +190,15 @@ func (ts *tokenService) Start(ctx context.Context) error {
 	}
 
 	// refreshes tokens periodically
-	if ts.idCfg.TokenCache.Refresh > 0 {
-		t := time.NewTicker(ts.idCfg.TokenCache.Refresh)
+	if ts.idCfg.TokenRefresh > 0 {
+		t := time.NewTicker(ts.idCfg.TokenRefresh)
 		ts.shutdownWg.Add(1)
 		go func() {
 			defer t.Stop()
 			defer ts.shutdownWg.Done()
 
 			for {
-				log.Infof("Will refresh cached tokens within %s", ts.idCfg.TokenCache.Refresh.String())
+				log.Infof("Will refresh cached tokens within %s", ts.idCfg.TokenRefresh.String())
 
 				select {
 				case <-ts.shutdownChan:
@@ -208,7 +212,7 @@ func (ts *tokenService) Start(ctx context.Context) error {
 					}
 
 					// backoff retry until TOKEN_REFRESH_INTERVAL / 4 OR context is done
-					for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, ts.idCfg.TokenCache.Refresh/4) {
+					for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, ts.idCfg.TokenRefresh/4) {
 						log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 					}
 				}
