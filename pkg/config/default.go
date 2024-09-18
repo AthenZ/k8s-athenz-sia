@@ -106,7 +106,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		TokenServerTLSCAPath:      "",
 		TokenServerTLSCertPath:    "",
 		TokenServerTLSKeyPath:     "",
-		TokenDir:                  "",
+		tokenDir:                  "",
 		MetricsServerAddr:         "",
 		HealthCheckAddr:           "",
 		HealthCheckEndpoint:       "",

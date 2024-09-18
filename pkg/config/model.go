@@ -59,6 +59,10 @@ type IdentityConfig struct {
 	roleCertNamingFormat      string
 	roleCertKeyNamingFormat   string
 	//
+	// Token Cache Derived State and its related fields:
+	TokenFile DerivedTokenFile
+	tokenDir  string
+	//
 	RoleAuthHeader         string
 	TokenType              string
 	TokenRefresh           time.Duration
@@ -69,7 +73,6 @@ type IdentityConfig struct {
 	TokenServerTLSCAPath   string
 	TokenServerTLSCertPath string
 	TokenServerTLSKeyPath  string
-	TokenDir               string
 	MetricsServerAddr      string
 	HealthCheckAddr        string
 	HealthCheckEndpoint    string

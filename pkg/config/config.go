@@ -108,7 +108,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idCfg.TokenServerTLSCAPath)
 	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idCfg.TokenServerTLSCertPath)
 	loadEnv("TOKEN_SERVER_TLS_KEY_PATH", &idCfg.TokenServerTLSKeyPath)
-	loadEnv("TOKEN_DIR", &idCfg.TokenDir)
+	loadEnv("TOKEN_DIR", &idCfg.tokenDir)
 	loadEnv("METRICS_SERVER_ADDR", &idCfg.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idCfg.rawDeleteInstanceID)
 	loadEnv("USE_TOKEN_SERVER", &idCfg.rawUseTokenServer)
@@ -217,7 +217,7 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.TokenServerTLSCAPath, "token-server-tls-ca-path", idCfg.TokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
 	f.StringVar(&idCfg.TokenServerTLSCertPath, "token-server-tls-cert-path", idCfg.TokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
 	f.StringVar(&idCfg.TokenServerTLSKeyPath, "token-server-tls-key-path", idCfg.TokenServerTLSKeyPath, "token server TLS certificate key path (if empty, disable TLS)")
-	f.StringVar(&idCfg.TokenDir, "token-dir", idCfg.TokenDir, "directory to write token files")
+	f.StringVar(&idCfg.tokenDir, "token-dir", idCfg.tokenDir, "directory to write token files")
 	f.StringVar(&idCfg.MetricsServerAddr, "metrics-server-addr", idCfg.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idCfg.DeleteInstanceID, "delete-instance-id", idCfg.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// Token Server
