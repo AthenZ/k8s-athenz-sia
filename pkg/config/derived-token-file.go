@@ -56,7 +56,6 @@ func (idCfg *IdentityConfig) derivedTokenFileConfig() error {
 	}
 
 	// Enable from now on:
-	// access token:
 	idCfg.TokenFile = DerivedTokenFile{
 		Dir: idCfg.tokenDir,
 		AccessToken: func() TokenFileConfig {
