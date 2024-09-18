@@ -20,15 +20,19 @@ import (
 	"time"
 )
 
+// HeaderTokenMode is a mode that exchanges information such as domain and role tokens with tenants by attaching it to the request and response headers.
+// TODO: Consider whether there is a better name for the struct.
 type HeaderTokenMode struct {
 	Use            bool
 	RoleAuthHeader string
 }
 
+// RestAPIMode is a mode that exchanges information such as domain and role tokens with tenants by attaching it to the POST request and response body.
 type RestAPIMode struct {
 	Use bool
 }
 
+// TLS is a struct that summarizes the configuration details for enabling TLS communication between tenants and SIA.
 type TLS struct {
 	Use      bool
 	CAPath   string
@@ -37,14 +41,14 @@ type TLS struct {
 }
 
 type DerivedTokenServer struct {
-	Use             bool
-	Addr            string
-	ShutdownDelay   time.Duration
-	ShutdownTimeout time.Duration
-	ServerTimeout   time.Duration
-	TLS             TLS
-	HeaderToken     HeaderTokenMode
-	RestAPI         RestAPIMode
+	Use             bool            // whether to use the token server
+	HeaderToken     HeaderTokenMode // header token mode configuration
+	RestAPI         RestAPIMode     // rest api mode configuration
+	Addr            string          // token server address
+	ShutdownDelay   time.Duration   // Shutdown delay for gracefully shutting down the Token Server
+	ShutdownTimeout time.Duration   // Shutdown timeout for gracefully shutting down the Token Server
+	ServerTimeout   time.Duration   // Timeout for receiving a request from a tenant and sending a response
+	TLS             TLS             // TLS configuration for token server
 }
 
 // derivedTokenFileConfig reads given configuration and sets the derived state of outputting token file related configuration.
