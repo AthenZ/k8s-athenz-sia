@@ -60,8 +60,8 @@ type IdentityConfig struct {
 	roleCertKeyNamingFormat   string
 	//
 	// Token Cache Derived State and its related fields:
-	TokenCache DerivedTokenFile
-	tokenDir   string
+	TokenFile DerivedTokenFile
+	tokenDir  string
 	//
 	RoleAuthHeader         string
 	TokenType              string

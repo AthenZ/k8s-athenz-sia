@@ -21,13 +21,13 @@ import (
 
 type TokenFileConfig struct {
 	Use bool
-	Dir string
 	// TODO: Add Format
 	// Format    string
 	Delimiter string
 }
 
 type DerivedTokenFile struct {
+	Dir         string
 	AccessToken TokenFileConfig
 	RoleToken   TokenFileConfig
 }
@@ -35,45 +35,61 @@ type DerivedTokenFile struct {
 // derivedTokenFileConfig reads given configuration and sets the derived state of outputting token file related configuration.
 func (idCfg *IdentityConfig) derivedTokenFileConfig() error {
 	// default:
-	idCfg.TokenCache = DerivedTokenFile{
+	idCfg.TokenFile = DerivedTokenFile{
+		Dir: "",
 		AccessToken: TokenFileConfig{
 			Use: false,
-			Dir: "",
 			// Format:    "",
 			Delimiter: "",
 		},
 		RoleToken: TokenFileConfig{
 			Use: false,
-			Dir: "",
 			// Format:    "",
 			Delimiter: "",
 		},
 	}
 
+	// TODO: Apply the following instead?:
+	// if idCfg.TokenDir == ""  || idCfg.TokenType == "" {
 	if idCfg.tokenDir == "" {
-		return nil // disable
+		return nil // disabled
 	}
 
 	// Enable from now on:
 	// access token:
-	if strings.Contains(idCfg.TokenType, "accesstoken") {
-		idCfg.TokenCache.AccessToken = TokenFileConfig{
-			Use: true,
-			Dir: idCfg.tokenDir,
-			// Format:    filepath.Join(idCfg.TokenDir, "{{domain}}{{delimiter}}{{role}}.accesstoken"),
-			Delimiter: ":role.",
-		}
-	}
+	idCfg.TokenFile = DerivedTokenFile{
+		Dir: idCfg.tokenDir,
+		AccessToken: func() TokenFileConfig {
+			// disabled
+			if !strings.Contains(idCfg.TokenType, "accesstoken") {
+				return TokenFileConfig{
+					Use: false,
+					// Format:    "",
+					Delimiter: "",
+				}
+			}
+			return TokenFileConfig{
+				Use: true,
+				// Format:    filepath.Join(idCfg.TokenDir, "{{domain}}{{delimiter}}{{role}}.accesstoken"),
+				Delimiter: ":role.",
+			}
 
-	// role token:
-	if strings.Contains(idCfg.TokenType, "roletoken") {
-		idCfg.TokenCache.RoleToken = TokenFileConfig{
-			Use: true,
-			Dir: idCfg.tokenDir,
-			// Format:    filepath.Join(idCfg.TokenDir, "{{domain}}{{delimiter}}{{role}}.roletoken"),
-			Delimiter: ":role.",
-		}
+		}(),
+		RoleToken: func() TokenFileConfig {
+			// disabled
+			if !strings.Contains(idCfg.TokenType, "roletoken") {
+				return TokenFileConfig{
+					Use: false,
+					// Format:    "",
+					Delimiter: "",
+				}
+			}
+			return TokenFileConfig{
+				Use: true,
+				// Format:    filepath.Join(idCfg.TokenDir, "{{domain}}{{delimiter}}{{role}}.roletoken"),
+				Delimiter: ":role.",
+			}
+		}(),
 	}
-
 	return nil
 }
