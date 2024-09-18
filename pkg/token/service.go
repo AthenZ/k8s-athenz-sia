@@ -67,7 +67,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
 	// TODO: move to derived token file
-	// TODO: Maybe idCfg.TokenFile.Use()
+	// TODO: Maybe if !idCfg.TokenFile.Use()
 	if !idCfg.TokenFile.AccessToken.Use && !idCfg.TokenFile.RoleToken.Use {
 		// When file output is disabled, the Dir settings for the access token and role token will all be empty strings.
 		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.TokenFile.Dir)
