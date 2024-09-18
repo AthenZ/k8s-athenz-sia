@@ -36,7 +36,7 @@ type DerivedTokenCache struct {
 	RoleToken         WriteFileConfig
 }
 
-// // derivedAccessToken ... TODO: Comment
+// derivedTokenChacheConfig reads given configuration and sets the derived state of updating token cache related configuration.
 func (idCfg *IdentityConfig) derivedTokenChacheConfig() error {
 	// default:
 	idCfg.TokenCache = DerivedTokenCache{
