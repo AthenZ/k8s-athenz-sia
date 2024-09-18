@@ -135,7 +135,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// create token server
 	// TODO: move to derived token file
-	//
 	if idCfg.Init {
 		log.Infof("Token server is disabled for init mode: address[%s]", idCfg.TokenServer.Addr)
 		return ts, nil
