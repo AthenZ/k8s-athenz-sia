@@ -16,6 +16,7 @@
 package config
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -27,7 +28,6 @@ type TokenFileConfig struct {
 }
 
 type DerivedTokenFile struct {
-	Dir         string // TODO: This might be deleted later
 	AccessToken TokenFileConfig
 	RoleToken   TokenFileConfig
 }
@@ -36,7 +36,6 @@ type DerivedTokenFile struct {
 func (idCfg *IdentityConfig) derivedTokenFileConfig() error {
 	// default:
 	idCfg.TokenFile = DerivedTokenFile{
-		Dir: "",
 		AccessToken: TokenFileConfig{
 			Use:       false,
 			Format:    "",
@@ -51,13 +50,21 @@ func (idCfg *IdentityConfig) derivedTokenFileConfig() error {
 
 	// TODO: Apply the following instead?:
 	// if idCfg.TokenDir == ""  || idCfg.TokenType == "" {
-	if idCfg.tokenDir == "" {
+	if idCfg.tokenDir == "" && idCfg.accessTokenNamingFormat == "" && idCfg.roleTokenNamingFormat == "" {
 		return nil // disabled
+	}
+
+	// If both the TokenDir settings and the NamingFormat settings are configured redundantly, an error will be returned.
+	if idCfg.tokenDir != "" && idCfg.accessTokenNamingFormat != "" {
+		return fmt.Errorf("Both TOKEN_DIR[%s] and ACCESS_TOKEN_NAMING_FORMAT[%s] are set. Please ensure only one of these is specified to avoid conflicts.", idCfg.tokenDir, idCfg.accessTokenNamingFormat)
+	}
+	if idCfg.tokenDir != "" && idCfg.roleTokenNamingFormat != "" {
+		return fmt.Errorf("Both TOKEN_DIR[%s] and ROLE_TOKEN_NAMING_FORMAT[%s] are set. Please ensure only one of these is specified to avoid conflicts.", idCfg.tokenDir, idCfg.roleTokenNamingFormat)
+
 	}
 
 	// Enable from now on:
 	idCfg.TokenFile = DerivedTokenFile{
-		Dir: idCfg.tokenDir,
 		AccessToken: func() TokenFileConfig {
 			// disabled
 			if !strings.Contains(idCfg.TokenType, "accesstoken") {
@@ -67,10 +74,17 @@ func (idCfg *IdentityConfig) derivedTokenFileConfig() error {
 					Delimiter: "",
 				}
 			}
+			if idCfg.accessTokenNamingFormat != "" {
+				return TokenFileConfig{
+					Use:       true,
+					Format:    idCfg.accessTokenNamingFormat,
+					Delimiter: idCfg.accessTokenFilenameDelimiter,
+				}
+			}
 			return TokenFileConfig{
 				Use:       true,
 				Format:    filepath.Join(idCfg.tokenDir, "{{domain}}{{delimiter}}{{role}}.accesstoken"),
-				Delimiter: ":role.",
+				Delimiter: idCfg.accessTokenFilenameDelimiter,
 			}
 
 		}(),
@@ -83,10 +97,17 @@ func (idCfg *IdentityConfig) derivedTokenFileConfig() error {
 					Delimiter: "",
 				}
 			}
+			if idCfg.roleTokenNamingFormat != "" {
+				return TokenFileConfig{
+					Use:       true,
+					Format:    idCfg.roleTokenNamingFormat,
+					Delimiter: idCfg.roleTokenFilenameDelimiter,
+				}
+			}
 			return TokenFileConfig{
 				Use:       true,
 				Format:    filepath.Join(idCfg.tokenDir, "{{domain}}{{delimiter}}{{role}}.roletoken"),
-				Delimiter: ":role.",
+				Delimiter: idCfg.roleTokenFilenameDelimiter,
 			}
 		}(),
 	}

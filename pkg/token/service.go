@@ -64,12 +64,14 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		log.Info("Skipped token provider initiation")
 		return nil, nil
 	}
-	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
 	// TODO: move to derived token file
-	// TODO: Maybe if !idCfg.TokenFile.Use()
-	if !idCfg.TokenFile.AccessToken.Use && !idCfg.TokenFile.RoleToken.Use {
+	if !idCfg.TokenFile.AccessToken.Use {
 		// When file output is disabled, the Dir settings for the access token and role token will all be empty strings.
-		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.TokenFile.Dir)
+		log.Debugf("Skipping to write access token files to directory with empty filename format[%s]", idCfg.TokenFile.AccessToken.Format)
+	}
+	if !idCfg.TokenFile.RoleToken.Use {
+		// When file output is disabled, the Dir settings for the access token and role token will all be empty strings.
+		log.Debugf("Skipping to write role token files to directory with filename format[%s]", idCfg.TokenFile.RoleToken.Format)
 	}
 
 	// initialize token cache with placeholder
@@ -401,6 +403,9 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 		// File output processing
 		domain, role := key.Domain, key.Role
 		token := d.accessTokenCache.Load(key)
+		if token == nil {
+			return fmt.Errorf("failed to load access token from cache: %s", key.String())
+		}
 		outPath, err := extutil.GeneratePath(d.idCfg.TokenFile.AccessToken.Format, domain, role, d.idCfg.TokenFile.AccessToken.Delimiter)
 		if err != nil {
 			return fmt.Errorf("failed to generate path for access token with format [%s], domain [%s], role [%s], delimiter [%s]: %w", d.idCfg.TokenFile.AccessToken.Format, domain, role, d.idCfg.TokenFile.AccessToken.Delimiter, err)
@@ -415,6 +420,9 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 		// File output processing
 		domain, role := key.Domain, key.Role
 		token := d.roleTokenCache.Load(key)
+		if token == nil {
+			return fmt.Errorf("failed to load role token from cache: %s", key.String())
+		}
 		outPath, err := extutil.GeneratePath(d.idCfg.TokenFile.RoleToken.Format, domain, role, d.idCfg.TokenFile.RoleToken.Delimiter)
 		if err != nil {
 			return fmt.Errorf("failed to generate path for role token with format [%s], domain [%s], role [%s], delimiter [%s]: %w", d.idCfg.TokenFile.RoleToken.Format, domain, role, d.idCfg.TokenFile.RoleToken.Delimiter, err)
@@ -445,8 +453,6 @@ func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 		return fmt.Errorf("invalid token type: %d", tt)
 	}
 
-	domain := token.Domain()
-	role := token.Role()
 	rawToken := token.Raw()
 	if rawToken == "" {
 		// skip placeholder token added during daemon creation
@@ -458,7 +464,7 @@ func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 		return fmt.Errorf("unable to create directory for token: %w", err)
 	}
 	// Unlike the delimiter used for file names, the log output will use the Athenz standard delimiter ":role.":
-	log.Infof("[New %s Token] Subject: %s:role.%s [%d bytes] in %s", tokenType, domain, role, len(rawToken), outPath)
+	log.Infof("[New %s Token] Subject: %s:role.%s [%d bytes] in %s", tokenType, token.Domain(), token.Role(), len(rawToken), outPath)
 	if err := w.AddBytes(outPath, 0644, []byte(rawToken)); err != nil {
 		return fmt.Errorf("unable to save %s Token: %w", tokenType, err)
 	}
