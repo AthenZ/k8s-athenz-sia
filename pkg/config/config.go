@@ -108,7 +108,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idCfg.TokenServerTLSCAPath)
 	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idCfg.TokenServerTLSCertPath)
 	loadEnv("TOKEN_SERVER_TLS_KEY_PATH", &idCfg.TokenServerTLSKeyPath)
-	loadEnv("TOKEN_DIR", &idCfg.TokenDir)
+	loadEnv("TOKEN_DIR", &idCfg.tokenDir)
 	loadEnv("METRICS_SERVER_ADDR", &idCfg.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idCfg.rawDeleteInstanceID)
 	loadEnv("USE_TOKEN_SERVER", &idCfg.rawUseTokenServer)
@@ -142,11 +142,11 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %w", idCfg.rawRoleCertKeyFileOutput, err)
 	}
-	idCfg.TokenRefresh, err = time.ParseDuration(idCfg.rawTokenRefresh)
+	idCfg.tokenRefresh, err = time.ParseDuration(idCfg.rawTokenRefresh)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_REFRESH_INTERVAL [%q], %w", idCfg.rawTokenRefresh, err)
 	}
-	idCfg.TokenExpiry, err = time.ParseDuration(idCfg.rawTokenExpiry)
+	idCfg.tokenExpiry, err = time.ParseDuration(idCfg.rawTokenExpiry)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_EXPIRY [%q], %w", idCfg.rawTokenExpiry, err)
 	}
@@ -209,15 +209,15 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.roleCertKeyNamingFormat, "role-cert-key-naming-format", idCfg.roleCertKeyNamingFormat, "The file name format when outputting the role cert key to a file")
 	// RoleAuthHeader
 	f.StringVar(&idCfg.TokenType, "token-type", idCfg.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
-	f.DurationVar(&idCfg.TokenRefresh, "token-refresh-interval", idCfg.TokenRefresh, "token refresh interval")
-	f.DurationVar(&idCfg.TokenExpiry, "token-expiry", idCfg.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
+	f.DurationVar(&idCfg.tokenRefresh, "token-refresh-interval", idCfg.tokenRefresh, "token refresh interval")
+	f.DurationVar(&idCfg.tokenExpiry, "token-expiry", idCfg.tokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
 	f.StringVar(&idCfg.TokenServerAddr, "token-server-addr", idCfg.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
 	f.BoolVar(&idCfg.TokenServerRESTAPI, "token-server-rest-api", idCfg.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
 	f.DurationVar(&idCfg.TokenServerTimeout, "token-server-timeout", idCfg.TokenServerTimeout, "token server timeout (default 3s)")
 	f.StringVar(&idCfg.TokenServerTLSCAPath, "token-server-tls-ca-path", idCfg.TokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
 	f.StringVar(&idCfg.TokenServerTLSCertPath, "token-server-tls-cert-path", idCfg.TokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
 	f.StringVar(&idCfg.TokenServerTLSKeyPath, "token-server-tls-key-path", idCfg.TokenServerTLSKeyPath, "token server TLS certificate key path (if empty, disable TLS)")
-	f.StringVar(&idCfg.TokenDir, "token-dir", idCfg.TokenDir, "directory to write token files")
+	f.StringVar(&idCfg.tokenDir, "token-dir", idCfg.tokenDir, "directory to write token files")
 	f.StringVar(&idCfg.MetricsServerAddr, "metrics-server-addr", idCfg.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idCfg.DeleteInstanceID, "delete-instance-id", idCfg.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// Token Server
@@ -249,8 +249,8 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 
 func (idCfg *IdentityConfig) validateAndInit() (err error) {
 
-	if idCfg.TokenExpiry != 0 && idCfg.TokenRefresh >= idCfg.TokenExpiry {
-		return fmt.Errorf("Invalid TokenRefresh[%s] >= TokenExpiry[%s]", idCfg.TokenRefresh.String(), idCfg.TokenExpiry.String())
+	if idCfg.tokenExpiry != 0 && idCfg.tokenRefresh >= idCfg.tokenExpiry {
+		return fmt.Errorf("Invalid TokenRefresh[%s] >= TokenExpiry[%s]", idCfg.tokenRefresh.String(), idCfg.tokenExpiry.String())
 	}
 
 	// TODO: clarify unused logic
