@@ -131,8 +131,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		for _, err := range errs {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
 		}
-		if len(errs) != 0 && idCfg.Init {
-			return nil, fmt.Errorf("Unable to write token files for init mode")
+		if idCfg.Init && len(errs) != 0 {
+			return nil, fmt.Errorf("Unable to write token files for init mode: Failed to refresh tokens after multiple retries")
 		}
 	}
 
