@@ -86,8 +86,8 @@ func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
 		ShutdownTimeout: idCfg.shutdownTimeout,
 		ServerTimeout:   idCfg.tokenServerTimeout,
 		TLS: func() TLS {
+			// disabled
 			if idCfg.tokenServerTLSCertPath == "" && idCfg.tokenServerTLSKeyPath == "" {
-				// disabled
 				return TLS{
 					Use:      false,
 					CAPath:   "",
@@ -103,8 +103,8 @@ func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
 			}
 		}(),
 		HeaderToken: func() HeaderTokenMode {
+			// disabled
 			if !idCfg.useTokenServer {
-				// disabled
 				return HeaderTokenMode{
 					Use:            false,
 					RoleAuthHeader: "",
@@ -116,8 +116,8 @@ func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
 			}
 		}(),
 		RestAPI: func() RestAPIMode {
+			// disabled
 			if !idCfg.tokenServerRESTAPI {
-				// disabled
 				return RestAPIMode{
 					Use: false,
 				}
