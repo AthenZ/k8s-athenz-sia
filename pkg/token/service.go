@@ -64,11 +64,9 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		return nil, nil
 	}
 	// TODO: In the next PR, the determination will be made on a per Access Token and Role Token basis.
-	enableAccessToken := idCfg.TokenCache.AccessToken.Use
-	enableRoleToken := idCfg.TokenCache.RoleToken.Use
-	enableWriteFiles := enableAccessToken || enableRoleToken
+	enableWriteFiles := idCfg.TokenCache.AccessToken.Use || idCfg.TokenCache.RoleToken.Use
 	if !enableWriteFiles {
-		// The Dir settings for the access token and role token are the same.
+		// When file output is disabled, the Dir settings for the access token and role token will all be empty strings.
 		log.Debugf("Skipping to write token files to directory with empty TOKEN_DIR [%s]", idCfg.TokenCache.AccessToken.Dir)
 	}
 
@@ -80,11 +78,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		domain, role := dr.Domain, dr.Role
 		// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."
 		if tt&mACCESS_TOKEN != 0 {
-			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: idCfg.TokenCache.ExpirySeconds, WriteFileRequired: enableWriteFiles}, &AccessToken{})
+			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: idCfg.TokenCache.ExpirySeconds, WriteFileRequired: idCfg.TokenCache.AccessToken.Use}, &AccessToken{})
 		}
 		// TODO: Rewrite the following if statement as "if tt.isRoleTokenEnabled()..."
 		if tt&mROLE_TOKEN != 0 {
-			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: idCfg.TokenCache.ExpirySeconds, WriteFileRequired: enableWriteFiles}, &RoleToken{})
+			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: idCfg.TokenCache.ExpirySeconds, WriteFileRequired: idCfg.TokenCache.RoleToken.Use}, &RoleToken{})
 		}
 	}
 
