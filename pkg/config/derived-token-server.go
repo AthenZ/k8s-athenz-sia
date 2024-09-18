@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-type TokenServerMode struct {
+type HeaderTokenMode struct {
 	Use            bool
 	RoleAuthHeader string
 }
@@ -43,7 +43,7 @@ type DerivedTokenServer struct {
 	ShutdownTimeout time.Duration
 	ServerTimeout   time.Duration
 	TLS             TLS
-	TokenServer     TokenServerMode
+	HeaderToken     HeaderTokenMode
 	RestAPI         RestAPIMode
 }
 
@@ -62,7 +62,7 @@ func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
 			CertPath: "",
 			KeyPath:  "",
 		},
-		TokenServer: TokenServerMode{
+		HeaderToken: HeaderTokenMode{
 			Use:            false,
 			RoleAuthHeader: "",
 		},
@@ -102,15 +102,15 @@ func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
 				KeyPath:  idCfg.tokenServerTLSKeyPath,
 			}
 		}(),
-		TokenServer: func() TokenServerMode {
+		HeaderToken: func() HeaderTokenMode {
 			if !idCfg.useTokenServer {
 				// disabled
-				return TokenServerMode{
+				return HeaderTokenMode{
 					Use:            false,
 					RoleAuthHeader: "",
 				}
 			}
-			return TokenServerMode{
+			return HeaderTokenMode{
 				Use:            true,
 				RoleAuthHeader: idCfg.roleAuthHeader,
 			}

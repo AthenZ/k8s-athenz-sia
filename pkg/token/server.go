@@ -242,7 +242,7 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 			}
 		}
 
-		if !ts.idCfg.TokenServer.TokenServer.Use {
+		if !ts.idCfg.TokenServer.HeaderToken.Use {
 			w.WriteHeader(http.StatusNotFound)
 			io.WriteString(w, string("404 page not found"))
 			return
@@ -301,7 +301,7 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 		}
 		if rToken != nil {
 			rt := rToken.Raw()
-			w.Header().Set(ts.idCfg.TokenServer.TokenServer.RoleAuthHeader, rt)
+			w.Header().Set(ts.idCfg.TokenServer.HeaderToken.RoleAuthHeader, rt)
 			resJSON["roletoken"] = rt
 		}
 		response, err := json.Marshal(resJSON)
