@@ -126,9 +126,12 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// the cache is updated to ensure a cache hit from the first request.
 	// TODO: Maybe !idCfg.Init || idCfg.TokenFile.Use()
 	if !idCfg.Init || idCfg.TokenFile.AccessToken.Use || idCfg.TokenFile.RoleToken.Use {
-		// TODO: if cap(errs) == len(errs), implies all token updates failed, should be fatal
-		for _, err := range ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT) {
+		errs := ts.updateTokenCachesAndWriteFiles(ctx, config.DEFAULT_MAX_ELAPSED_TIME_ON_INIT)
+		for _, err := range errs {
 			log.Errorf("Failed to refresh tokens after multiple retries: %s", err.Error())
+		}
+		if idCfg.Init && len(errs) != 0 {
+			return nil, fmt.Errorf("Unable to write token files: %s deliberately fails to start if every token is not fetched during the init mode", config.APP_NAME)
 		}
 	}
 
