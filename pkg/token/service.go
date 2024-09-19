@@ -71,7 +71,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 	if !idCfg.TokenFile.RoleToken.Use {
 		// When file output is disabled, the Dir settings for the access token and role token will all be empty strings.
-		log.Debugf("Skipping to write role token files to directory with filename format[%s]", idCfg.TokenFile.RoleToken.Format)
+		log.Debugf("Skipping to write role token files to directory with empty filename format[%s]", idCfg.TokenFile.RoleToken.Format)
 	}
 
 	// initialize token cache with placeholder
