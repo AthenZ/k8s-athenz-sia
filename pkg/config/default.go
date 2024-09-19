@@ -37,11 +37,13 @@ var (
 	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_RAW = "5"
 	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES     = 5
 
-	DEFAULT_ENDPOINT                     string
-	DEFAULT_ROLE_AUTH_HEADER             = "Athenz-Role-Auth"
-	DEFAULT_DNS_SUFFIX                   = "athenz.cloud"
-	DEFAULT_ROLE_CERT_FILENAME_DELIMITER = ":role."
-	DEFAULT_INTERMEDIATE_CERT_BUNDLE     string
+	DEFAULT_ENDPOINT                        string
+	DEFAULT_ROLE_AUTH_HEADER                = "Athenz-Role-Auth"
+	DEFAULT_DNS_SUFFIX                      = "athenz.cloud"
+	DEFAULT_ROLE_CERT_FILENAME_DELIMITER    = ":role."
+	DEFAULT_ACCESS_TOKEN_FILENAME_DELIMITER = ":role."
+	DEFAULT_ROLE_TOKEN_FILENAME_DELIMITER   = ":role."
+	DEFAULT_INTERMEDIATE_CERT_BUNDLE        string
 
 	// default values for graceful shutdown
 	DEFAULT_SHUTDOWN_TIMEOUT = 5 * time.Second
