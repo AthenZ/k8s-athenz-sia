@@ -42,6 +42,9 @@ type tokenService struct {
 	group            singleflight.Group
 	accessTokenCache TokenCache
 	roleTokenCache   TokenCache
+	// TODO: Should it be moved to derived-token-file?
+	accessTokenWriteFileTargets map[CacheKey]bool
+	roleTokenWriteFileTargets   map[CacheKey]bool
 
 	// keyFile      string
 	// certFile     string
@@ -79,15 +82,25 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	tokenExpiryInSecond := int(idCfg.TokenExpiry.Seconds())
 	accessTokenCache := NewLockedTokenCache("accesstoken", idCfg.Namespace, idCfg.PodName)
 	roleTokenCache := NewLockedTokenCache("roletoken", idCfg.Namespace, idCfg.PodName)
+	accessTokenWriteFileTargets := make(map[CacheKey]bool)
+	roleTokenWriteFileTargets := make(map[CacheKey]bool)
 	for _, dr := range idCfg.TokenTargetDomainRoles {
 		domain, role := dr.Domain, dr.Role
 		// TODO: Rewrite the following if statement as "if tt.isAccessTokenEnabled()..."
 		if tt&mACCESS_TOKEN != 0 {
-			accessTokenCache.Store(CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond, WriteFileRequired: idCfg.TokenFile.AccessToken.Use}, &AccessToken{})
+			key := CacheKey{Domain: domain, Role: role, MaxExpiry: tokenExpiryInSecond}
+			accessTokenCache.Store(key, &AccessToken{})
+			if idCfg.TokenFile.AccessToken.Use {
+				accessTokenWriteFileTargets[key] = true
+			}
 		}
 		// TODO: Rewrite the following if statement as "if tt.isRoleTokenEnabled()..."
 		if tt&mROLE_TOKEN != 0 {
-			roleTokenCache.Store(CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond, WriteFileRequired: idCfg.TokenFile.RoleToken.Use}, &RoleToken{})
+			key := CacheKey{Domain: domain, Role: role, MinExpiry: tokenExpiryInSecond}
+			roleTokenCache.Store(key, &RoleToken{})
+			if idCfg.TokenFile.RoleToken.Use {
+				roleTokenWriteFileTargets[key] = true
+			}
 		}
 	}
 
@@ -113,14 +126,16 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// setup token service
 	ts := &tokenService{
-		shutdownChan:        make(chan struct{}, 1),
-		accessTokenCache:    accessTokenCache,
-		roleTokenCache:      roleTokenCache,
-		ztsClient:           ztsClient,
-		saService:           saService,
-		idCfg:               idCfg,
-		tokenType:           tt,
-		tokenExpiryInSecond: tokenExpiryInSecond,
+		shutdownChan:                make(chan struct{}, 1),
+		accessTokenCache:            accessTokenCache,
+		roleTokenCache:              roleTokenCache,
+		accessTokenWriteFileTargets: accessTokenWriteFileTargets,
+		roleTokenWriteFileTargets:   roleTokenWriteFileTargets,
+		ztsClient:                   ztsClient,
+		saService:                   saService,
+		idCfg:                       idCfg,
+		tokenType:                   tt,
+		tokenExpiryInSecond:         tokenExpiryInSecond,
 	}
 
 	// write tokens as files only if it is non-init mode OR TOKEN_DIR is set
@@ -397,8 +412,11 @@ func (ts *tokenService) updateAndWriteFileTokenWithRetry(ctx context.Context, ma
 func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 	updateAndWriteFileAccessToken := func(key CacheKey) error {
 		_, err := d.requestTokenToZts(key, mACCESS_TOKEN, "daemon_access_token_update")
-		if err != nil || !key.WriteFileRequired {
+		if err != nil {
 			return err
+		}
+		if _, ok := d.accessTokenWriteFileTargets[key]; !ok {
+			return nil
 		}
 		// File output processing
 		domain, role := key.Domain, key.Role
@@ -414,8 +432,11 @@ func (d *tokenService) updateAndWriteFileToken(key CacheKey, tt mode) error {
 	}
 	updateAndWriteFileRoleToken := func(key CacheKey) error {
 		_, err := d.requestTokenToZts(key, mROLE_TOKEN, "daemon_role_token_update")
-		if err != nil || !key.WriteFileRequired {
+		if err != nil {
 			return err
+		}
+		if _, ok := d.roleTokenWriteFileTargets[key]; !ok {
+			return nil
 		}
 		// File output processing
 		domain, role := key.Domain, key.Role
