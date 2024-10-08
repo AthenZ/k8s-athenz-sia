@@ -433,9 +433,24 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 		}
 
 		subject := pkix.Name{
-			Country:            []string{config.DEFAULT_COUNTRY},
-			Province:           []string{config.DEFAULT_PROVINCE},
-			Organization:       []string{config.DEFAULT_ORGANIZATION},
+			Country: func() []string {
+				if config.DEFAULT_COUNTRY != "" {
+					return []string{config.DEFAULT_COUNTRY}
+				}
+				return nil
+			}(),
+			Province: func() []string {
+				if config.DEFAULT_PROVINCE != "" {
+					return []string{config.DEFAULT_PROVINCE}
+				}
+				return nil
+			}(),
+			Organization: func() []string {
+				if config.DEFAULT_ORGANIZATION != "" {
+					return []string{config.DEFAULT_ORGANIZATION}
+				}
+				return nil
+			}(),
 			OrganizationalUnit: []string{config.DEFAULT_ORGANIZATIONAL_UNIT},
 			CommonName:         fmt.Sprintf("%s:role.%s", targetDomain, targetRole),
 		}
