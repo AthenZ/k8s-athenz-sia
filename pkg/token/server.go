@@ -315,7 +315,7 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 		io.WriteString(w, string(response))
 	}
 
-	// timeout handler
+	// logging && timeout handler
 	return withLogging(http.TimeoutHandler(http.HandlerFunc(mainHandler), timeout, "Handler timeout by token-server-timeout"))
 }
 
