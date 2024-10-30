@@ -95,8 +95,7 @@ func postRoleToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// cache lookup (token TTL must >= 1 minute)
-	var rToken Token
-	k, rToken = ts.roleTokenCache.Search(k)
+	rToken := ts.roleTokenCache.Load(k)
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if rToken == nil || time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
@@ -178,8 +177,7 @@ func postAccessToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// cache lookup (token TTL must >= 1 minute)
-	var aToken Token
-	k, aToken = ts.accessTokenCache.Search(k)
+	aToken := ts.accessTokenCache.Load(k)
 	// TODO: What does time.Unix(rToken.Expiry(), 0).Sub(time.Now()) <= time.Minute mean?
 	// TODO: Gotta write a comment for this, or define a variable beforehand.
 	if aToken == nil || time.Unix(aToken.Expiry(), 0).Sub(time.Now()) <= time.Minute {
@@ -261,13 +259,13 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 			// TODO: Maybe we need to separate the cache keys for RT and AT?
 			k := CacheKey{Domain: domain, Role: role, MinExpiry: ts.tokenExpiryInSecond}
 			if ts.tokenType&mACCESS_TOKEN != 0 {
-				k, aToken = ts.accessTokenCache.Search(k)
+				aToken = ts.accessTokenCache.Load(k)
 				if aToken == nil {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 				}
 			}
 			if ts.tokenType&mROLE_TOKEN != 0 {
-				k, rToken = ts.roleTokenCache.Search(k)
+				rToken = ts.roleTokenCache.Load(k)
 				if rToken == nil {
 					errMsg = fmt.Sprintf("domain[%s] role[%s] was not found in cache.", domain, role)
 				}
