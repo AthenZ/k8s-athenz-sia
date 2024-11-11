@@ -327,21 +327,25 @@ type contextKey struct {
 var contextKeyRequestID = &contextKey{"requestID"}
 
 // withLogging wraps handler with logging and request ID injection
+// TODO: Outputting access logs at the INFO level can result in a massive amount of logs for users with high RPS, potentially causing issues.
+// Therefore, we are temporarily modifying the system to not output INFO logs.
+// In the future, we need to reconsider the logging policy for these logs.
 func withLogging(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := uuid.New().String()
 		ctx := context.WithValue(r.Context(), contextKeyRequestID, requestID)
 
-		startTime := time.Now()
-		log.Infof("Received request: method[%s], endpoint[%s], remoteAddr[%s] requestID[%s]", r.Method, r.RequestURI, r.RemoteAddr, requestID)
+		// startTime := time.Now()
+		// log.Infof("Received request: method[%s], endpoint[%s], remoteAddr[%s] requestID[%s]", r.Method, r.RequestURI, r.RemoteAddr, requestID)
 
 		// wrap ResponseWriter to cache status code
 		wrappedWriter := newLoggingResponseWriter(w)
 		handler.ServeHTTP(wrappedWriter, r.WithContext(ctx))
 
-		latency := time.Since(startTime)
-		statusCode := wrappedWriter.statusCode
-		log.Infof("Response sent: statusCode[%d], latency[%s], requestID[%s]", statusCode, latency, requestID)
+		// TODO: Since this variable is used only once, would it be better to use it directly?
+		// latency := time.Since(startTime)
+		// statusCode := wrappedWriter.statusCode
+		// log.Infof("Response sent: statusCode[%d], latency[%s], requestID[%s]", statusCode, latency, requestID)
 	})
 }
 
