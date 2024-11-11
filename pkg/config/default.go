@@ -22,7 +22,7 @@ import (
 
 var (
 	// default values for X.509 certificate signing request
-	DEFAULT_COUNTRY             = ""
+	DEFAULT_COUNTRY             string
 	DEFAULT_PROVINCE            string
 	DEFAULT_ORGANIZATION        string
 	DEFAULT_ORGANIZATIONAL_UNIT = "Athenz"
