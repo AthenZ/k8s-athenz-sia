@@ -370,6 +370,10 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.PodUID, idCfg.DNSSuffix),
 	}
 
+	if len(idCfg.AdditionalSANDNSs) > 0 {
+		sans = append(sans, idCfg.AdditionalSANDNSs...)
+	}
+
 	subject := pkix.Name{
 		Country: func() []string {
 			if config.DEFAULT_COUNTRY != "" {
