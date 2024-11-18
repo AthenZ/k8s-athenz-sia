@@ -65,13 +65,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// https://github.com/enix/x509-certificate-exporter/blob/main/cmd/x509-certificate-exporter/main.go
 	// https://github.com/enix/x509-certificate-exporter/blob/beb88b34b490add4015c8b380d975eb9cb340d44/internal/exporter.go#L26
 	exporter := internal.Exporter{
-		ListenAddress: idCfg.MetricsServerAddr,
-		SystemdSocket: false,
-		ConfigFile:    "",
-		Files: []string{
-			idCfg.CertFile,
-			idCfg.CaCertFile,
-		},
+		ListenAddress:         idCfg.MetricsServerAddr,
+		SystemdSocket:         false,
+		ConfigFile:            "",
+		Files:                 []string{},
 		Directories:           []string{},
 		YAMLs:                 []string{},
 		TrimPathComponents:    0,
@@ -85,6 +82,13 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		KubeExcludeNamespaces: []string{},
 		KubeIncludeLabels:     []string{},
 		KubeExcludeLabels:     []string{},
+	}
+
+	if idCfg.CertFile != "" {
+		exporter.Files = append(exporter.Files, idCfg.CertFile)
+	}
+	if idCfg.CaCertFile != "" {
+		exporter.Files = append(exporter.Files, idCfg.CaCertFile)
 	}
 
 	if idCfg.RoleCert.Use {
