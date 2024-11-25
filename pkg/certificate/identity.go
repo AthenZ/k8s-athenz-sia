@@ -370,8 +370,9 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.PodUID, idCfg.DNSSuffix),
 	}
 
-	if len(idCfg.AdditionalSANDNSs) > 0 {
-		sans = append(sans, idCfg.AdditionalSANDNSs...)
+	if len(idCfg.ExtraSANDNSs) > 0 {
+		sans = append(sans, idCfg.ExtraSANDNSs...)
+		log.Debugf("Requesting with Additional SAN DNSs%v, length[%d]", sans, len(sans))
 	}
 
 	subject := pkix.Name{

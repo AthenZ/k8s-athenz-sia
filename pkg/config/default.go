@@ -73,7 +73,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		Endpoint:                     DEFAULT_ENDPOINT,
 		providerService:              "",
 		DNSSuffix:                    DEFAULT_DNS_SUFFIX,
-		AdditionalSANDNSs:            []string{},
+		ExtraSANDNSs:                 []string{},
 		Refresh:                      24 * time.Hour,
 		DelayJitterSeconds:           0,
 		KeyFile:                      "",
@@ -126,7 +126,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		LogLevel: "INFO",
 
 		rawMode:                  "init",
-		rawAdditionalSANDNSs:     "",
+		rawExtraSANDNSs:          "",
 		rawPodIP:                 "",
 		rawTargetDomainRoles:     "",
 		rawRefresh:               "24h",
