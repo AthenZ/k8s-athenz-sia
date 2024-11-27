@@ -75,7 +75,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("ENDPOINT", &idCfg.Endpoint)
 	loadEnv("PROVIDER_SERVICE", &idCfg.providerService)
 	loadEnv("DNS_SUFFIX", &idCfg.DNSSuffix)
-	loadEnv("CERT_EXTRA_SAN_DNS", &idCfg.rawCertExtraSANDNSs)
+	loadEnv("CERT_EXTRA_SAN_DNS", &idCfg.ServiceCert.RawCertExtraSANDNSs)
 	loadEnv("REFRESH_INTERVAL", &idCfg.rawRefresh)
 	loadEnv("DELAY_JITTER_SECONDS", &idCfg.rawDelayJitterSeconds)
 	loadEnv("KEY_FILE", &idCfg.KeyFile)
@@ -136,8 +136,8 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 			return fmt.Errorf("Invalid POD_IP [%q], %w", idCfg.rawPodIP, err)
 		}
 	}
-	if len(idCfg.rawCertExtraSANDNSs) > 0 {
-		idCfg.ServiceCert.CertExtraSANDNSs = strings.Split(idCfg.rawCertExtraSANDNSs, ",")
+	if len(idCfg.ServiceCert.RawCertExtraSANDNSs) > 0 {
+		idCfg.ServiceCert.CertExtraSANDNSs = strings.Split(idCfg.ServiceCert.RawCertExtraSANDNSs, ",")
 	}
 	idCfg.Refresh, err = time.ParseDuration(idCfg.rawRefresh)
 	if err != nil {

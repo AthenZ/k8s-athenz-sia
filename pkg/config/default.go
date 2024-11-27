@@ -125,7 +125,6 @@ func DefaultIdentityConfig() *IdentityConfig {
 		LogLevel: "INFO",
 
 		rawMode:                  "init",
-		rawCertExtraSANDNSs:      "",
 		rawPodIP:                 "",
 		rawTargetDomainRoles:     "",
 		rawRefresh:               "24h",
