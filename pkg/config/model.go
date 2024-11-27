@@ -28,7 +28,7 @@ type IdentityConfig struct {
 	Endpoint               string
 	providerService        string
 	DNSSuffix              string
-	ExtraSANDNSs           []string
+	CertExtraSANDNSs       []string
 	Refresh                time.Duration
 	DelayJitterSeconds     int64
 	KeyFile                string
@@ -94,7 +94,7 @@ type IdentityConfig struct {
 
 	// raw strings before parsing
 	rawMode                  string
-	rawExtraSANDNSs          string
+	rawCertExtraSANDNSs      string
 	rawPodIP                 string
 	rawTargetDomainRoles     string
 	rawRefresh               string
