@@ -28,7 +28,6 @@ type IdentityConfig struct {
 	Endpoint               string
 	providerService        string
 	DNSSuffix              string
-	CertExtraSANDNSs       []string
 	Refresh                time.Duration
 	DelayJitterSeconds     int64
 	KeyFile                string

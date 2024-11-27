@@ -137,7 +137,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 		}
 	}
 	if len(idCfg.rawCertExtraSANDNSs) > 0 {
-		idCfg.CertExtraSANDNSs = strings.Split(idCfg.rawCertExtraSANDNSs, ",")
+		idCfg.ServiceCert.CertExtraSANDNSs = strings.Split(idCfg.rawCertExtraSANDNSs, ",")
 	}
 	idCfg.Refresh, err = time.ParseDuration(idCfg.rawRefresh)
 	if err != nil {

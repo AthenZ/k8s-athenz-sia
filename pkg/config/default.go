@@ -73,7 +73,6 @@ func DefaultIdentityConfig() *IdentityConfig {
 		Endpoint:                     DEFAULT_ENDPOINT,
 		providerService:              "",
 		DNSSuffix:                    DEFAULT_DNS_SUFFIX,
-		CertExtraSANDNSs:             []string{},
 		Refresh:                      24 * time.Hour,
 		DelayJitterSeconds:           0,
 		KeyFile:                      "",
