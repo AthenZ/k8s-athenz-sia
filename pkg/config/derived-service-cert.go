@@ -31,9 +31,10 @@ type LocalCertMode struct {
 }
 
 type DerivedServiceCert struct {
-	CopperArgos      CopperArgosMode
-	LocalCert        LocalCertMode // Use 3rd party provided service cert instead of CopperArgos
-	CertExtraSANDNSs []string
+	CopperArgos         CopperArgosMode
+	LocalCert           LocalCertMode // Use 3rd party provided service cert instead of CopperArgos
+	CertExtraSANDNSs    []string
+	RawCertExtraSANDNSs string
 }
 
 // derivedServiceCertConfig reads given configuration and sets the derived state of preparing service cert under the follow modes:
@@ -50,8 +51,9 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 			AthenzDomainName:  "",
 			AthenzServiceName: "",
 		},
-		LocalCert:        LocalCertMode{Use: false},
-		CertExtraSANDNSs: []string{},
+		LocalCert:           LocalCertMode{Use: false},
+		CertExtraSANDNSs:    []string{},
+		RawCertExtraSANDNSs: "",
 	}
 
 	if idCfg.providerService != "" {

@@ -93,7 +93,6 @@ type IdentityConfig struct {
 
 	// raw strings before parsing
 	rawMode                  string
-	rawCertExtraSANDNSs      string
 	rawPodIP                 string
 	rawTargetDomainRoles     string
 	rawRefresh               string
