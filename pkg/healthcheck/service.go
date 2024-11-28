@@ -98,12 +98,11 @@ func (hs *hcService) Shutdown() {
 	log.Info("Initiating shutdown of health check daemon ...")
 	close(hs.shutdownChan)
 
-	if hs.hcServer != nil && hs.hcServerRunning {
+	if hs.hcServer != nil {
 		forcedCtx, cancel := context.WithCancel(context.Background())
 		cancel() // force shutdown health check server without delay
 		hs.hcServer.SetKeepAlivesEnabled(false)
-		err := hs.hcServer.Shutdown(forcedCtx)
-		if err != nil && err != context.Canceled {
+		if err := hs.hcServer.Shutdown(forcedCtx); err != nil && err != context.Canceled {
 			log.Errorf("Failed to shutdown health check server: %s", err.Error())
 		}
 	}
