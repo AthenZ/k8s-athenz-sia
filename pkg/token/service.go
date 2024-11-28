@@ -272,10 +272,10 @@ func (ts *tokenService) Shutdown() {
 		} else {
 			log.Info("Force shutdown token provider server...")
 
-			ctx, cancel := context.WithCancel(context.Background())
-			cancel()
+			forcedCtx, cancel := context.WithCancel(context.Background())
+			cancel() // force shutdown token provider server without delay
 			ts.tokenServer.SetKeepAlivesEnabled(false)
-			if err := ts.tokenServer.Shutdown(ctx); err != nil && err != context.Canceled {
+			if err := ts.tokenServer.Shutdown(forcedCtx); err != nil && err != context.Canceled {
 				// forceful shutdown error
 				log.Errorf("Failed to shutdown token provider server forcefully: %s", err.Error())
 			}
