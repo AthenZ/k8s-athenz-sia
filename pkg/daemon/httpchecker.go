@@ -25,7 +25,7 @@ import (
 	"github.com/cenkalti/backoff"
 )
 
-// WaitForServerReady waits until the HTTP server can respond to a GET request. Should NOT allow cancelling the retry as shuting down non-ready server may cause deadlock.
+// WaitForServerReady waits until the HTTP(S) server can respond to a GET request. Should NOT allow cancelling the retry as shuting down non-ready server may cause deadlock.
 func WaitForServerReady(serverAddr string, insecureSkipVerify bool, clientCertEnabled bool) error {
 
 	t := http.DefaultTransport.(*http.Transport).Clone()
