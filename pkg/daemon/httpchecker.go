@@ -16,8 +16,8 @@ package daemon
 
 import (
 	"crypto/tls"
+	"errors"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
@@ -42,31 +42,19 @@ func WaitForServerReady(serverAddr string, insecureSkipVerify bool, clientCertEn
 
 	get := func() error {
 		resp, err := client.Get(targetUrl)
-
-		isSuccess := false
-
-		if err == nil {
-			isSuccess = true
-		} else {
-			if clientCertEnabled {
-				// When clientCertEnabled is true, check if the client certificate is set to required.
-				if urlErr, ok := err.(*url.Error); ok {
-					if ok && urlErr.Unwrap().Error() == "remote error: tls: certificate required" {
-						isSuccess = true
-					}
-				}
+		if err != nil {
+			// if client certificate disabled, return ALL errors.
+			// if client certificate enabled, return ALL errors but exclude client certificate verification error.
+			if !clientCertEnabled || errors.Unwrap(err).Error() != "remote error: tls: certificate required" {
+				return err
 			}
 		}
 
-		if isSuccess {
-			if resp != nil {
-				resp.Body.Close()
-			}
-			log.Debugf("Server started at %s", targetUrl)
-			return nil
-		} else {
-			return err
+		if resp != nil {
+			resp.Body.Close()
 		}
+		log.Debugf("Server started at %s", targetUrl)
+		return nil
 	}
 
 	getExponentialBackoff := func() backoff.BackOff {
