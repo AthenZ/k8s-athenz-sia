@@ -32,16 +32,16 @@ func WaitForServerReady(serverAddr string, insecureSkipVerify bool, clientCertEn
 	t.TLSClientConfig = &tls.Config{}
 	client := &http.Client{Transport: t}
 
-	var url_s string
+	var targetUrl string
 	if insecureSkipVerify {
 		t.TLSClientConfig.InsecureSkipVerify = true
-		url_s = "https://" + serverAddr
+		targetUrl = "https://" + serverAddr
 	} else {
-		url_s = "http://" + serverAddr
+		targetUrl = "http://" + serverAddr
 	}
 
 	get := func() error {
-		resp, err := client.Get(url_s)
+		resp, err := client.Get(targetUrl)
 
 		isSuccess := false
 
@@ -62,7 +62,7 @@ func WaitForServerReady(serverAddr string, insecureSkipVerify bool, clientCertEn
 			if resp != nil {
 				resp.Body.Close()
 			}
-			log.Debugf("Server started at %s", url_s)
+			log.Debugf("Server started at %s", targetUrl)
 			return nil
 		} else {
 			return err
