@@ -75,7 +75,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("ENDPOINT", &idCfg.Endpoint)
 	loadEnv("PROVIDER_SERVICE", &idCfg.providerService)
 	loadEnv("DNS_SUFFIX", &idCfg.DNSSuffix)
-	loadEnv("CERT_EXTRA_SAN_DNS", &idCfg.ServiceCert.RawCertExtraSANDNSs)
+	loadEnv("CERT_EXTRA_SAN_DNS", &idCfg.rawCertExtraSANDNSs)
 	loadEnv("REFRESH_INTERVAL", &idCfg.rawRefresh)
 	loadEnv("DELAY_JITTER_SECONDS", &idCfg.rawDelayJitterSeconds)
 	loadEnv("KEY_FILE", &idCfg.KeyFile)
@@ -136,8 +136,8 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 			return fmt.Errorf("Invalid POD_IP [%q], %w", idCfg.rawPodIP, err)
 		}
 	}
-	if len(idCfg.ServiceCert.RawCertExtraSANDNSs) > 0 {
-		idCfg.ServiceCert.CertExtraSANDNSs = strings.Split(idCfg.ServiceCert.RawCertExtraSANDNSs, ",")
+	if len(idCfg.rawCertExtraSANDNSs) > 0 {
+		idCfg.certExtraSANDNSs = strings.Split(idCfg.rawCertExtraSANDNSs, ",")
 	}
 	idCfg.Refresh, err = time.ParseDuration(idCfg.rawRefresh)
 	if err != nil {
@@ -210,6 +210,7 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	// PodIP
 	// PodUID
 	f.StringVar(&idCfg.ServerCACert, "server-ca-cert", idCfg.ServerCACert, "path to CA certificate file to verify ZTS server certs")
+	f.StringVar(&idCfg.rawCertExtraSANDNSs, "cert-extra-san-dns", idCfg.rawCertExtraSANDNSs, "extra SAN DNS names for the service certificate")
 	f.StringVar(&idCfg.rawTargetDomainRoles, "target-domain-roles", idCfg.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idCfg.roleCertFilenameDelimiter+"admin,sys.auth"+idCfg.roleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
 	f.StringVar(&idCfg.roleCertDir, "rolecert-dir", idCfg.roleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
 	f.StringVar(&idCfg.roleCertFilenameDelimiter, "role-cert-filename-delimiter", idCfg.roleCertFilenameDelimiter, "The delimiter that separates the domain name and role name when outputting the role cert to a file")
