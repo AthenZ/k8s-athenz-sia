@@ -99,6 +99,8 @@ func (hs *hcService) Shutdown() {
 	close(hs.shutdownChan)
 
 	if hs.hcServer != nil {
+		// As hs.hcServer should always shutdown forcefully, NO need to check hs.hcServerRunning == true
+
 		forcedCtx, cancel := context.WithCancel(context.Background())
 		cancel() // force shutdown health check server without delay
 		hs.hcServer.SetKeepAlivesEnabled(false)
@@ -107,7 +109,7 @@ func (hs *hcService) Shutdown() {
 		}
 	}
 
-	// wait for graceful shutdown
+	// wait for forceful shutdown
 	hs.shutdownWg.Wait()
 }
 
