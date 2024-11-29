@@ -190,9 +190,16 @@ func (ts *tokenService) Start(ctx context.Context) error {
 			log.Info("Stopped token provider server")
 		}()
 
-		if err := daemon.WaitForServerReady(ts.tokenServer.Addr, ts.idCfg.TokenServer.TLS.Use); err != nil {
-			log.Errorf("Failed to confirm token provider server ready: %s", err.Error())
-			return err
+		if ts.idCfg.TokenServer.TLS.Use {
+			if err := daemon.WaitForServerReadyWithTLS(ts.tokenServer.Addr, ts.idCfg.TokenServer.TLS); err != nil {
+				log.Errorf("Failed to confirm token provider server ready: %s", err.Error())
+				return err
+			}
+		} else {
+			if err := daemon.WaitForServerReady(ts.tokenServer.Addr); err != nil {
+				log.Errorf("Failed to confirm token provider server ready: %s", err.Error())
+				return err
+			}
 		}
 		ts.tokenServerRunning = true
 	}

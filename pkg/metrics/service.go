@@ -119,7 +119,7 @@ func (ms *metricsService) Start(ctx context.Context) error {
 			log.Info("Stopped metrics exporter server")
 		}()
 
-		if err := daemon.WaitForServerReady(ms.exporter.ListenAddress, false); err != nil {
+		if err := daemon.WaitForServerReady(ms.exporter.ListenAddress); err != nil {
 			log.Errorf("Failed to confirm metrics exporter server ready: %s", err.Error())
 			return err
 		}

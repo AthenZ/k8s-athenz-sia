@@ -84,7 +84,7 @@ func (hs *hcService) Start(ctx context.Context) error {
 			log.Info("Stopped health check server")
 		}()
 
-		if err := daemon.WaitForServerReady(hs.hcServer.Addr, false); err != nil {
+		if err := daemon.WaitForServerReady(hs.hcServer.Addr); err != nil {
 			log.Errorf("Failed to confirm health check server ready: %s", err.Error())
 			return err
 		}
