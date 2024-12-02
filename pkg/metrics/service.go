@@ -68,10 +68,16 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		ListenAddress: idCfg.MetricsServerAddr,
 		SystemdSocket: false,
 		ConfigFile:    "",
-		Files: []string{
-			idCfg.CertFile,
-			idCfg.CaCertFile,
-		},
+		Files: func() []string {
+			files := []string{}
+			if idCfg.CertFile != "" {
+				files = append(files, idCfg.CertFile)
+			}
+			if idCfg.CaCertFile != "" {
+				files = append(files, idCfg.CaCertFile)
+			}
+			return files
+		}(),
 		Directories:           []string{},
 		YAMLs:                 []string{},
 		TrimPathComponents:    0,
