@@ -45,14 +45,15 @@ func WaitForServerReady(serverAddr string, insecureSkipVerify bool, clientCertEn
 		if err != nil {
 			// if client certificate disabled, return ALL errors.
 			// if client certificate enabled, return ALL errors but exclude client certificate verification error.
-			if !clientCertEnabled || errors.Unwrap(err).Error() != "remote error: tls: certificate required" {
+			errCause := errors.Unwrap(err)
+			if !clientCertEnabled || errCause == nil || errCause.Error() != "remote error: tls: certificate required" {
 				return err
 			}
+			log.Debugf("Server started at %s (can response certificate required error)", targetUrl)
+			return nil
 		}
 
-		if resp != nil {
-			resp.Body.Close()
-		}
+		resp.Body.Close()
 		log.Debugf("Server started at %s", targetUrl)
 		return nil
 	}
