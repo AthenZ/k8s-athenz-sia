@@ -61,6 +61,31 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		return ms, nil
 	}
 
+	files, err := func() ([]string, error) {
+		files := []string{}
+		if idCfg.CertFile != "" {
+			files = append(files, idCfg.CertFile)
+		}
+		if idCfg.CaCertFile != "" {
+			files = append(files, idCfg.CaCertFile)
+		}
+
+		if idCfg.RoleCert.Use {
+			for _, dr := range idCfg.RoleCert.TargetDomainRoles {
+				fileName, err := extutil.GeneratePath(idCfg.RoleCert.Format, dr.Domain, dr.Role, idCfg.RoleCert.Delimiter)
+				if err != nil {
+					return nil, fmt.Errorf("failed to generate path for role cert with format [%s], domain [%s], role [%s], delimiter [%s]: %w", idCfg.RoleCert.Format, dr.Domain, dr.Role, idCfg.RoleCert.Delimiter, err)
+				}
+				files = append(files, fileName)
+			}
+		}
+		return files, nil
+	}()
+
+	if err != nil {
+		return nil, err
+	}
+
 	// https://github.com/enix/x509-certificate-exporter
 	// https://github.com/enix/x509-certificate-exporter/blob/main/cmd/x509-certificate-exporter/main.go
 	// https://github.com/enix/x509-certificate-exporter/blob/beb88b34b490add4015c8b380d975eb9cb340d44/internal/exporter.go#L26
@@ -68,7 +93,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		ListenAddress:         idCfg.MetricsServerAddr,
 		SystemdSocket:         false,
 		ConfigFile:            "",
-		Files:                 []string{},
+		Files:                 files,
 		Directories:           []string{},
 		YAMLs:                 []string{},
 		TrimPathComponents:    0,
@@ -82,23 +107,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		KubeExcludeNamespaces: []string{},
 		KubeIncludeLabels:     []string{},
 		KubeExcludeLabels:     []string{},
-	}
-
-	if idCfg.CertFile != "" {
-		exporter.Files = append(exporter.Files, idCfg.CertFile)
-	}
-	if idCfg.CaCertFile != "" {
-		exporter.Files = append(exporter.Files, idCfg.CaCertFile)
-	}
-
-	if idCfg.RoleCert.Use {
-		for _, dr := range idCfg.RoleCert.TargetDomainRoles {
-			fileName, err := extutil.GeneratePath(idCfg.RoleCert.Format, dr.Domain, dr.Role, idCfg.RoleCert.Delimiter)
-			if err != nil {
-				return nil, fmt.Errorf("failed to generate path for role cert with format [%s], domain [%s], role [%s], delimiter [%s]: %w", idCfg.RoleCert.Format, dr.Domain, dr.Role, idCfg.RoleCert.Delimiter, err)
-			}
-			exporter.Files = append(exporter.Files, fileName)
-		}
 	}
 
 	ms.exporter = &exporter
