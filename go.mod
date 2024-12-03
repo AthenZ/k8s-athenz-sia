@@ -2,8 +2,6 @@ module github.com/AthenZ/k8s-athenz-sia/v3
 
 go 1.23
 
-toolchain go1.23.3
-
 replace golang.org/x/net => golang.org/x/net v0.31.0
 
 replace golang.org/x/text => golang.org/x/text v0.20.0
@@ -42,8 +40,6 @@ require (
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.4 // indirect
-	github.com/go-kit/log v0.2.1 // indirect
-	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
