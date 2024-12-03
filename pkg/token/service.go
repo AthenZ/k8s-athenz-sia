@@ -190,7 +190,7 @@ func (ts *tokenService) Start(ctx context.Context) error {
 			log.Info("Stopped token provider server")
 		}()
 
-		if err := daemon.WaitForServerReady(ts.tokenServer.Addr, ts.tokenServer.TLSConfig != nil); err != nil {
+		if err := daemon.WaitForServerReady(ts.tokenServer.Addr, ts.idCfg.TokenServer.TLS.Use); err != nil {
 			log.Errorf("Failed to confirm token provider server ready: %s", err.Error())
 			return err
 		}
@@ -257,20 +257,32 @@ func (ts *tokenService) Shutdown() {
 	log.Info("Initiating shutdown of token provider daemon ...")
 	close(ts.shutdownChan)
 
-	if ts.tokenServer != nil && ts.tokenServerRunning {
-		log.Infof("Delaying token provider server shutdown for %s to shutdown gracefully ...", ts.idCfg.TokenServer.ShutdownDelay.String())
-		time.Sleep(ts.idCfg.TokenServer.ShutdownDelay)
+	if ts.tokenServer != nil {
+		if ts.tokenServerRunning {
+			log.Infof("Delaying token provider server shutdown for %s to shutdown gracefully ...", ts.idCfg.TokenServer.ShutdownDelay.String())
+			time.Sleep(ts.idCfg.TokenServer.ShutdownDelay)
 
-		ctx, cancel := context.WithTimeout(context.Background(), ts.idCfg.TokenServer.ShutdownTimeout)
-		defer cancel()
-		ts.tokenServer.SetKeepAlivesEnabled(false)
-		if err := ts.tokenServer.Shutdown(ctx); err != nil {
-			// graceful shutdown error or timeout should be fatal
-			log.Errorf("Failed to shutdown token provider server: %s", err.Error())
+			ctx, cancel := context.WithTimeout(context.Background(), ts.idCfg.TokenServer.ShutdownTimeout)
+			defer cancel()
+			ts.tokenServer.SetKeepAlivesEnabled(false)
+			if err := ts.tokenServer.Shutdown(ctx); err != nil {
+				// graceful shutdown error or timeout should be fatal
+				log.Errorf("Failed to shutdown token provider server gracefully: %s", err.Error())
+			}
+		} else {
+			log.Info("Force shutdown token provider server...")
+
+			forcedCtx, cancel := context.WithCancel(context.Background())
+			cancel() // force shutdown token provider server without delay
+			ts.tokenServer.SetKeepAlivesEnabled(false)
+			if err := ts.tokenServer.Shutdown(forcedCtx); err != nil && err != context.Canceled {
+				// forceful shutdown error
+				log.Errorf("Failed to shutdown token provider server forcefully: %s", err.Error())
+			}
 		}
 	}
 
-	// wait for graceful shutdown
+	// wait for graceful/forceful shutdown
 	ts.shutdownWg.Wait()
 }
 
