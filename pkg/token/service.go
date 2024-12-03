@@ -190,8 +190,6 @@ func (ts *tokenService) Start(ctx context.Context) error {
 			log.Info("Stopped token provider server")
 		}()
 
-		log.Warnln("🚨🚨🚨 Sleep 1s to trigger race condition of TLSConfig... 🚨🚨🚨")
-		time.Sleep(time.Second)
 		if err := daemon.WaitForServerReady(ts.tokenServer.Addr, ts.idCfg.TokenServer.TLS.Use); err != nil {
 			log.Errorf("Failed to confirm token provider server ready: %s", err.Error())
 			return err
