@@ -24,6 +24,7 @@ type CopperArgosMode struct {
 	Provider          string // provider service name
 	AthenzDomainName  string
 	AthenzServiceName string
+	CertExtraSANDNSs  []string
 }
 
 type LocalCertMode struct {
@@ -48,6 +49,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 			Provider:          "",
 			AthenzDomainName:  "",
 			AthenzServiceName: "",
+			CertExtraSANDNSs:  []string{},
 		},
 		LocalCert: LocalCertMode{Use: false},
 	}
@@ -58,6 +60,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 			Provider:          idCfg.providerService,
 			AthenzDomainName:  extutil.NamespaceToDomain(idCfg.Namespace, idCfg.athenzPrefix, idCfg.athenzDomain, idCfg.athenzSuffix),
 			AthenzServiceName: extutil.ServiceAccountToService(idCfg.ServiceAccount),
+			CertExtraSANDNSs:  idCfg.certExtraSANDNSs,
 		}
 		return nil // Use CopperArgos Mode
 	}
