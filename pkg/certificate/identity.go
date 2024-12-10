@@ -370,6 +370,11 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.PodUID, idCfg.DNSSuffix),
 	}
 
+	if len(idCfg.ServiceCert.CopperArgos.CertExtraSANDNSs) > 0 {
+		sans = append(sans, idCfg.ServiceCert.CopperArgos.CertExtraSANDNSs...)
+		log.Debugf("Requesting with Additional SAN DNSs%v, length[%d]", sans, len(sans))
+	}
+
 	subject := pkix.Name{
 		Country: func() []string {
 			if config.DEFAULT_COUNTRY != "" {
