@@ -253,6 +253,7 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 	}
 
 	// TODO: no need to renew ZTS Client after https://github.com/AthenZ/k8s-athenz-sia/pull/99
+	// TODO: need to mock the ZTS Client for unit testing, i.e. remove the ZTS Client re-creation here
 	// In init mode, the existing ZTS Client does not have client certificate set.
 	// When config.Reloader.GetLatestCertificate() is called to load client certificate, the first certificate has not written to the file yet.
 	// Therefore, ZTS Client must be renewed to make sure the ZTS Client loads the latest client certificate.
@@ -287,9 +288,14 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to prepare csr, failed to parse certificate for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
 		}
+
+		var roleCertExpiry int64 // 0 implies using server default expiry time
+		if h.idCfg.ServiceCert.CopperArgos.Use {
+			roleCertExpiry = int64(x509LeafCert.NotAfter.Sub(time.Now()).Minutes()) + int64(config.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES) // Extract NotAfter from the instance certificate
+		}
 		roleRequest := &zts.RoleCertificateRequest{
 			Csr:        string(roleCsrPEM),
-			ExpiryTime: int64(x509LeafCert.NotAfter.Sub(time.Now()).Minutes()) + int64(config.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES), // Extract NotAfter from the instance certificate
+			ExpiryTime: roleCertExpiry,
 		}
 
 		roleCert, err := roleCertClient.PostRoleCertificateRequestExt(roleRequest)
