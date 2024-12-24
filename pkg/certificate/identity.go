@@ -289,13 +289,15 @@ func (h *identityHandler) GetX509RoleCert() (rolecerts [](*RoleCertificate), rol
 			return nil, nil, fmt.Errorf("Failed to prepare csr, failed to parse certificate for PostRoleCertificateRequest, Subject CommonName[%s], err: %v", csrOption.Subject.CommonName, err)
 		}
 
-		var roleCertExpiry int64 // 0 implies using server default expiry time
-		if h.idCfg.ServiceCert.CopperArgos.Use {
-			roleCertExpiry = int64(x509LeafCert.NotAfter.Sub(time.Now()).Minutes()) + int64(config.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES) // Extract NotAfter from the instance certificate
-		}
 		roleRequest := &zts.RoleCertificateRequest{
-			Csr:        string(roleCsrPEM),
-			ExpiryTime: roleCertExpiry,
+			Csr: string(roleCsrPEM),
+			ExpiryTime: func() int64 {
+				if h.idCfg.ServiceCert.CopperArgos.Use {
+					// role certificate expiry time should be bounded by the same set of constrains that limited the instance certificate expiry time by the cloud provider, hence, use instance certificate expiry time + buffer as the issued role certificate expiry time
+					return int64(x509LeafCert.NotAfter.Sub(time.Now()).Minutes()) + int64(config.DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES)
+				}
+				return 0 // 0 implies using server default expiry time
+			}(),
 		}
 
 		roleCert, err := roleCertClient.PostRoleCertificateRequestExt(roleRequest)
