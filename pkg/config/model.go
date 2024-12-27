@@ -48,7 +48,10 @@ type IdentityConfig struct {
 	Reloader               *util.CertReloader
 	ServerCACert           string
 	K8sSecretBackup        DerivedK8sSecretBackup
-	ServiceCert            DerivedServiceCert
+	// ServiceCerts Derived State and its related fields:
+	ServiceCert      DerivedServiceCert
+	certExtraSANDNSs []string
+	//
 	TokenTargetDomainRoles []DomainRole             // TODO: Will be migrated into DerivedTargetDomainRoles
 	targetDomainRoles      DerivedTargetDomainRoles // private as the derived state is used only within the config package
 	// RoleCerts Derived State and its related fields:
@@ -97,6 +100,7 @@ type IdentityConfig struct {
 	rawTargetDomainRoles     string
 	rawRefresh               string
 	rawDelayJitterSeconds    string
+	rawCertExtraSANDNSs      string
 	rawRoleCertKeyFileOutput string
 	rawTokenRefresh          string
 	rawTokenExpiry           string
