@@ -15,6 +15,7 @@ COPY . .
 
 ARG ATHENZ_SIA_VERSION=''
 RUN ATHENZ_SIA_VERSION="${ATHENZ_SIA_VERSION}" make build
+ARG ATHENZ_SIA_DEFAULT_COUNTRY=US
 
 FROM docker.io/alpine:3
 LABEL maintainer "cncf-athenz-maintainers@lists.cncf.io"

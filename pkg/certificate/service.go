@@ -17,14 +17,12 @@ package certificate
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
+	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 	"github.com/cenkalti/backoff"
@@ -45,12 +43,14 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		return nil, nil
 	}
 
-	if idCfg.ProviderService == "" {
-		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idCfg.ProviderService)
+	// TODO: This log should be moved to derived-service-cert.go
+	if !idCfg.ServiceCert.CopperArgos.Use {
+		log.Infof("Certificate provisioning is disabled with empty options: provider service[%s]", idCfg.ServiceCert.CopperArgos.Provider)
 	}
 
-	if len(idCfg.TargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
-		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], output directory[%s]", idCfg.TargetDomainRoles, idCfg.RoleCertDir)
+	// TODO: This log should be moved to derived-role-cert.go
+	if !idCfg.RoleCert.Use {
+		log.Infof("Role certificate provisioning is disabled with empty options: roles[%s], filename format[%s]", idCfg.RoleCert.TargetDomainRoles, idCfg.RoleCert.Format)
 	}
 
 	handler, err := InitIdentityHandler(idCfg)
@@ -103,24 +103,34 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		}
 
 		if roleCerts != nil {
-			// Create the directory before saving role certificates
-			if err := os.MkdirAll(idCfg.RoleCertDir, 0755); err != nil {
-				return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
-			}
-
 			for _, rolecert := range roleCerts {
 				roleCertPEM := []byte(rolecert.X509Certificate)
 				if len(roleCertPEM) != 0 {
 					log.Infof("[New Role Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
 						rolecert.Subject, rolecert.Issuer, rolecert.NotBefore, rolecert.NotAfter, rolecert.SerialNumber, rolecert.DNSNames)
-					outPath := filepath.Join(idCfg.RoleCertDir, rolecert.Domain+idCfg.RoleCertFilenameDelimiter+rolecert.Role+".cert.pem")
+
+					outPath, err := extutil.GeneratePath(idCfg.RoleCert.Format, rolecert.Domain, rolecert.Role, idCfg.RoleCert.Delimiter)
+					if err != nil {
+						return fmt.Errorf("failed to generate path for role cert with format [%s], domain [%s], role [%s], delimiter [%s]: %w", idCfg.RoleCert.Format, rolecert.Domain, rolecert.Role, idCfg.RoleCert.Delimiter, err)
+					}
+					// Create the directory before saving role certificates
+					if err := extutil.CreateDirectory(outPath); err != nil {
+						return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
+					}
 					log.Debugf("Saving x509 role cert[%d bytes] at [%s]", len(roleCertPEM), outPath)
 					if err := w.AddBytes(outPath, 0644, roleCertPEM); err != nil {
 						return fmt.Errorf("unable to save x509 role cert: %w", err)
 					}
 
-					if idCfg.RoleCertKeyFileOutput {
-						outKeyPath := filepath.Join(idCfg.RoleCertDir, rolecert.Domain+idCfg.RoleCertFilenameDelimiter+rolecert.Role+".key.pem")
+					if idCfg.RoleCert.KeyFormat != "" {
+						outKeyPath, err := extutil.GeneratePath(idCfg.RoleCert.KeyFormat, rolecert.Domain, rolecert.Role, idCfg.RoleCert.Delimiter)
+						if err != nil {
+							return fmt.Errorf("failed to generate path for role cert key with format [%s], domain [%s], role [%s], delimiter [%s]: %w", idCfg.RoleCert.KeyFormat, rolecert.Domain, rolecert.Role, idCfg.RoleCert.Delimiter, err)
+						}
+						// Create the directory before saving role certificates keys
+						if err := extutil.CreateDirectory(outKeyPath); err != nil {
+							return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
+						}
 						log.Debugf("Saving x509 role cert key[%d bytes] at [%s]", len(roleKeyPEM), outKeyPath)
 						if err := w.AddBytes(outKeyPath, 0644, roleKeyPEM); err != nil {
 							return fmt.Errorf("unable to save x509 role cert key: %w", err)
@@ -141,16 +151,17 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		if err != nil {
 			log.Warnf("Error while requesting x509 certificate to identity provider: %s", err.Error())
 
-			if idCfg.CertSecret != "" && strings.Contains(idCfg.Backup, "write") {
-				log.Errorf("Failed to receive x509 certificate to update kubernetes secret[%s]: %s", idCfg.CertSecret, err.Error())
+			if idCfg.K8sSecretBackup.UseWrite {
+				log.Errorf("Failed to receive x509 certificate to update kubernetes secret[%s]: %s", idCfg.K8sSecretBackup.Secret, err.Error())
 				return
 			}
+
 		} else {
 			log.Info("Successfully received x509 certificate from identity provider")
 
-			if idCfg.CertSecret != "" && strings.Contains(idCfg.Backup, "write") {
+			if idCfg.K8sSecretBackup.UseWrite {
 
-				log.Infof("Attempting to save x509 certificate to kubernetes secret[%s]...", idCfg.CertSecret)
+				log.Infof("Attempting to save x509 certificate to kubernetes secret[%s]...", idCfg.K8sSecretBackup.Secret)
 
 				err = handler.ApplyX509CertToSecret(identity, keyPEM)
 				if err != nil {
@@ -160,7 +171,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 				log.Infof("Successfully saved x509 certificate to kubernetes secret")
 			} else {
-				log.Debugf("Skipping to save x509 certificate temporary backup to Kubernetes secret[%s]", idCfg.CertSecret)
+				log.Debugf("Skipping to save x509 certificate temporary backup to Kubernetes secret[%s]", idCfg.K8sSecretBackup.Secret)
 			}
 		}
 
@@ -168,11 +179,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	roleCertProvisioningRequest := func() (err error, roleCerts [](*RoleCertificate), roleKeyPEM []byte) {
-		if len(idCfg.TargetDomainRoles) == 0 || idCfg.RoleCertDir == "" {
+		if !idCfg.RoleCert.Use {
 			return nil, nil, nil
 		}
 
-		log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idCfg.TargetDomainRoles)
+		log.Infof("Attempting to get x509 role certs from identity provider: targets[%s]...", idCfg.RoleCert.TargetDomainRoles)
 
 		roleCerts, roleKeyPEM, err = handler.GetX509RoleCert()
 		if err != nil {
@@ -185,8 +196,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	run := func() error {
-		if idCfg.ProviderService != "" {
-			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idCfg.ProviderService)
+		if idCfg.ServiceCert.CopperArgos.Use {
+			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idCfg.ServiceCert.CopperArgos.Provider)
 
 			err, identity, keyPEM = identityProvisioningRequest(false)
 			if err != nil {
@@ -198,7 +209,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					log.Errorf("Failed to update x509 certificate into certificate reloader: %s", errUpdate.Error())
 				}
 			}
-		} else if idCfg.KeyFile != "" && idCfg.CertFile != "" {
+		} else if idCfg.ServiceCert.LocalCert.Use {
 			log.Debug("Attempting to load x509 certificate from cert reloader...")
 			localFileKeyPEM, localFileCertPEM, err := idCfg.Reloader.GetLatestKeyAndCert()
 			if err != nil {
@@ -215,13 +226,13 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				identity = localFileIdentity
 				keyPEM = localFileKeyPEM
 			}
-		} else {
-			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idCfg.ProviderService, idCfg.KeyFile, idCfg.CertFile)
+		} else { // We are not immediately returning an error here, as there is a chance that the kubernetes secret backup is enabled:
+			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idCfg.ServiceCert.CopperArgos.Provider, idCfg.KeyFile, idCfg.CertFile)
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
-			if idCfg.CertSecret != "" && strings.Contains(idCfg.Backup, "read") {
-				log.Infof("Attempting to load x509 certificate temporary backup from kubernetes secret[%s]...", idCfg.CertSecret)
+			if idCfg.K8sSecretBackup.UseRead {
+				log.Infof("Attempting to load x509 certificate temporary backup from kubernetes secret[%s]...", idCfg.K8sSecretBackup.Secret)
 
 				k8sSecretBackupIdentity, k8sSecretBackupKeyPEM, err = handler.GetX509CertFromSecret()
 				if err != nil {
@@ -242,7 +253,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					}
 				}
 			} else {
-				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret[%s]", idCfg.CertSecret)
+				log.Debugf("Skipping to load x509 certificate temporary backup from Kubernetes secret[%s]", idCfg.K8sSecretBackup.Secret)
 			}
 		}
 
@@ -250,8 +261,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 			return fmt.Errorf("Failed to prepare x509 certificate")
 		}
 
-		if k8sSecretBackupIdentity != nil && len(k8sSecretBackupKeyPEM) != 0 && idCfg.ProviderService != "" {
-			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idCfg.ProviderService)
+		if k8sSecretBackupIdentity != nil && len(k8sSecretBackupKeyPEM) != 0 && idCfg.ServiceCert.CopperArgos.Use {
+			log.Infof("Attempting to request renewed x509 certificate to identity provider[%s]...", idCfg.ServiceCert.CopperArgos.Provider)
 			err, forceInitIdentity, forceInitKeyPEM = identityProvisioningRequest(true)
 			if err != nil {
 				log.Warnf("Failed to retrieve renewed x509 certificate from identity provider: %s, continuing with the backup certificate from kubernetes secret", err.Error())
@@ -276,9 +287,9 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		err = writeFiles()
 		if err != nil {
 			if forceInitIdentity != nil || forceInitKeyPEM != nil {
-				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.TargetDomainRoles)
+				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCert.TargetDomainRoles)
 			} else {
-				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.TargetDomainRoles)
+				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCert.TargetDomainRoles)
 			}
 		}
 
@@ -326,7 +337,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 			}
 			for {
-				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.Backup, cs.idCfg.CertSecret, cs.idCfg.Refresh)
+				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret, cs.idCfg.Refresh)
 
 				select {
 				case <-cs.shutdownChan:
@@ -335,7 +346,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				case <-t.C:
 					// skip refresh if context is done but Shutdown() is not called
 					if ctx.Err() != nil {
-						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.TargetDomainRoles, cs.idCfg.ProviderService, cs.idCfg.Backup, cs.idCfg.CertSecret)
+						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret)
 						continue
 					}
 

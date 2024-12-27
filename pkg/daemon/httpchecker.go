@@ -16,6 +16,7 @@ package daemon
 
 import (
 	"crypto/tls"
+	"errors"
 	"net/http"
 	"time"
 
@@ -25,27 +26,36 @@ import (
 )
 
 // WaitForServerReady waits until the HTTP(S) server can respond to a GET request. Should NOT allow cancelling the retry as shuting down non-ready server may cause deadlock.
-func WaitForServerReady(serverAddr string, insecureSkipVerify bool) error {
+func WaitForServerReady(serverAddr string, insecureSkipVerify bool, clientCertEnabled bool) error {
 
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.TLSClientConfig = &tls.Config{}
 	client := &http.Client{Transport: t}
 
-	var url string
+	var targetUrl string
 	if insecureSkipVerify {
 		t.TLSClientConfig.InsecureSkipVerify = true
-		url = "https://" + serverAddr
+		targetUrl = "https://" + serverAddr
 	} else {
-		url = "http://" + serverAddr
+		targetUrl = "http://" + serverAddr
 	}
 
 	get := func() error {
-		resp, err := client.Get(url)
-		if err == nil {
-			resp.Body.Close()
-			log.Debugf("Server started at %s", url)
+		resp, err := client.Get(targetUrl)
+		if err != nil {
+			// if client certificate disabled, return ALL errors.
+			// if client certificate enabled, return ALL errors but exclude client certificate verification error.
+			errCause := errors.Unwrap(err)
+			if !clientCertEnabled || errCause == nil || errCause.Error() != "remote error: tls: certificate required" {
+				return err
+			}
+			log.Debugf("Server started at %s (can response certificate required error)", targetUrl)
+			return nil
 		}
-		return err
+
+		resp.Body.Close()
+		log.Debugf("Server started at %s", targetUrl)
+		return nil
 	}
 
 	getExponentialBackoff := func() backoff.BackOff {

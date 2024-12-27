@@ -21,7 +21,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
@@ -58,6 +57,11 @@ func LoadConfig(program string, args []string) (*IdentityConfig, error) {
 	if err := idCfg.validateAndInit(); err != nil {
 		return nil, err
 	}
+
+	if err := idCfg.loadDerivedConfig(); err != nil {
+		return nil, err
+	}
+
 	return idCfg, nil
 }
 
@@ -68,7 +72,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 
 	loadEnv("MODE", &idCfg.rawMode)
 	loadEnv("ENDPOINT", &idCfg.Endpoint)
-	loadEnv("PROVIDER_SERVICE", &idCfg.ProviderService)
+	loadEnv("PROVIDER_SERVICE", &idCfg.providerService)
 	loadEnv("DNS_SUFFIX", &idCfg.DNSSuffix)
 	loadEnv("REFRESH_INTERVAL", &idCfg.rawRefresh)
 	loadEnv("DELAY_JITTER_SECONDS", &idCfg.rawDelayJitterSeconds)
@@ -76,12 +80,12 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("CERT_FILE", &idCfg.CertFile)
 	loadEnv("CA_CERT_FILE", &idCfg.CaCertFile)
 	loadEnv("INTERMEDIATE_CERT_BUNDLE", &idCfg.IntermediateCertBundle)
-	loadEnv("BACKUP", &idCfg.Backup)
-	loadEnv("CERT_SECRET", &idCfg.CertSecret)
+	loadEnv("BACKUP", &idCfg.backup)
+	loadEnv("CERT_SECRET", &idCfg.certSecret)
 	loadEnv("NAMESPACE", &idCfg.Namespace)
-	loadEnv("ATHENZ_DOMAIN", &idCfg.AthenzDomain)
-	loadEnv("ATHENZ_PREFIX", &idCfg.AthenzPrefix)
-	loadEnv("ATHENZ_SUFFIX", &idCfg.AthenzSuffix)
+	loadEnv("ATHENZ_DOMAIN", &idCfg.athenzDomain)
+	loadEnv("ATHENZ_PREFIX", &idCfg.athenzPrefix)
+	loadEnv("ATHENZ_SUFFIX", &idCfg.athenzSuffix)
 	loadEnv("SERVICEACCOUNT", &idCfg.ServiceAccount)
 	loadEnv("SA_TOKEN_FILE", &idCfg.SaTokenFile)
 	loadEnv("POD_IP", &idCfg.rawPodIP)
@@ -89,20 +93,26 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("POD_NAME", &idCfg.PodName)
 	loadEnv("SERVER_CA_CERT", &idCfg.ServerCACert)
 	loadEnv("TARGET_DOMAIN_ROLES", &idCfg.rawTargetDomainRoles)
-	loadEnv("ROLECERT_DIR", &idCfg.RoleCertDir)
-	loadEnv("ROLE_CERT_FILENAME_DELIMITER", &idCfg.RoleCertFilenameDelimiter)
+	loadEnv("ROLECERT_DIR", &idCfg.roleCertDir)
+	loadEnv("ROLE_CERT_FILENAME_DELIMITER", &idCfg.roleCertFilenameDelimiter)
 	loadEnv("ROLE_CERT_KEY_FILE_OUTPUT", &idCfg.rawRoleCertKeyFileOutput)
-	loadEnv("ROLE_AUTH_HEADER", &idCfg.RoleAuthHeader)
+	loadEnv("ROLE_CERT_NAMING_FORMAT", &idCfg.roleCertNamingFormat)
+	loadEnv("ROLE_CERT_KEY_NAMING_FORMAT", &idCfg.roleCertKeyNamingFormat)
+	loadEnv("ROLE_AUTH_HEADER", &idCfg.roleAuthHeader)
 	loadEnv("TOKEN_TYPE", &idCfg.TokenType)
 	loadEnv("TOKEN_REFRESH_INTERVAL", &idCfg.rawTokenRefresh)
 	loadEnv("TOKEN_EXPIRY", &idCfg.rawTokenExpiry)
-	loadEnv("TOKEN_SERVER_ADDR", &idCfg.TokenServerAddr)
+	loadEnv("TOKEN_SERVER_ADDR", &idCfg.tokenServerAddr)
 	loadEnv("TOKEN_SERVER_REST_API", &idCfg.rawTokenServerRESTAPI)
 	loadEnv("TOKEN_SERVER_TIMEOUT", &idCfg.rawTokenServerTimeout)
-	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idCfg.TokenServerTLSCAPath)
-	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idCfg.TokenServerTLSCertPath)
-	loadEnv("TOKEN_SERVER_TLS_KEY_PATH", &idCfg.TokenServerTLSKeyPath)
-	loadEnv("TOKEN_DIR", &idCfg.TokenDir)
+	loadEnv("TOKEN_SERVER_TLS_CA_PATH", &idCfg.tokenServerTLSCAPath)
+	loadEnv("TOKEN_SERVER_TLS_CERT_PATH", &idCfg.tokenServerTLSCertPath)
+	loadEnv("TOKEN_SERVER_TLS_KEY_PATH", &idCfg.tokenServerTLSKeyPath)
+	loadEnv("TOKEN_DIR", &idCfg.tokenDir)
+	loadEnv("ACCESS_TOKEN_NAMING_FORMAT", &idCfg.accessTokenNamingFormat)
+	loadEnv("ACCESS_TOKEN_FILENAME_DELIMITER", &idCfg.accessTokenFilenameDelimiter)
+	loadEnv("ROLE_TOKEN_NAMING_FORMAT", &idCfg.roleTokenNamingFormat)
+	loadEnv("ROLE_TOKEN_FILENAME_DELIMITER", &idCfg.roleTokenFilenameDelimiter)
 	loadEnv("METRICS_SERVER_ADDR", &idCfg.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idCfg.rawDeleteInstanceID)
 	loadEnv("USE_TOKEN_SERVER", &idCfg.rawUseTokenServer)
@@ -118,10 +128,11 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 
 	// parse values
 	var err error
-	idCfg.PodIP = net.ParseIP(idCfg.rawPodIP)
-	if idCfg.PodIP == nil {
-		// PodIP should always be non-nil to issue role certificate
-		return fmt.Errorf("Invalid POD_IP [%q]", idCfg.rawPodIP)
+	if idCfg.rawPodIP != "" {
+		idCfg.PodIP = net.ParseIP(idCfg.rawPodIP)
+		if idCfg.PodIP == nil {
+			return fmt.Errorf("Invalid POD_IP [%q], %w", idCfg.rawPodIP, err)
+		}
 	}
 	idCfg.Refresh, err = time.ParseDuration(idCfg.rawRefresh)
 	if err != nil {
@@ -131,7 +142,7 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid DELAY_JITTER_SECONDS [%q], %w", idCfg.rawDelayJitterSeconds, err)
 	}
-	idCfg.RoleCertKeyFileOutput, err = strconv.ParseBool(idCfg.rawRoleCertKeyFileOutput)
+	idCfg.roleCertKeyFileOutput, err = strconv.ParseBool(idCfg.rawRoleCertKeyFileOutput)
 	if err != nil {
 		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %w", idCfg.rawRoleCertKeyFileOutput, err)
 	}
@@ -143,11 +154,11 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_EXPIRY [%q], %w", idCfg.rawTokenExpiry, err)
 	}
-	idCfg.TokenServerRESTAPI, err = strconv.ParseBool(idCfg.rawTokenServerRESTAPI)
+	idCfg.tokenServerRESTAPI, err = strconv.ParseBool(idCfg.rawTokenServerRESTAPI)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_SERVER_REST_API [%q], %w", idCfg.rawTokenServerRESTAPI, err)
 	}
-	idCfg.TokenServerTimeout, err = time.ParseDuration(idCfg.rawTokenServerTimeout)
+	idCfg.tokenServerTimeout, err = time.ParseDuration(idCfg.rawTokenServerTimeout)
 	if err != nil {
 		return fmt.Errorf("Invalid TOKEN_SERVER_TIMEOUT [%q], %w", idCfg.rawTokenServerTimeout, err)
 	}
@@ -155,15 +166,15 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid DELETE_INSTANCE_ID [%q], %w", idCfg.rawDeleteInstanceID, err)
 	}
-	idCfg.UseTokenServer, err = strconv.ParseBool(idCfg.rawUseTokenServer)
+	idCfg.useTokenServer, err = strconv.ParseBool(idCfg.rawUseTokenServer)
 	if err != nil {
 		return fmt.Errorf("Invalid USE_TOKEN_SERVER [%q], %w", idCfg.rawUseTokenServer, err)
 	}
-	idCfg.ShutdownTimeout, err = time.ParseDuration(idCfg.rawShutdownTimeout)
+	idCfg.shutdownTimeout, err = time.ParseDuration(idCfg.rawShutdownTimeout)
 	if err != nil {
 		return fmt.Errorf("Invalid SHUTDOWN_TIMEOUT [%q], %w", idCfg.rawShutdownTimeout, err)
 	}
-	idCfg.ShutdownDelay, err = time.ParseDuration(idCfg.rawShutdownDelay)
+	idCfg.shutdownDelay, err = time.ParseDuration(idCfg.rawShutdownDelay)
 	if err != nil {
 		return fmt.Errorf("Invalid SHUTDOWN_DELAY [%q], %w", idCfg.rawShutdownDelay, err)
 	}
@@ -175,7 +186,7 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 
 	f.StringVar(&idCfg.rawMode, "mode", idCfg.rawMode, "mode, must be one of init or refresh")
 	f.StringVar(&idCfg.Endpoint, "endpoint", idCfg.Endpoint, "Athenz ZTS endpoint (required for identity/role certificate and token provisioning)")
-	f.StringVar(&idCfg.ProviderService, "provider-service", idCfg.ProviderService, "Identity Provider service (required for identity certificate provisioning)")
+	f.StringVar(&idCfg.providerService, "provider-service", idCfg.providerService, "Identity Provider service (required for identity certificate provisioning)")
 	f.StringVar(&idCfg.DNSSuffix, "dns-suffix", idCfg.DNSSuffix, "DNS Suffix for x509 identity/role certificates (required for identity/role certificate provisioning)")
 	f.DurationVar(&idCfg.Refresh, "refresh-interval", idCfg.Refresh, "certificate refresh interval")
 	f.Int64Var(&idCfg.DelayJitterSeconds, "delay-jitter-seconds", idCfg.DelayJitterSeconds, "delay boot with random jitter within the specified seconds (0 to disable)")
@@ -183,8 +194,8 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.CertFile, "cert", idCfg.CertFile, "certificate file to identity a service (required)")
 	f.StringVar(&idCfg.CaCertFile, "out-ca-cert", idCfg.CaCertFile, "CA certificate file to write")
 	// IntermediateCertBundle
-	f.StringVar(&idCfg.Backup, "backup", idCfg.Backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
-	f.StringVar(&idCfg.CertSecret, "cert-secret", idCfg.CertSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
+	f.StringVar(&idCfg.backup, "backup", idCfg.backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
+	f.StringVar(&idCfg.certSecret, "cert-secret", idCfg.certSecret, "Kubernetes secret name to backup certificate (backup will be disabled with empty)")
 	// Namespace
 	// AthenzDomain
 	// AthenzPrefix
@@ -194,25 +205,31 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	// PodIP
 	// PodUID
 	f.StringVar(&idCfg.ServerCACert, "server-ca-cert", idCfg.ServerCACert, "path to CA certificate file to verify ZTS server certs")
-	f.StringVar(&idCfg.rawTargetDomainRoles, "target-domain-roles", idCfg.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idCfg.RoleCertFilenameDelimiter+"admin,sys.auth"+idCfg.RoleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
-	f.StringVar(&idCfg.RoleCertDir, "rolecert-dir", idCfg.RoleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
-	// RoleCertFilenameDelimiter
-	f.BoolVar(&idCfg.RoleCertKeyFileOutput, "rolecert-key-file-output", idCfg.RoleCertKeyFileOutput, "output role certificate key file (true/false)")
+	f.StringVar(&idCfg.rawTargetDomainRoles, "target-domain-roles", idCfg.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idCfg.roleCertFilenameDelimiter+"admin,sys.auth"+idCfg.roleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
+	f.StringVar(&idCfg.roleCertDir, "rolecert-dir", idCfg.roleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
+	f.StringVar(&idCfg.roleCertFilenameDelimiter, "role-cert-filename-delimiter", idCfg.roleCertFilenameDelimiter, "The delimiter that separates the domain name and role name when outputting the role cert to a file")
+	f.BoolVar(&idCfg.roleCertKeyFileOutput, "rolecert-key-file-output", idCfg.roleCertKeyFileOutput, "output role certificate key file (true/false)")
+	f.StringVar(&idCfg.roleCertNamingFormat, "role-cert-naming-format", idCfg.roleCertNamingFormat, "The file name format when outputting the role cert to a file")
+	f.StringVar(&idCfg.roleCertKeyNamingFormat, "role-cert-key-naming-format", idCfg.roleCertKeyNamingFormat, "The file name format when outputting the role cert key to a file")
 	// RoleAuthHeader
 	f.StringVar(&idCfg.TokenType, "token-type", idCfg.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
 	f.DurationVar(&idCfg.TokenRefresh, "token-refresh-interval", idCfg.TokenRefresh, "token refresh interval")
 	f.DurationVar(&idCfg.TokenExpiry, "token-expiry", idCfg.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
-	f.StringVar(&idCfg.TokenServerAddr, "token-server-addr", idCfg.TokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
-	f.BoolVar(&idCfg.TokenServerRESTAPI, "token-server-rest-api", idCfg.TokenServerRESTAPI, "enable token server RESTful API (true/false)")
-	f.DurationVar(&idCfg.TokenServerTimeout, "token-server-timeout", idCfg.TokenServerTimeout, "token server timeout (default 3s)")
-	f.StringVar(&idCfg.TokenServerTLSCAPath, "token-server-tls-ca-path", idCfg.TokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
-	f.StringVar(&idCfg.TokenServerTLSCertPath, "token-server-tls-cert-path", idCfg.TokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
-	f.StringVar(&idCfg.TokenServerTLSKeyPath, "token-server-tls-key-path", idCfg.TokenServerTLSKeyPath, "token server TLS certificate key path (if empty, disable TLS)")
-	f.StringVar(&idCfg.TokenDir, "token-dir", idCfg.TokenDir, "directory to write token files")
+	f.StringVar(&idCfg.tokenServerAddr, "token-server-addr", idCfg.tokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")
+	f.BoolVar(&idCfg.tokenServerRESTAPI, "token-server-rest-api", idCfg.tokenServerRESTAPI, "enable token server RESTful API (true/false)")
+	f.DurationVar(&idCfg.tokenServerTimeout, "token-server-timeout", idCfg.tokenServerTimeout, "token server timeout (default 3s)")
+	f.StringVar(&idCfg.tokenServerTLSCAPath, "token-server-tls-ca-path", idCfg.tokenServerTLSCAPath, "token server TLS CA path (if set, enable TLS Client Authentication)")
+	f.StringVar(&idCfg.tokenServerTLSCertPath, "token-server-tls-cert-path", idCfg.tokenServerTLSCertPath, "token server TLS certificate path (if empty, disable TLS)")
+	f.StringVar(&idCfg.tokenServerTLSKeyPath, "token-server-tls-key-path", idCfg.tokenServerTLSKeyPath, "token server TLS certificate key path (if empty, disable TLS)")
+	f.StringVar(&idCfg.tokenDir, "token-dir", idCfg.tokenDir, "directory to write token files")
+	f.StringVar(&idCfg.accessTokenNamingFormat, "access-token-naming-format", idCfg.accessTokenNamingFormat, "The file name format when outputting the access token to a file")
+	f.StringVar(&idCfg.accessTokenFilenameDelimiter, "access-token-filename-delimiter", idCfg.accessTokenFilenameDelimiter, "The delimiter that separates the domain name and role name when outputting the access token to a file")
+	f.StringVar(&idCfg.roleTokenNamingFormat, "role-token-naming-format", idCfg.roleTokenNamingFormat, "The file name format when outputting the role token to a file")
+	f.StringVar(&idCfg.roleTokenFilenameDelimiter, "role-token-filename-delimiter", idCfg.roleTokenFilenameDelimiter, "The delimiter that separates the domain name and role name when outputting the role token to a file")
 	f.StringVar(&idCfg.MetricsServerAddr, "metrics-server-addr", idCfg.MetricsServerAddr, "HTTP server address to provide metrics")
 	f.BoolVar(&idCfg.DeleteInstanceID, "delete-instance-id", idCfg.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// Token Server
-	f.BoolVar(&idCfg.UseTokenServer, "use-token-server", idCfg.UseTokenServer, "enable token server (true/false)")
+	f.BoolVar(&idCfg.useTokenServer, "use-token-server", idCfg.useTokenServer, "enable token server (true/false)")
 	// log
 	f.StringVar(&idCfg.LogDir, "log-dir", idCfg.LogDir, "directory to store the log files")
 	f.StringVar(&idCfg.LogLevel, "log-level", idCfg.LogLevel, "logging level")
@@ -220,8 +237,8 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.HealthCheckAddr, "health-check-addr", idCfg.HealthCheckAddr, "HTTP server address to provide health check")
 	f.StringVar(&idCfg.HealthCheckEndpoint, "health-check-endpoint", idCfg.HealthCheckEndpoint, "HTTP server endpoint to provide health check")
 	// graceful shutdown option
-	f.DurationVar(&idCfg.ShutdownTimeout, "shutdown-timeout", idCfg.ShutdownTimeout, "graceful shutdown timeout")
-	f.DurationVar(&idCfg.ShutdownDelay, "shutdown-delay", idCfg.ShutdownDelay, "graceful shutdown delay")
+	f.DurationVar(&idCfg.shutdownTimeout, "shutdown-timeout", idCfg.shutdownTimeout, "graceful shutdown timeout")
+	f.DurationVar(&idCfg.shutdownDelay, "shutdown-delay", idCfg.shutdownDelay, "graceful shutdown delay")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
@@ -233,19 +250,6 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 	idCfg.Init, err = parseMode(idCfg.rawMode)
 	if err != nil {
 		return fmt.Errorf("Invalid MODE/mode [%q], %w", idCfg.rawMode, err)
-	}
-
-	if idCfg.rawTargetDomainRoles != "" {
-		idCfg.TargetDomainRoles, err = parseTargetDomainRoles(idCfg.rawTargetDomainRoles)
-		if err != nil {
-			// continue if partially valid, fail if nothing valid
-			log.Warnf("Invalid TARGET_DOMAIN_ROLES/target-domain-roles [%q], warnings:\n%s", idCfg.rawTargetDomainRoles, err.Error())
-			if len(idCfg.TargetDomainRoles) == 0 {
-				return fmt.Errorf("Invalid TARGET_DOMAIN_ROLES [%q], %w", idCfg.rawTargetDomainRoles, fmt.Errorf("NO valid domain-role pairs"))
-			}
-			// reset warnings
-			err = nil
-		}
 	}
 
 	return err
@@ -269,21 +273,12 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 	}
 	idCfg.Reloader, err = util.NewCertReloader(util.ReloadConfig{
 		Init:            idCfg.Init,
-		ProviderService: idCfg.ProviderService,
+		ProviderService: idCfg.providerService,
 		KeyFile:         idCfg.KeyFile,
 		CertFile:        idCfg.CertFile,
 		Logger:          log.Debugf,
 		PollInterval:    pollInterval,
 	})
-
-	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
-	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
-	if idCfg.ProviderService == "" && !idCfg.RoleCertKeyFileOutput {
-		// if role certificate issuing is enabled, warn user about the mismatch problem
-		if idCfg.rawTargetDomainRoles != "" && idCfg.RoleCertDir != "" {
-			log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idCfg.KeyFile)
-		}
-	}
 
 	// During the init flow if X.509 cert(and key) already exists,
 	//   - someone is attempting to run init after a pod has been started
@@ -294,7 +289,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 	// to the kube and kubelet APIs. So, we might end up getting an X.509 certificate with the old pod IP.
 	// To avoid this, we fail the current run with an error to force SYNC the status on the pod resource and let
 	// the subsequent retry for the init container to attempt to get a new certificate from the identity provider.
-	if idCfg.Init && err == nil && idCfg.ProviderService != "" {
+	if idCfg.Init && err == nil && idCfg.providerService != "" {
 		log.Errorf("SIA(init) detected the existence of X.509 certificate at %s", idCfg.CertFile)
 		cert, err := idCfg.Reloader.GetLatestCertificate()
 		if err != nil {
@@ -321,24 +316,4 @@ func parseMode(raw string) (bool, error) {
 		return false, fmt.Errorf(`must be one of "init" or "refresh"`)
 	}
 	return raw == "init", nil
-}
-
-func parseTargetDomainRoles(raw string) ([]DomainRole, error) {
-	elements := strings.Split(raw, ",")
-	errs := make([]error, 0, len(elements))
-	domainRoles := make([]DomainRole, 0, len(elements))
-
-	for _, domainRole := range elements {
-		targetDomain, targetRole, err := athenz.SplitRoleName(domainRole)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to read target domain and role from element: [%q], err: %w", domainRole, err))
-			continue
-		}
-		domainRoles = append(domainRoles, DomainRole{
-			Domain: targetDomain,
-			Role:   targetRole,
-		})
-	}
-
-	return domainRoles, errors.Join(errs...)
 }

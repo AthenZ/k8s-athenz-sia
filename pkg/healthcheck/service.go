@@ -84,7 +84,7 @@ func (hs *hcService) Start(ctx context.Context) error {
 			log.Info("Stopped health check server")
 		}()
 
-		if err := daemon.WaitForServerReady(hs.hcServer.Addr, false); err != nil {
+		if err := daemon.WaitForServerReady(hs.hcServer.Addr, false, false); err != nil {
 			log.Errorf("Failed to confirm health check server ready: %s", err.Error())
 			return err
 		}
@@ -98,17 +98,18 @@ func (hs *hcService) Shutdown() {
 	log.Info("Initiating shutdown of health check daemon ...")
 	close(hs.shutdownChan)
 
-	if hs.hcServer != nil && hs.hcServerRunning {
+	if hs.hcServer != nil {
+		// As hs.hcServer should always shutdown forcefully, NO need to check hs.hcServerRunning == true
+
 		forcedCtx, cancel := context.WithCancel(context.Background())
 		cancel() // force shutdown health check server without delay
 		hs.hcServer.SetKeepAlivesEnabled(false)
-		err := hs.hcServer.Shutdown(forcedCtx)
-		if err != nil && err != context.Canceled {
+		if err := hs.hcServer.Shutdown(forcedCtx); err != nil && err != context.Canceled {
 			log.Errorf("Failed to shutdown health check server: %s", err.Error())
 		}
 	}
 
-	// wait for graceful shutdown
+	// wait for forceful shutdown
 	hs.shutdownWg.Wait()
 }
 

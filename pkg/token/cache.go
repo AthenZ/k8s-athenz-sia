@@ -29,6 +29,7 @@ import (
 type TokenCache interface {
 	Store(k CacheKey, t Token)
 	Load(k CacheKey) Token
+	Search(k CacheKey) (CacheKey, Token)
 	Range(func(k CacheKey, t Token) error) error
 	Keys() []CacheKey
 	Size() int64
@@ -42,6 +43,7 @@ type CacheKey struct {
 	MinExpiry         int
 	ProxyForPrincipal string
 	Role              string
+	WriteFileRequired bool
 }
 
 // UniqueId returns a unique id of this token,
@@ -112,6 +114,29 @@ func (c *LockedTokenCache) Load(k CacheKey) Token {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.cache[k]
+}
+
+// Search searches for tokens in the cache for the specified domain and role in the cache key,
+// regardless of whether they are subject to file output.
+// If the cache is hit, it returns the cache key and token used at that time.
+// If there is no cache hit, it returns the cache key specified in the arguments and nil as the token.
+func (c *LockedTokenCache) Search(k CacheKey) (CacheKey, Token) {
+	var t Token
+	// copy the key to avoid changing the original key
+	key := k
+	// Prioritize searching for tokens that are subject to file output.
+	key.WriteFileRequired = true
+	t = c.Load(key)
+	if t != nil {
+		return key, t
+	}
+	key.WriteFileRequired = false
+	t = c.Load(key)
+	if t != nil {
+		return key, t
+	}
+	// If there is no cache hit, it returns the cache key specified in the arguments as is.
+	return k, nil
 }
 
 func (c *LockedTokenCache) Range(f func(k CacheKey, t Token) error) error {

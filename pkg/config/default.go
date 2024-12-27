@@ -16,14 +16,13 @@ package config
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"time"
 )
 
 var (
 	// default values for X.509 certificate signing request
-	DEFAULT_COUNTRY             = "US"
+	DEFAULT_COUNTRY             string
 	DEFAULT_PROVINCE            string
 	DEFAULT_ORGANIZATION        string
 	DEFAULT_ORGANIZATIONAL_UNIT = "Athenz"
@@ -38,11 +37,13 @@ var (
 	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES_RAW = "5"
 	DEFAULT_ROLE_CERT_EXPIRY_TIME_BUFFER_MINUTES     = 5
 
-	DEFAULT_ENDPOINT                     string
-	DEFAULT_ROLE_AUTH_HEADER             = "Athenz-Role-Auth"
-	DEFAULT_DNS_SUFFIX                   = "athenz.cloud"
-	DEFAULT_ROLE_CERT_FILENAME_DELIMITER = ":role."
-	DEFAULT_INTERMEDIATE_CERT_BUNDLE     string
+	DEFAULT_ENDPOINT                        string
+	DEFAULT_ROLE_AUTH_HEADER                = "Athenz-Role-Auth"
+	DEFAULT_DNS_SUFFIX                      = "athenz.cloud"
+	DEFAULT_ROLE_CERT_FILENAME_DELIMITER    = ":role."
+	DEFAULT_ACCESS_TOKEN_FILENAME_DELIMITER = ":role."
+	DEFAULT_ROLE_TOKEN_FILENAME_DELIMITER   = ":role."
+	DEFAULT_INTERMEDIATE_CERT_BUNDLE        string
 
 	// default values for graceful shutdown
 	DEFAULT_SHUTDOWN_TIMEOUT = 5 * time.Second
@@ -68,57 +69,63 @@ func init() {
 
 func DefaultIdentityConfig() *IdentityConfig {
 	return &IdentityConfig{
-		Init:                      true,
-		Endpoint:                  DEFAULT_ENDPOINT,
-		ProviderService:           "",
-		DNSSuffix:                 DEFAULT_DNS_SUFFIX,
-		Refresh:                   24 * time.Hour,
-		DelayJitterSeconds:        0,
-		KeyFile:                   "",
-		CertFile:                  "",
-		CaCertFile:                "",
-		IntermediateCertBundle:    DEFAULT_INTERMEDIATE_CERT_BUNDLE,
-		Backup:                    "",
-		CertSecret:                "",
-		Namespace:                 "",
-		AthenzDomain:              "",
-		AthenzPrefix:              "",
-		AthenzSuffix:              "",
-		ServiceAccount:            "",
-		SaTokenFile:               "",
-		PodIP:                     net.ParseIP("127.0.0.1"),
-		PodUID:                    "",
-		PodName:                   "",
-		Reloader:                  nil,
-		ServerCACert:              "",
-		TargetDomainRoles:         []DomainRole{},
-		RoleCertDir:               "",
-		RoleCertFilenameDelimiter: DEFAULT_ROLE_CERT_FILENAME_DELIMITER,
-		RoleCertKeyFileOutput:     false,
-		RoleAuthHeader:            DEFAULT_ROLE_AUTH_HEADER,
-		TokenType:                 "accesstoken",
-		TokenRefresh:              DEFAULT_TOKEN_REFRESH,
-		TokenExpiry:               DEFAULT_TOKEN_EXPIRY,
-		TokenServerAddr:           "",
-		TokenServerRESTAPI:        false,
-		TokenServerTimeout:        DEFAULT_TOKEN_SERVER_TIMEOUT,
-		TokenServerTLSCAPath:      "",
-		TokenServerTLSCertPath:    "",
-		TokenServerTLSKeyPath:     "",
-		TokenDir:                  "",
-		MetricsServerAddr:         "",
-		HealthCheckAddr:           "",
-		HealthCheckEndpoint:       "",
-		DeleteInstanceID:          false,
-		UseTokenServer:            false,
-		ShutdownTimeout:           DEFAULT_SHUTDOWN_TIMEOUT,
-		ShutdownDelay:             DEFAULT_SHUTDOWN_DELAY,
+		Init:                         true,
+		Endpoint:                     DEFAULT_ENDPOINT,
+		providerService:              "",
+		DNSSuffix:                    DEFAULT_DNS_SUFFIX,
+		Refresh:                      24 * time.Hour,
+		DelayJitterSeconds:           0,
+		KeyFile:                      "",
+		CertFile:                     "",
+		CaCertFile:                   "",
+		IntermediateCertBundle:       DEFAULT_INTERMEDIATE_CERT_BUNDLE,
+		backup:                       "",
+		certSecret:                   "",
+		Namespace:                    "",
+		athenzDomain:                 "",
+		athenzPrefix:                 "",
+		athenzSuffix:                 "",
+		ServiceAccount:               "",
+		SaTokenFile:                  "",
+		PodIP:                        nil,
+		PodUID:                       "",
+		PodName:                      "",
+		Reloader:                     nil,
+		ServerCACert:                 "",
+		TokenTargetDomainRoles:       []DomainRole{},
+		roleCertDir:                  "",
+		roleCertFilenameDelimiter:    DEFAULT_ROLE_CERT_FILENAME_DELIMITER,
+		roleCertKeyFileOutput:        false,
+		roleCertNamingFormat:         "",
+		roleCertKeyNamingFormat:      "",
+		roleAuthHeader:               DEFAULT_ROLE_AUTH_HEADER,
+		TokenType:                    "accesstoken",
+		TokenRefresh:                 DEFAULT_TOKEN_REFRESH,
+		TokenExpiry:                  DEFAULT_TOKEN_EXPIRY,
+		tokenServerAddr:              "",
+		tokenServerRESTAPI:           false,
+		tokenServerTimeout:           DEFAULT_TOKEN_SERVER_TIMEOUT,
+		tokenServerTLSCAPath:         "",
+		tokenServerTLSCertPath:       "",
+		tokenServerTLSKeyPath:        "",
+		tokenDir:                     "",
+		accessTokenFilenameDelimiter: DEFAULT_ACCESS_TOKEN_FILENAME_DELIMITER,
+		accessTokenNamingFormat:      "",
+		roleTokenFilenameDelimiter:   DEFAULT_ROLE_TOKEN_FILENAME_DELIMITER,
+		roleTokenNamingFormat:        "",
+		MetricsServerAddr:            "",
+		HealthCheckAddr:              "",
+		HealthCheckEndpoint:          "",
+		DeleteInstanceID:             false,
+		useTokenServer:               false,
+		shutdownTimeout:              DEFAULT_SHUTDOWN_TIMEOUT,
+		shutdownDelay:                DEFAULT_SHUTDOWN_DELAY,
 
-		LogDir:   "",
+		LogDir:   fmt.Sprintf("/var/log/%s", APP_NAME),
 		LogLevel: "INFO",
 
 		rawMode:                  "init",
-		rawPodIP:                 "127.0.0.1",
+		rawPodIP:                 "",
 		rawTargetDomainRoles:     "",
 		rawRefresh:               "24h",
 		rawDelayJitterSeconds:    "0",
