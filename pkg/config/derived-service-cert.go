@@ -22,6 +22,7 @@ import (
 type CopperArgosMode struct {
 	Use               bool
 	Provider          string // provider service name
+	Sans []string
 	AthenzDomainName  string
 	AthenzServiceName string
 	CertExtraSANDNSs  []string
@@ -58,6 +59,19 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		idCfg.ServiceCert.CopperArgos = CopperArgosMode{
 			Use:               true,
 			Provider:          idCfg.providerService,
+			Sans: (func() []string {
+				sans := []string{
+					// The following are the default SANs for CopperArgos mode:
+					fmt.Sprintf("%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
+					fmt.Sprintf("*.%s.%s.%s", service, domainDNSPart, idCfg.DNSSuffix),
+					fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.PodUID, idCfg.DNSSuffix),
+				}
+
+				for _, extraSan := range strings.Split(idCfg.rawCertExtraSANDNSs, ",") {
+					sans = append(sans, extraSan)
+				}
+				return sans
+			})()
 			AthenzDomainName:  extutil.NamespaceToDomain(idCfg.Namespace, idCfg.athenzPrefix, idCfg.athenzDomain, idCfg.athenzSuffix),
 			AthenzServiceName: extutil.ServiceAccountToService(idCfg.ServiceAccount),
 			CertExtraSANDNSs:  idCfg.certExtraSANDNSs,
