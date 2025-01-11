@@ -365,8 +365,6 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		return nil, nil
 	}
 
-	domainDNSPart := extutil.DomainToDNSPart(domain)
-
 	spiffeURI, err := extutil.ServiceSpiffeURI(domain, service)
 	if err != nil {
 		return nil, err

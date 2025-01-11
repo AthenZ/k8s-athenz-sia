@@ -97,6 +97,7 @@ type IdentityConfig struct {
 	rawTargetDomainRoles     string
 	rawRefresh               string
 	rawDelayJitterSeconds    string
+	rawCertExtraSANDNSs      string
 	rawRoleCertKeyFileOutput string
 	rawTokenRefresh          string
 	rawTokenExpiry           string
