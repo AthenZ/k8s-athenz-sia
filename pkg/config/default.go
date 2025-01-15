@@ -129,6 +129,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawTargetDomainRoles:     "",
 		rawRefresh:               "24h",
 		rawDelayJitterSeconds:    "0",
+		rawCertExtraSANDNSs:      "",
 		rawRoleCertKeyFileOutput: "false",
 		rawTokenRefresh:          DEFAULT_TOKEN_REFRESH.String(),
 		rawTokenExpiry:           DEFAULT_TOKEN_EXPIRY.String(),
