@@ -28,7 +28,6 @@ type CopperArgosMode struct {
 	Sans              []string
 	AthenzDomainName  string
 	AthenzServiceName string
-	CertExtraSANDNSs  []string
 }
 
 type LocalCertMode struct {
@@ -53,7 +52,6 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 			Provider:          "",
 			AthenzDomainName:  "",
 			AthenzServiceName: "",
-			CertExtraSANDNSs:  []string{},
 		},
 		LocalCert: LocalCertMode{Use: false},
 	}
@@ -74,7 +72,9 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 					fmt.Sprintf("%s.instanceid.athenz.%s", idCfg.PodUID, idCfg.DNSSuffix),
 				}
 
-				sans = append(sans, strings.Split(idCfg.rawCertExtraSANDNSs, ",")...)
+				if len(idCfg.rawCertExtraSANDNSs) > 0 {
+					sans = append(sans, strings.Split(idCfg.rawCertExtraSANDNSs, ",")...)
+				}
 				return sans
 			})(),
 			AthenzDomainName:  domainName,

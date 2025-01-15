@@ -49,8 +49,7 @@ type IdentityConfig struct {
 	ServerCACert           string
 	K8sSecretBackup        DerivedK8sSecretBackup
 	// ServiceCerts Derived State and its related fields:
-	ServiceCert      DerivedServiceCert
-	certExtraSANDNSs []string
+	ServiceCert DerivedServiceCert
 	//
 	TokenTargetDomainRoles []DomainRole             // TODO: Will be migrated into DerivedTargetDomainRoles
 	targetDomainRoles      DerivedTargetDomainRoles // private as the derived state is used only within the config package

@@ -21,7 +21,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
@@ -135,9 +134,6 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 		if idCfg.PodIP == nil {
 			return fmt.Errorf("Invalid POD_IP [%q], %w", idCfg.rawPodIP, err)
 		}
-	}
-	if len(idCfg.rawCertExtraSANDNSs) > 0 {
-		idCfg.certExtraSANDNSs = strings.Split(idCfg.rawCertExtraSANDNSs, ",")
 	}
 	idCfg.Refresh, err = time.ParseDuration(idCfg.rawRefresh)
 	if err != nil {
