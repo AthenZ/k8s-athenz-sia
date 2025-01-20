@@ -259,7 +259,7 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 
 func (idCfg *IdentityConfig) validateAndInit() (err error) {
 
-	//When SIA starts in refresh mode, the token refresh interval must be less than the token's expiration time.
+	// When SIA starts in refresh mode, the token refresh interval must be less than the token's expiration time.
 	// In refresh mode, SIA periodically updates the token and refreshes the cache.
 	// If the token refresh interval is greater than the token's expiration time, the token may temporarily expire.
 	// Considering the time taken for the token refresh process, if the token refresh interval is greater than or equal to the token's expiration time, SIA should terminate abnormally.
