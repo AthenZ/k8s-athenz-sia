@@ -259,16 +259,18 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 
 func (idCfg *IdentityConfig) validateAndInit() (err error) {
 
-	if idCfg.TokenExpiry != 0 && idCfg.TokenRefresh >= idCfg.TokenExpiry {
+	// When SIA starts in refresh mode, the token refresh interval must be less than the token's expiration time.
+	// In refresh mode, SIA periodically updates the token and refreshes the cache.
+	// If the token refresh interval is greater than the token's expiration time, the token may temporarily expire.
+	// Considering the time taken for the token refresh process, if the token refresh interval is greater than or equal to the token's expiration time, SIA should terminate abnormally.
+	// If the token's expiration time is set to 0, the server-side default value will be used as the expiration time, and the above validation will not be performed.
+	if !idCfg.Init && idCfg.TokenExpiry != 0 && idCfg.TokenRefresh >= idCfg.TokenExpiry {
 		return fmt.Errorf("Invalid TokenRefresh[%s] >= TokenExpiry[%s]", idCfg.TokenRefresh.String(), idCfg.TokenExpiry.String())
 	}
 
-	// TODO: clarify unused logic
-	// pollTokenInterval := idCfg.TokenRefresh
-	// if pollTokenInterval > DEFAULT_POLL_TOKEN_INTERVAL {
-	// 	pollTokenInterval = DEFAULT_POLL_TOKEN_INTERVAL
-	// }
-
+	// SIA may read certificates issued by external components.
+	// The frequency of re-reading updated certificates must be below a certain value.
+	// The maximum frequency for re-reading is managed by the util.DefaultPollInterval.
 	pollInterval := idCfg.Refresh
 	if pollInterval > util.DefaultPollInterval {
 		pollInterval = util.DefaultPollInterval
@@ -306,6 +308,8 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		}
 		return errors.New("Deleted X.509 certificate that already existed.")
 	}
+	// If SIA is not in init mode, it needs to update the certificate and issue tokens.
+	// Therefore, if the certificate output to the file cannot be read, it should terminate abnormally.
 	if !idCfg.Init && err != nil {
 		return fmt.Errorf("Unable to read key and cert: %w", err)
 	}
