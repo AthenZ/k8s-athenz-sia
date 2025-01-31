@@ -84,14 +84,17 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		MaxCacheDuration:      time.Duration(0),
 		ExposeRelativeMetrics: true,
 		ExposeErrorMetrics:    true,
-		KubeSecretTypes: []string{
-			"kubernetes.io/tls:tls.crt",
-		},
+		KubeSecretTypes:       make([]internal.KubeSecretType, 1),
 		KubeIncludeNamespaces: []string{},
 		KubeExcludeNamespaces: []string{},
 		KubeIncludeLabels:     []string{},
 		KubeExcludeLabels:     []string{},
 	}
+	kst, err := internal.ParseSecretType("kubernetes.io/tls:tls.crt")
+	if err != nil {
+		return nil, fmt.Errorf("x509-certificate-exporter ParseSecretType error: %w", err)
+	}
+	exporter.KubeSecretTypes[0] = kst
 
 	if idCfg.RoleCert.Use {
 		for _, dr := range idCfg.RoleCert.TargetDomainRoles {
