@@ -260,9 +260,9 @@ jobs:
       # https://github.com/actions/upload-artifact
       -
         name: Upload digests
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: digests
+          name: digests-${{ strategy.job-index }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -292,9 +292,10 @@ jobs:
       # https://github.com/actions/download-artifact
       -
         name: Download digests
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: digests
+          name: digests-*
+          merge-multiple: true
           path: /tmp/digests
 
       -

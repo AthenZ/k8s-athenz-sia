@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"sync"
 	"time"
 
@@ -84,9 +85,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		MaxCacheDuration:      time.Duration(0),
 		ExposeRelativeMetrics: true,
 		ExposeErrorMetrics:    true,
-		KubeSecretTypes: []string{
-			"kubernetes.io/tls:tls.crt",
-		},
+		KubeSecretTypes:       []internal.KubeSecretType{{Type: "kubernetes.io/tls", Regexp: regexp.MustCompile(`tls\.crt`)}},
 		KubeIncludeNamespaces: []string{},
 		KubeExcludeNamespaces: []string{},
 		KubeIncludeLabels:     []string{},
