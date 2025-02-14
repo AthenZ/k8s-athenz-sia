@@ -60,6 +60,9 @@ type IdentityConfig struct {
 	roleCertKeyFileOutput     bool
 	roleCertNamingFormat      string
 	roleCertKeyNamingFormat   string
+	roleCertCountry           string
+	roleCertProvince          string
+	roleCertOrganization      string
 	//
 	// Token Cache Derived State and its related fields:
 	TokenFile                    DerivedTokenFile

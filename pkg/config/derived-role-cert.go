@@ -30,6 +30,10 @@ type DerivedRoleCert struct {
 	// empty "" means no separate key file output feature enabled.
 	KeyFormat string
 	Delimiter string // delimiter to separate domain and role name in the file name.
+
+	Country      []string // role certificate CSR country
+	Province     []string // role certificate CSR province
+	Organization []string // role certificate CSR organization
 }
 
 // derivedRoleCertConfig reads given configuration and sets the derived state of fetching role certificates related configuration.
@@ -79,6 +83,24 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 			return "" // means no separate key file output feature enabled
 		}(),
 		Delimiter: idCfg.roleCertFilenameDelimiter,
+		Country: func() []string {
+			if idCfg.roleCertCountry != "" {
+				return []string{idCfg.roleCertCountry}
+			}
+			return nil
+		}(),
+		Province: func() []string {
+			if idCfg.roleCertProvince != "" {
+				return []string{idCfg.roleCertProvince}
+			}
+			return nil
+		}(),
+		Organization: func() []string {
+			if idCfg.roleCertOrganization != "" {
+				return []string{idCfg.roleCertOrganization}
+			}
+			return nil
+		}(),
 	}
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.
