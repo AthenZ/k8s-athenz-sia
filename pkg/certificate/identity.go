@@ -433,10 +433,13 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 		}
 
 		subject := pkix.Name{
-			Country:            idCfg.RoleCert.Country,
-			Province:           idCfg.RoleCert.Province,
-			Organization:       idCfg.RoleCert.Organization,
-			OrganizationalUnit: []string{config.DEFAULT_ORGANIZATIONAL_UNIT},
+			Country:            idCfg.RoleCert.Subject.Country,
+			Province:           idCfg.RoleCert.Subject.Province,
+			Organization:       idCfg.RoleCert.Subject.Organization,
+			OrganizationalUnit: idCfg.RoleCert.Subject.OrganizationalUnit,
+			Locality:           idCfg.RoleCert.Subject.Locality,
+			StreetAddress:      idCfg.RoleCert.Subject.StreetAddress,
+			PostalCode:         idCfg.RoleCert.Subject.PostalCode,
 			CommonName:         fmt.Sprintf("%s:role.%s", targetDomain, targetRole),
 		}
 
