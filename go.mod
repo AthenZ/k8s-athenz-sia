@@ -1,6 +1,6 @@
 module github.com/AthenZ/k8s-athenz-sia/v3
 
-go 1.23
+go 1.23.6
 
 replace golang.org/x/net => golang.org/x/net v0.35.0
 
