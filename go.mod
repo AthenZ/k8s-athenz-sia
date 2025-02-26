@@ -6,6 +6,8 @@ replace golang.org/x/net => golang.org/x/net v0.35.0
 
 replace golang.org/x/text => golang.org/x/text v0.22.0
 
+replace github.com/bmatcuk/doublestar/v4 => github.com/enix/doublestar/v4 v4.0.0-20230517103320-2fbc4cd74d7f
+
 require (
 	github.com/AthenZ/athenz v1.12.11
 	github.com/bmatcuk/doublestar/v4 v4.8.1
