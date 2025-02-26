@@ -214,7 +214,7 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.BoolVar(&idCfg.roleCertKeyFileOutput, "rolecert-key-file-output", idCfg.roleCertKeyFileOutput, "output role certificate key file (true/false)")
 	f.StringVar(&idCfg.roleCertNamingFormat, "role-cert-naming-format", idCfg.roleCertNamingFormat, "The file name format when outputting the role cert to a file")
 	f.StringVar(&idCfg.roleCertKeyNamingFormat, "role-cert-key-naming-format", idCfg.roleCertKeyNamingFormat, "The file name format when outputting the role cert key to a file")
-	f.StringVar(&idCfg.rawRoleCertSubject, "role-cert-subject", idCfg.rawRoleCertSubject, "Subject field of the generated CSR which is used for issuing role certificates")
+	f.StringVar(&idCfg.rawRoleCertSubject, "role-cert-subject", idCfg.rawRoleCertSubject, "Subject field of the generated role cert CSR in in RFC 4514 format (e.g. C=JP,ST=Tokyo,O=Example Corporation)")
 	// RoleAuthHeader
 	f.StringVar(&idCfg.TokenType, "token-type", idCfg.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
 	f.DurationVar(&idCfg.TokenRefresh, "token-refresh-interval", idCfg.TokenRefresh, "token refresh interval")

@@ -68,14 +68,22 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 			return fmt.Errorf("Failed to parse ROLE_CERT_SUBJECT[%q]: %w", idCfg.rawRoleCertSubject, err)
 		}
 		if dn.SerialNumber != "" {
+			// serial number should be managed by Athenz ZTS
 			return fmt.Errorf("Non-empty SERIALNUMBER attribute: invalid ROLE_CERT_SUBJECT[%q]: %w", idCfg.rawRoleCertSubject, err)
 		}
 		if dn.CommonName != "" {
+			// role cert common name should follow Athenz specification
 			return fmt.Errorf("Non-empty CN attribute: invalid ROLE_CERT_SUBJECT[%q]: %w", idCfg.rawRoleCertSubject, err)
 		}
 		subject = dn
 	}
 	// set role certificate subject attributes to its default values
+	// e.g.
+	//   - Given DEFAULT_ORGANIZATIONAL_UNIT=Athenz,
+	//     - ROLE_CERT_SUBJECT='C=US' => C=US,OU=Athenz
+	//     - ROLE_CERT_SUBJECT='C=US,OU=' => C=US,OU=
+	// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
+	// TODO: use DEFAULT_SUBJECT as default values
 	if subject.Country == nil && DEFAULT_COUNTRY != "" {
 		subject.Country = []string{DEFAULT_COUNTRY}
 	}

@@ -370,6 +370,8 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		return nil, err
 	}
 
+	// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
+	// TODO: use DEFAULT_SUBJECT as default values
 	subject := pkix.Name{
 		Country: func() []string {
 			if config.DEFAULT_COUNTRY != "" {
