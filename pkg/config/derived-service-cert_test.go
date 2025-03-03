@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-func TestIdentityConfig_derivedRoleCertConfig_DerivedRoleCert_Subject(t *testing.T) {
+func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *testing.T) {
 	type fields struct {
 		rawCertSubject string
 	}
@@ -32,7 +32,7 @@ func TestIdentityConfig_derivedRoleCertConfig_DerivedRoleCert_Subject(t *testing
 		wantErr    bool
 	}{
 		{
-			name: "Valid role cert subject",
+			name: "Valid instance subject",
 			fields: fields{
 				rawCertSubject: "OU=dummyOrganizationalUnit,O=dummyOrganization,L=dummyLocality,ST=dummyProvince,C=dummyCountry,POSTALCODE=dummyPostalCode,STREET=dummyStreetAddress",
 			},
@@ -53,7 +53,8 @@ func TestIdentityConfig_derivedRoleCertConfig_DerivedRoleCert_Subject(t *testing
 				rawCertSubject: "",
 			},
 			want: &pkix.Name{
-				OrganizationalUnit: []string{"Athenz"},
+				// should not set default value, as OU=PROVIDER_SERVICE
+				// OrganizationalUnit: []string{"Athenz"},
 			},
 			wantErr: false,
 		},
@@ -75,22 +76,28 @@ func TestIdentityConfig_derivedRoleCertConfig_DerivedRoleCert_Subject(t *testing
 				rawCertSubject: "L=Locality",
 			},
 			want: &pkix.Name{
-				Country:            []string{"C"},
-				Province:           []string{"CA"},
-				Organization:       []string{"Organization"},
-				OrganizationalUnit: []string{"OrganizationalUnit"},
-				Locality:           []string{"Locality"},
+				Country:      []string{"C"},
+				Province:     []string{"CA"},
+				Organization: []string{"Organization"},
+				// OrganizationalUnit: []string{"OrganizationalUnit"},
+				Locality: []string{"Locality"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "Override default attribute value if set empty explicitly",
+			beforeFunc: func() {
+				DEFAULT_PROVINCE = "CA"
+			},
+			afterFunc: func() {
+				DEFAULT_PROVINCE = ""
+			},
 			fields: fields{
-				rawCertSubject: "O=dummyOrganization,OU=",
+				rawCertSubject: "O=dummyOrganization,ST=",
 			},
 			want: &pkix.Name{
-				OrganizationalUnit: []string{""},
-				Organization:       []string{"dummyOrganization"},
+				Province:     []string{""},
+				Organization: []string{"dummyOrganization"},
 			},
 			wantErr: false,
 		},
@@ -122,35 +129,28 @@ func TestIdentityConfig_derivedRoleCertConfig_DerivedRoleCert_Subject(t *testing
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			idCfg := IdentityConfig{
-				targetDomainRoles: DerivedTargetDomainRoles{
-					roleCerts: []DomainRole{
-						{Domain: "domain", Role: "role"},
-					},
-				},
-				roleCertNamingFormat:    "format",
-				roleCertKeyNamingFormat: "keyFormat",
-				rawCertSubject:          tt.fields.rawCertSubject,
+				providerService: "provider-service",
+				rawCertSubject:  tt.fields.rawCertSubject,
 			}
-
 			if tt.beforeFunc != nil {
 				tt.beforeFunc()
 			}
-			if err := idCfg.derivedRoleCertConfig(); (err != nil) != tt.wantErr {
-				t.Errorf("IdentityConfig.derivedRoleCertConfig() error = %v, wantErr %v", err, tt.wantErr)
+			if err := idCfg.derivedServiceCertConfig(); (err != nil) != tt.wantErr {
+				t.Errorf("IdentityConfig.derivedServiceCertConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.afterFunc != nil {
 				tt.afterFunc()
 			}
 
-			got := idCfg.RoleCert.Subject
+			got := idCfg.ServiceCert.CopperArgos.Subject
 			if tt.want == nil {
 				if got != nil {
-					t.Errorf("IdentityConfig.derivedRoleCertConfig() = %+v, want %+v", got, tt.want)
+					t.Errorf("IdentityConfig.derivedServiceCertConfig() = %+v, want %+v", got, tt.want)
 				}
 				return
 			}
-			if idCfg.RoleCert.Subject.String() != tt.want.String() {
-				t.Errorf("IdentityConfig.derivedRoleCertConfig() = %+v, want %+v", got, tt.want)
+			if idCfg.ServiceCert.CopperArgos.Subject.String() != tt.want.String() {
+				t.Errorf("IdentityConfig.derivedServiceCertConfig() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}

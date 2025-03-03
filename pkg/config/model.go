@@ -100,8 +100,8 @@ type IdentityConfig struct {
 	rawRefresh               string
 	rawDelayJitterSeconds    string
 	rawCertExtraSANDNSs      string
+	rawCertSubject           string
 	rawRoleCertKeyFileOutput string
-	rawRoleCertSubject       string
 	rawTokenRefresh          string
 	rawTokenExpiry           string
 	rawTokenServerRESTAPI    string

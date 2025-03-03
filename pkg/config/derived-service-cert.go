@@ -15,6 +15,7 @@
 package config
 
 import (
+	"crypto/x509/pkix"
 	"fmt"
 	"strings"
 
@@ -22,9 +23,11 @@ import (
 )
 
 type CopperArgosMode struct {
-	Use               bool
-	Provider          string // provider service name
-	Sans              []string
+	Use      bool
+	Provider string // provider service name
+	Sans     []string
+	Subject  *pkix.Name // subject field for instance certificate
+
 	AthenzDomainName  string
 	AthenzServiceName string
 }
@@ -60,6 +63,44 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		domainName := extutil.NamespaceToDomain(idCfg.Namespace, idCfg.athenzPrefix, idCfg.athenzDomain, idCfg.athenzSuffix)
 		domainDNSPart := extutil.DomainToDNSPart(domainName)
 
+		// parse instance certificate subject field
+		subject := &pkix.Name{}
+		if idCfg.rawCertSubject != "" {
+			dn, err := parseDN(idCfg.rawCertSubject)
+			if err != nil {
+				return fmt.Errorf("Failed to parse CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
+			}
+			if dn.SerialNumber != "" {
+				// serial number should be managed by Athenz ZTS
+				return fmt.Errorf("Non-empty SERIALNUMBER attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
+			}
+			if dn.CommonName != "" {
+				// role cert common name should follow Athenz specification
+				return fmt.Errorf("Non-empty CN attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
+			}
+			subject = dn
+		}
+		// set instance certificate subject attributes to its default values
+		// e.g.
+		//   - Given DEFAULT_PROVINCE=CA,
+		//     - CERT_SUBJECT='C=US' => C=US,ST=CA
+		//     - CERT_SUBJECT='C=US,ST=' => C=US,ST=
+		// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
+		// TODO: use DEFAULT_SUBJECT as default values
+		if subject.Country == nil && DEFAULT_COUNTRY != "" {
+			subject.Country = []string{DEFAULT_COUNTRY}
+		}
+		if subject.Province == nil && DEFAULT_PROVINCE != "" {
+			subject.Province = []string{DEFAULT_PROVINCE}
+		}
+		if subject.Organization == nil && DEFAULT_ORGANIZATION != "" {
+			subject.Organization = []string{DEFAULT_ORGANIZATION}
+		}
+		// no need to set as OU=PROVIDER_SERVICE for service certificate
+		// if subject.OrganizationalUnit == nil && DEFAULT_ORGANIZATIONAL_UNIT != "" {
+		// 	subject.OrganizationalUnit = []string{DEFAULT_ORGANIZATIONAL_UNIT}
+		// }
+
 		idCfg.ServiceCert.CopperArgos = CopperArgosMode{
 			Use:      true,
 			Provider: idCfg.providerService,
@@ -76,6 +117,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 				}
 				return sans
 			})(),
+			Subject:           subject,
 			AthenzDomainName:  domainName,
 			AthenzServiceName: serviceName,
 		}
