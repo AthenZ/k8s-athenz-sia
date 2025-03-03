@@ -376,9 +376,9 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		Country:            idCfg.ServiceCert.CopperArgos.Subject.Country,
 		Province:           idCfg.ServiceCert.CopperArgos.Subject.Province,
 		Organization:       idCfg.ServiceCert.CopperArgos.Subject.Organization,
-		Locality:           idCfg.RoleCert.Subject.Locality,
-		StreetAddress:      idCfg.RoleCert.Subject.StreetAddress,
-		PostalCode:         idCfg.RoleCert.Subject.PostalCode,
+		Locality:           idCfg.ServiceCert.CopperArgos.Subject.Locality,
+		StreetAddress:      idCfg.ServiceCert.CopperArgos.Subject.StreetAddress,
+		PostalCode:         idCfg.ServiceCert.CopperArgos.Subject.PostalCode,
 		OrganizationalUnit: []string{idCfg.ServiceCert.CopperArgos.Provider},
 		CommonName:         fmt.Sprintf("%s.%s", domain, service),
 	}
