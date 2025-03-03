@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package config defines all the configuration parameters. It reads configuration from environment variables and command-line arguments.
 package config
 
 import (
+	"crypto/x509/pkix"
 	"fmt"
 	"path/filepath"
 
@@ -30,6 +30,8 @@ type DerivedRoleCert struct {
 	// empty "" means no separate key file output feature enabled.
 	KeyFormat string
 	Delimiter string // delimiter to separate domain and role name in the file name.
+
+	Subject *pkix.Name // subject field for role certificate
 }
 
 // derivedRoleCertConfig reads given configuration and sets the derived state of fetching role certificates related configuration.
@@ -58,6 +60,43 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 		return fmt.Errorf("ROLE_CERT_KEY_FILE_OUTPUT[%t] is enabled but ROLE_CERT_KEY_NAMING_FORMAT[%s] and ROLECERT_DIR[%s] are not set. Please ensure that either ROLE_CERT_KEY_NAMING_FORMAT or ROLECERT_DIR is set.", idCfg.roleCertKeyFileOutput, idCfg.roleCertKeyNamingFormat, idCfg.roleCertDir)
 	}
 
+	// parse role certificate subject field
+	subject := &pkix.Name{}
+	if idCfg.rawCertSubject != "" {
+		dn, err := parseDN(idCfg.rawCertSubject)
+		if err != nil {
+			return fmt.Errorf("Failed to parse CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
+		}
+		if dn.SerialNumber != "" {
+			// serial number should be managed by Athenz ZTS
+			return fmt.Errorf("Non-empty SERIALNUMBER attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
+		}
+		if dn.CommonName != "" {
+			// role cert common name should follow Athenz specification
+			return fmt.Errorf("Non-empty CN attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
+		}
+		subject = dn
+	}
+	// set role certificate subject attributes to its default values
+	// e.g.
+	//   - Given DEFAULT_ORGANIZATIONAL_UNIT=Athenz,
+	//     - CERT_SUBJECT='C=US' => C=US,OU=Athenz
+	//     - CERT_SUBJECT='C=US,OU=' => C=US,OU=
+	// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
+	// TODO: use DEFAULT_SUBJECT as default values
+	if subject.Country == nil && DEFAULT_COUNTRY != "" {
+		subject.Country = []string{DEFAULT_COUNTRY}
+	}
+	if subject.Province == nil && DEFAULT_PROVINCE != "" {
+		subject.Province = []string{DEFAULT_PROVINCE}
+	}
+	if subject.Organization == nil && DEFAULT_ORGANIZATION != "" {
+		subject.Organization = []string{DEFAULT_ORGANIZATION}
+	}
+	if subject.OrganizationalUnit == nil && DEFAULT_ORGANIZATIONAL_UNIT != "" {
+		subject.OrganizationalUnit = []string{DEFAULT_ORGANIZATIONAL_UNIT}
+	}
+
 	// Enabled from now on:
 	idCfg.RoleCert = DerivedRoleCert{
 		Use:               true,
@@ -79,6 +118,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 			return "" // means no separate key file output feature enabled
 		}(),
 		Delimiter: idCfg.roleCertFilenameDelimiter,
+		Subject:   subject,
 	}
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.

@@ -21,6 +21,9 @@ import (
 )
 
 var (
+
+	// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
+	// TODO: add DEFAULT_SUBJECT='OU=Athenz' after the deprecation
 	// default values for X.509 certificate signing request
 	DEFAULT_COUNTRY             string
 	DEFAULT_PROVINCE            string
@@ -130,6 +133,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawRefresh:               "24h",
 		rawDelayJitterSeconds:    "0",
 		rawCertExtraSANDNSs:      "",
+		rawCertSubject:           "",
 		rawRoleCertKeyFileOutput: "false",
 		rawTokenRefresh:          DEFAULT_TOKEN_REFRESH.String(),
 		rawTokenExpiry:           DEFAULT_TOKEN_EXPIRY.String(),

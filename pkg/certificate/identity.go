@@ -370,25 +370,15 @@ func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service str
 		return nil, err
 	}
 
+	// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
+	// TODO: use DEFAULT_SUBJECT as default values
 	subject := pkix.Name{
-		Country: func() []string {
-			if config.DEFAULT_COUNTRY != "" {
-				return []string{config.DEFAULT_COUNTRY}
-			}
-			return nil
-		}(),
-		Province: func() []string {
-			if config.DEFAULT_PROVINCE != "" {
-				return []string{config.DEFAULT_PROVINCE}
-			}
-			return nil
-		}(),
-		Organization: func() []string {
-			if config.DEFAULT_ORGANIZATION != "" {
-				return []string{config.DEFAULT_ORGANIZATION}
-			}
-			return nil
-		}(),
+		Country:            idCfg.ServiceCert.CopperArgos.Subject.Country,
+		Province:           idCfg.ServiceCert.CopperArgos.Subject.Province,
+		Organization:       idCfg.ServiceCert.CopperArgos.Subject.Organization,
+		Locality:           idCfg.ServiceCert.CopperArgos.Subject.Locality,
+		StreetAddress:      idCfg.ServiceCert.CopperArgos.Subject.StreetAddress,
+		PostalCode:         idCfg.ServiceCert.CopperArgos.Subject.PostalCode,
 		OrganizationalUnit: []string{idCfg.ServiceCert.CopperArgos.Provider},
 		CommonName:         fmt.Sprintf("%s.%s", domain, service),
 	}
@@ -433,25 +423,13 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 		}
 
 		subject := pkix.Name{
-			Country: func() []string {
-				if config.DEFAULT_COUNTRY != "" {
-					return []string{config.DEFAULT_COUNTRY}
-				}
-				return nil
-			}(),
-			Province: func() []string {
-				if config.DEFAULT_PROVINCE != "" {
-					return []string{config.DEFAULT_PROVINCE}
-				}
-				return nil
-			}(),
-			Organization: func() []string {
-				if config.DEFAULT_ORGANIZATION != "" {
-					return []string{config.DEFAULT_ORGANIZATION}
-				}
-				return nil
-			}(),
-			OrganizationalUnit: []string{config.DEFAULT_ORGANIZATIONAL_UNIT},
+			Country:            idCfg.RoleCert.Subject.Country,
+			Province:           idCfg.RoleCert.Subject.Province,
+			Organization:       idCfg.RoleCert.Subject.Organization,
+			Locality:           idCfg.RoleCert.Subject.Locality,
+			StreetAddress:      idCfg.RoleCert.Subject.StreetAddress,
+			PostalCode:         idCfg.RoleCert.Subject.PostalCode,
+			OrganizationalUnit: idCfg.RoleCert.Subject.OrganizationalUnit,
 			CommonName:         fmt.Sprintf("%s:role.%s", targetDomain, targetRole),
 		}
 
