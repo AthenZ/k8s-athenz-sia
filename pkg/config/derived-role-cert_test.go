@@ -58,6 +58,16 @@ func TestIdentityConfig_derivedRoleCertConfig_DerivedRoleCert_Subject(t *testing
 			wantErr: false,
 		},
 		{
+			name: "Multi-value attribute rawCertSubject",
+			fields: fields{
+				rawCertSubject: "OU=,OU=1,OU=2",
+			},
+			want: &pkix.Name{
+				OrganizationalUnit: []string{"1", "2"},
+			},
+			wantErr: false,
+		},
+		{
 			name: "Use default attribute value if not set",
 			beforeFunc: func() {
 				DEFAULT_COUNTRY = "C"

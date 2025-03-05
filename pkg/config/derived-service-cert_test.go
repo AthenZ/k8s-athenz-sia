@@ -69,6 +69,21 @@ func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *test
 			wantErr: false,
 		},
 		{
+			name: "Multi-value attribute rawCertSubject",
+			fields: fields{
+				athenzDomain:    "domain",
+				providerService: "provider-service",
+				ServiceAccount:  "sa",
+				rawCertSubject:  "ST=,ST=1,ST=2",
+			},
+			want: &pkix.Name{
+				CommonName:         "domain.sa",
+				OrganizationalUnit: []string{"provider-service"},
+				Province:           []string{"1", "2"},
+			},
+			wantErr: false,
+		},
+		{
 			name: "Use default attribute value if not set",
 			beforeFunc: func() {
 				DEFAULT_COUNTRY = "C"
