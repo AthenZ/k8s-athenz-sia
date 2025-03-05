@@ -25,7 +25,7 @@ import (
 // CreateDirectory creates the necessary directories for file output from the specified file path for the output token or certificate.
 func CreateDirectory(path string) error {
 	dir := filepath.Dir(path)
-	_, err := os.Stat(dir)
+	stat, err := os.Stat(dir)
 	if err == nil {
 		return nil // directory already exists
 	}
@@ -34,7 +34,7 @@ func CreateDirectory(path string) error {
 		return fmt.Errorf("unable to check directory: %w", err)
 	}
 
-	log.Debugf("Creating new directory: %s", dir)
+	log.Debugf("Creating new directory: %s %v", dir, stat)
 	err = os.MkdirAll(dir, 0755) // create directory
 	if err != nil {
 		return fmt.Errorf("unable to create directory: %w", err)
