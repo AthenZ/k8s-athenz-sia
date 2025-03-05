@@ -76,7 +76,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 				return fmt.Errorf("Non-empty SERIALNUMBER attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
 			}
 			if dn.CommonName != "" {
-				// role cert common name should follow Athenz specification
+				// instance cert common name should follow Athenz specification
 				return fmt.Errorf("Non-empty CN attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
 			}
 			subject = dn
@@ -85,7 +85,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		// e.g.
 		//   - Given DEFAULT_PROVINCE=CA,
 		//     - CERT_SUBJECT='C=US' => C=US,ST=CA
-		//     - CERT_SUBJECT='C=US,ST=' => C=US,ST=
+		//     - CERT_SUBJECT='C=US,ST=' => C=US,ST=CA
 		// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
 		// TODO: use DEFAULT_SUBJECT as default values
 		if subject.Country == nil && DEFAULT_COUNTRY != "" {
@@ -97,10 +97,8 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		if subject.Organization == nil && DEFAULT_ORGANIZATION != "" {
 			subject.Organization = []string{DEFAULT_ORGANIZATION}
 		}
-		// no need to set as OU=PROVIDER_SERVICE for service certificate
-		// if subject.OrganizationalUnit == nil && DEFAULT_ORGANIZATIONAL_UNIT != "" {
-		// 	subject.OrganizationalUnit = []string{DEFAULT_ORGANIZATIONAL_UNIT}
-		// }
+		subject.OrganizationalUnit = []string{idCfg.providerService}
+		subject.CommonName = fmt.Sprintf("%s.%s", domainName, serviceName)
 
 		idCfg.ServiceCert.CopperArgos = CopperArgosMode{
 			Use:      true,

@@ -99,7 +99,7 @@ func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error)
 	// Add User-Agent header to ZTS client for fetching x509 certificate
 	client.AddCredentials("User-Agent", config.USER_AGENT)
 
-	csrOptions, err := PrepareIdentityCsrOptions(idCfg, idCfg.ServiceCert.CopperArgos.AthenzDomainName, idCfg.ServiceCert.CopperArgos.AthenzServiceName)
+	csrOptions, err := PrepareIdentityCsrOptions(idCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -358,33 +358,20 @@ func (h *identityHandler) InstanceID() string {
 }
 
 // PrepareIdentityCsrOptions prepares csrOptions for an X.509 certificate
-func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service string) (*util.CSROptions, error) {
+func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig) (*util.CSROptions, error) {
 
 	if !idCfg.ServiceCert.CopperArgos.Use {
 		log.Debugf("Skipping to prepare csr with provider service[%s]", idCfg.ServiceCert.CopperArgos.Provider)
 		return nil, nil
 	}
 
-	spiffeURI, err := extutil.ServiceSpiffeURI(domain, service)
+	spiffeURI, err := extutil.ServiceSpiffeURI(idCfg.ServiceCert.CopperArgos.AthenzDomainName, idCfg.ServiceCert.CopperArgos.AthenzServiceName)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
-	// TODO: use DEFAULT_SUBJECT as default values
-	subject := pkix.Name{
-		Country:            idCfg.ServiceCert.CopperArgos.Subject.Country,
-		Province:           idCfg.ServiceCert.CopperArgos.Subject.Province,
-		Organization:       idCfg.ServiceCert.CopperArgos.Subject.Organization,
-		Locality:           idCfg.ServiceCert.CopperArgos.Subject.Locality,
-		StreetAddress:      idCfg.ServiceCert.CopperArgos.Subject.StreetAddress,
-		PostalCode:         idCfg.ServiceCert.CopperArgos.Subject.PostalCode,
-		OrganizationalUnit: []string{idCfg.ServiceCert.CopperArgos.Provider},
-		CommonName:         fmt.Sprintf("%s.%s", domain, service),
-	}
-
 	csrOptions := &util.CSROptions{
-		Subject: subject,
+		Subject: *idCfg.ServiceCert.CopperArgos.Subject,
 		SANs: util.SubjectAlternateNames{
 			DNSNames: idCfg.ServiceCert.CopperArgos.Sans,
 			URIs:     []url.URL{*spiffeURI},

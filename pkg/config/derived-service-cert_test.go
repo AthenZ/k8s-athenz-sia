@@ -21,7 +21,10 @@ import (
 
 func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *testing.T) {
 	type fields struct {
-		rawCertSubject string
+		athenzDomain    string
+		providerService string
+		ServiceAccount  string
+		rawCertSubject  string
 	}
 	tests := []struct {
 		name       string
@@ -34,10 +37,14 @@ func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *test
 		{
 			name: "Valid instance subject",
 			fields: fields{
-				rawCertSubject: "OU=dummyOrganizationalUnit,O=dummyOrganization,L=dummyLocality,ST=dummyProvince,C=dummyCountry,POSTALCODE=dummyPostalCode,STREET=dummyStreetAddress",
+				athenzDomain:    "domain",
+				providerService: "provider-service",
+				ServiceAccount:  "sa",
+				rawCertSubject:  "OU=dummyOrganizationalUnit,O=dummyOrganization,L=dummyLocality,ST=dummyProvince,C=dummyCountry,POSTALCODE=dummyPostalCode,STREET=dummyStreetAddress",
 			},
 			want: &pkix.Name{
-				OrganizationalUnit: []string{"dummyOrganizationalUnit"},
+				CommonName:         "domain.sa",
+				OrganizationalUnit: []string{"provider-service"},
 				Organization:       []string{"dummyOrganization"},
 				Locality:           []string{"dummyLocality"},
 				Province:           []string{"dummyProvince"},
@@ -50,11 +57,14 @@ func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *test
 		{
 			name: "Empty rawCertSubject",
 			fields: fields{
-				rawCertSubject: "",
+				athenzDomain:    "domain",
+				providerService: "provider-service",
+				ServiceAccount:  "sa",
+				rawCertSubject:  "",
 			},
 			want: &pkix.Name{
-				// should not set default value, as OU=PROVIDER_SERVICE
-				// OrganizationalUnit: []string{"Athenz"},
+				CommonName:         "domain.sa",
+				OrganizationalUnit: []string{"provider-service"},
 			},
 			wantErr: false,
 		},
@@ -73,14 +83,40 @@ func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *test
 				DEFAULT_ORGANIZATIONAL_UNIT = ""
 			},
 			fields: fields{
-				rawCertSubject: "L=Locality",
+				athenzDomain:    "domain",
+				providerService: "provider-service",
+				ServiceAccount:  "sa",
+				rawCertSubject:  "L=Locality",
 			},
 			want: &pkix.Name{
-				Country:      []string{"C"},
-				Province:     []string{"CA"},
-				Organization: []string{"Organization"},
-				// OrganizationalUnit: []string{"OrganizationalUnit"},
-				Locality: []string{"Locality"},
+				Country:            []string{"C"},
+				Province:           []string{"CA"},
+				Organization:       []string{"Organization"},
+				Locality:           []string{"Locality"},
+				OrganizationalUnit: []string{"provider-service"},
+				CommonName:         "domain.sa",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Use default attribute value if attribute value is empty",
+			beforeFunc: func() {
+				DEFAULT_PROVINCE = "CA"
+			},
+			afterFunc: func() {
+				DEFAULT_PROVINCE = ""
+			},
+			fields: fields{
+				athenzDomain:    "domain",
+				providerService: "provider-service",
+				ServiceAccount:  "sa",
+				rawCertSubject:  "O=dummyOrganization,ST=",
+			},
+			want: &pkix.Name{
+				Province:           []string{"CA"},
+				Organization:       []string{"dummyOrganization"},
+				OrganizationalUnit: []string{"provider-service"},
+				CommonName:         "domain.sa",
 			},
 			wantErr: false,
 		},
@@ -93,18 +129,26 @@ func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *test
 				DEFAULT_PROVINCE = ""
 			},
 			fields: fields{
-				rawCertSubject: "O=dummyOrganization,ST=",
+				athenzDomain:    "domain",
+				providerService: "provider-service",
+				ServiceAccount:  "sa",
+				rawCertSubject:  "O=dummyOrganization,ST=Tokyo",
 			},
 			want: &pkix.Name{
-				Province:     []string{""},
-				Organization: []string{"dummyOrganization"},
+				Province:           []string{"Tokyo"},
+				Organization:       []string{"dummyOrganization"},
+				OrganizationalUnit: []string{"provider-service"},
+				CommonName:         "domain.sa",
 			},
 			wantErr: false,
 		},
 		{
 			name: "Invalid rawCertSubject",
 			fields: fields{
-				rawCertSubject: "INVALID_DN",
+				athenzDomain:    "domain",
+				providerService: "provider-service",
+				ServiceAccount:  "sa",
+				rawCertSubject:  "INVALID_DN",
 			},
 			want:    nil,
 			wantErr: true,
@@ -112,7 +156,10 @@ func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *test
 		{
 			name: "Non-empty SERIALNUMBER in rawCertSubject",
 			fields: fields{
-				rawCertSubject: "SERIALNUMBER=dummySerialNumber",
+				athenzDomain:    "domain",
+				providerService: "provider-service",
+				ServiceAccount:  "sa",
+				rawCertSubject:  "SERIALNUMBER=dummySerialNumber",
 			},
 			want:    nil,
 			wantErr: true,
@@ -120,7 +167,10 @@ func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *test
 		{
 			name: "Non-empty CN in rawCertSubject",
 			fields: fields{
-				rawCertSubject: "CN=dummyCommonName",
+				athenzDomain:    "domain",
+				providerService: "provider-service",
+				ServiceAccount:  "sa",
+				rawCertSubject:  "CN=dummyCommonName",
 			},
 			want:    nil,
 			wantErr: true,
@@ -129,7 +179,12 @@ func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *test
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			idCfg := IdentityConfig{
-				providerService: "provider-service",
+				Namespace:       "",
+				athenzPrefix:    "",
+				athenzSuffix:    "",
+				athenzDomain:    tt.fields.athenzDomain,
+				providerService: tt.fields.providerService,
+				ServiceAccount:  tt.fields.ServiceAccount,
 				rawCertSubject:  tt.fields.rawCertSubject,
 			}
 			if tt.beforeFunc != nil {

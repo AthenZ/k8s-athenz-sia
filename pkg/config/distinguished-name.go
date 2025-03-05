@@ -18,6 +18,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
+	"slices"
 
 	"github.com/go-ldap/ldap/v3"
 )
@@ -60,8 +61,8 @@ func parseDN(dn string) (*pkix.Name, error) {
 
 	// convert ldap.RelativeDN to pkix.RDNSequence
 	var rdnSet pkix.RDNSequence
-	rdnSet = make([]pkix.RelativeDistinguishedNameSET, len(ldapDn.RDNs))
-	for i, rdn := range ldapDn.RDNs {
+	rdnSet = make([]pkix.RelativeDistinguishedNameSET, 0, len(ldapDn.RDNs))
+	for _, rdn := range ldapDn.RDNs {
 		ats := make([]pkix.AttributeTypeAndValue, len(rdn.Attributes))
 		for j, at := range rdn.Attributes {
 			asn1Oid, ok := ldapAttributeTypeOID[at.Type]
@@ -72,7 +73,14 @@ func parseDN(dn string) (*pkix.Name, error) {
 			ats[j].Type = asn1Oid
 			ats[j].Value = at.Value
 		}
-		rdnSet[i] = ats
+		// remove empty values
+		ats = slices.Clip(slices.DeleteFunc(ats, func(at pkix.AttributeTypeAndValue) bool {
+			return at.Value == ""
+		}))
+		// append only non-empty values
+		if len(ats) != 0 {
+			rdnSet = append(rdnSet, ats)
+		}
 	}
 
 	// populates pkix.Name from pkix.RDNSequence

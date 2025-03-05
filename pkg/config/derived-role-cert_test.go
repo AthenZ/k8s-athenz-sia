@@ -69,7 +69,7 @@ func TestIdentityConfig_derivedRoleCertConfig_DerivedRoleCert_Subject(t *testing
 				DEFAULT_COUNTRY = ""
 				DEFAULT_PROVINCE = ""
 				DEFAULT_ORGANIZATION = ""
-				DEFAULT_ORGANIZATIONAL_UNIT = ""
+				DEFAULT_ORGANIZATIONAL_UNIT = "Athenz"
 			},
 			fields: fields{
 				rawCertSubject: "L=Locality",
@@ -84,12 +84,23 @@ func TestIdentityConfig_derivedRoleCertConfig_DerivedRoleCert_Subject(t *testing
 			wantErr: false,
 		},
 		{
-			name: "Override default attribute value if set empty explicitly",
+			name: "Use default attribute value if attribute value is empty",
 			fields: fields{
 				rawCertSubject: "O=dummyOrganization,OU=",
 			},
 			want: &pkix.Name{
-				OrganizationalUnit: []string{""},
+				OrganizationalUnit: []string{"Athenz"},
+				Organization:       []string{"dummyOrganization"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Override default attribute value if set explicitly",
+			fields: fields{
+				rawCertSubject: "O=dummyOrganization,OU=dummyOrganizationalUnit",
+			},
+			want: &pkix.Name{
+				OrganizationalUnit: []string{"dummyOrganizationalUnit"},
 				Organization:       []string{"dummyOrganization"},
 			},
 			wantErr: false,

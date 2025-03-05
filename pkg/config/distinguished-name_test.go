@@ -60,17 +60,7 @@ func Test_parseDN(t *testing.T) {
 			args: args{
 				dn: "CN=,OU=,O=,L=,ST=,C=,POSTALCODE=,STREET=,SERIALNUMBER=",
 			},
-			want: &pkix.Name{
-				CommonName:         "",
-				SerialNumber:       "",
-				OrganizationalUnit: []string{""},
-				Organization:       []string{""},
-				Locality:           []string{""},
-				Province:           []string{""},
-				Country:            []string{""},
-				PostalCode:         []string{""},
-				StreetAddress:      []string{""},
-			},
+			want:    &pkix.Name{},
 			wantErr: false,
 		},
 		{
