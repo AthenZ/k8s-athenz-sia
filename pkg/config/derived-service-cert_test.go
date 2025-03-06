@@ -128,7 +128,7 @@ func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *test
 				rawCertSubject:  "O=dummyOrganization,ST=",
 			},
 			want: &pkix.Name{
-				Province:           []string{"CA"},
+				Province:           nil,
 				Organization:       []string{"dummyOrganization"},
 				OrganizationalUnit: []string{"provider-service"},
 				CommonName:         "domain.sa",

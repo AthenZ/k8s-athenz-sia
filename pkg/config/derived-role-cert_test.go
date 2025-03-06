@@ -95,11 +95,23 @@ func TestIdentityConfig_derivedRoleCertConfig_DerivedRoleCert_Subject(t *testing
 		},
 		{
 			name: "Use default attribute value if attribute value is empty",
+			beforeFunc: func() {
+				DEFAULT_COUNTRY = ""
+				DEFAULT_PROVINCE = ""
+				DEFAULT_ORGANIZATION = ""
+				DEFAULT_ORGANIZATIONAL_UNIT = "Athenz"
+			},
+			afterFunc: func() {
+				DEFAULT_COUNTRY = ""
+				DEFAULT_PROVINCE = ""
+				DEFAULT_ORGANIZATION = ""
+				DEFAULT_ORGANIZATIONAL_UNIT = "Athenz"
+			},
 			fields: fields{
 				rawCertSubject: "O=dummyOrganization,OU=",
 			},
 			want: &pkix.Name{
-				OrganizationalUnit: []string{"Athenz"},
+				OrganizationalUnit: nil,
 				Organization:       []string{"dummyOrganization"},
 			},
 			wantErr: false,

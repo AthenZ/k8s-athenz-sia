@@ -62,7 +62,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	}
 
 	// parse role certificate subject field
-	subject := &pkix.Name{}
+	subject := pkix.Name{}
 	if idCfg.rawCertSubject != "" {
 		dn, err := parseDN(idCfg.rawCertSubject)
 		if err != nil {
@@ -76,27 +76,22 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 			// role cert common name should follow Athenz specification
 			return fmt.Errorf("Non-empty CN attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
 		}
-		subject = dn
+		subject = *dn
 	}
 	// set role certificate subject attributes to its default values
 	// e.g.
 	//   - Given DEFAULT_ORGANIZATIONAL_UNIT=Athenz,
 	//     - CERT_SUBJECT='C=US' => C=US,OU=Athenz
-	//     - CERT_SUBJECT='C=US,OU=' => C=US,OU=Athenz
+	//     - CERT_SUBJECT='C=US,OU=' => C=US
 	// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
 	// TODO: use DEFAULT_SUBJECT as default values
-	if subject.Country == nil && DEFAULT_COUNTRY != "" {
-		subject.Country = []string{DEFAULT_COUNTRY}
-	}
-	if subject.Province == nil && DEFAULT_PROVINCE != "" {
-		subject.Province = []string{DEFAULT_PROVINCE}
-	}
-	if subject.Organization == nil && DEFAULT_ORGANIZATION != "" {
-		subject.Organization = []string{DEFAULT_ORGANIZATION}
-	}
-	if subject.OrganizationalUnit == nil && DEFAULT_ORGANIZATIONAL_UNIT != "" {
-		subject.OrganizationalUnit = []string{DEFAULT_ORGANIZATIONAL_UNIT}
-	}
+	subject = ApplyDefaultAttributes(subject, pkix.Name{
+		Country:            []string{DEFAULT_COUNTRY},
+		Province:           []string{DEFAULT_PROVINCE},
+		Organization:       []string{DEFAULT_ORGANIZATION},
+		OrganizationalUnit: []string{DEFAULT_ORGANIZATIONAL_UNIT},
+	})
+	subject = TrimEmptyAttributeValue(subject)
 
 	// Enabled from now on:
 	idCfg.RoleCert = DerivedRoleCert{
@@ -119,7 +114,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 			return "" // means no separate key file output feature enabled
 		}(),
 		Delimiter: idCfg.roleCertFilenameDelimiter,
-		Subject:   subject,
+		Subject:   &subject,
 	}
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.

@@ -65,7 +65,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		domainDNSPart := extutil.DomainToDNSPart(domainName)
 
 		// parse instance certificate subject field
-		subject := &pkix.Name{}
+		subject := pkix.Name{}
 		if idCfg.rawCertSubject != "" {
 			dn, err := parseDN(idCfg.rawCertSubject)
 			if err != nil {
@@ -79,26 +79,25 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 				// instance cert common name should follow Athenz specification
 				return fmt.Errorf("Non-empty CN attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
 			}
-			subject = dn
+			subject = *dn
 		}
+		// set instance certificate specific attributes
+		subject.CommonName = fmt.Sprintf("%s.%s", domainName, serviceName)
+		subject.OrganizationalUnit = []string{idCfg.providerService}
 		// set instance certificate subject attributes to its default values
 		// e.g.
 		//   - Given DEFAULT_PROVINCE=CA,
 		//     - CERT_SUBJECT='C=US' => C=US,ST=CA
-		//     - CERT_SUBJECT='C=US,ST=' => C=US,ST=CA
+		//     - CERT_SUBJECT='C=US,ST=' => C=US
 		// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
 		// TODO: use DEFAULT_SUBJECT as default values
-		if subject.Country == nil && DEFAULT_COUNTRY != "" {
-			subject.Country = []string{DEFAULT_COUNTRY}
-		}
-		if subject.Province == nil && DEFAULT_PROVINCE != "" {
-			subject.Province = []string{DEFAULT_PROVINCE}
-		}
-		if subject.Organization == nil && DEFAULT_ORGANIZATION != "" {
-			subject.Organization = []string{DEFAULT_ORGANIZATION}
-		}
-		subject.OrganizationalUnit = []string{idCfg.providerService}
-		subject.CommonName = fmt.Sprintf("%s.%s", domainName, serviceName)
+		subject = ApplyDefaultAttributes(subject, pkix.Name{
+			Country:      []string{DEFAULT_COUNTRY},
+			Province:     []string{DEFAULT_PROVINCE},
+			Organization: []string{DEFAULT_ORGANIZATION},
+			// OrganizationalUnit: []string{DEFAULT_ORGANIZATIONAL_UNIT}, // no effect
+		})
+		subject = TrimEmptyAttributeValue(subject)
 
 		idCfg.ServiceCert.CopperArgos = CopperArgosMode{
 			Use:      true,
@@ -116,7 +115,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 				}
 				return sans
 			})(),
-			Subject:           subject,
+			Subject:           &subject,
 			AthenzDomainName:  domainName,
 			AthenzServiceName: serviceName,
 		}

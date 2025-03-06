@@ -61,8 +61,8 @@ func parseDN(dn string) (*pkix.Name, error) {
 
 	// convert ldap.RelativeDN to pkix.RDNSequence
 	var rdnSet pkix.RDNSequence
-	rdnSet = make([]pkix.RelativeDistinguishedNameSET, 0, len(ldapDn.RDNs))
-	for _, rdn := range ldapDn.RDNs {
+	rdnSet = make([]pkix.RelativeDistinguishedNameSET, len(ldapDn.RDNs))
+	for i, rdn := range ldapDn.RDNs {
 		ats := make([]pkix.AttributeTypeAndValue, len(rdn.Attributes))
 		for j, at := range rdn.Attributes {
 			asn1Oid, ok := ldapAttributeTypeOID[at.Type]
@@ -73,18 +73,53 @@ func parseDN(dn string) (*pkix.Name, error) {
 			ats[j].Type = asn1Oid
 			ats[j].Value = at.Value
 		}
-		// remove empty values
-		ats = slices.Clip(slices.DeleteFunc(ats, func(at pkix.AttributeTypeAndValue) bool {
-			return at.Value == ""
-		}))
-		// append only non-empty values
-		if len(ats) != 0 {
-			rdnSet = append(rdnSet, ats)
-		}
+		rdnSet[i] = ats
 	}
 
 	// populates pkix.Name from pkix.RDNSequence
 	name := &pkix.Name{}
 	name.FillFromRDNSequence(&rdnSet)
 	return name, nil
+}
+
+// ApplyDefaultAttributes applies default attributes to the input name if the attribute is empty
+func ApplyDefaultAttributes(name, defaultName pkix.Name) pkix.Name {
+	valuedOrDefault := func(s, d []string) []string {
+		if len(s) == 0 {
+			return d
+		}
+		return s
+	}
+
+	name.Country = valuedOrDefault(name.Country, defaultName.Country)
+	name.Organization = valuedOrDefault(name.Organization, defaultName.Organization)
+	name.OrganizationalUnit = valuedOrDefault(name.OrganizationalUnit, defaultName.OrganizationalUnit)
+	name.Locality = valuedOrDefault(name.Locality, defaultName.Locality)
+	name.Province = valuedOrDefault(name.Province, defaultName.Province)
+	name.StreetAddress = valuedOrDefault(name.StreetAddress, defaultName.StreetAddress)
+	name.PostalCode = valuedOrDefault(name.PostalCode, defaultName.PostalCode)
+
+	return name
+}
+
+// TrimEmptyAttributeValue trims empty string attributes
+func TrimEmptyAttributeValue(name pkix.Name) pkix.Name {
+	trimEmpty := func(ss []string) []string {
+		ss = slices.DeleteFunc(ss, func(s string) bool {
+			return s == ""
+		})
+		if len(ss) == 0 {
+			return nil
+		}
+		return slices.Clip(ss)
+	}
+
+	name.Country = trimEmpty(name.Country)
+	name.Organization = trimEmpty(name.Organization)
+	name.OrganizationalUnit = trimEmpty(name.OrganizationalUnit)
+	name.Locality = trimEmpty(name.Locality)
+	name.Province = trimEmpty(name.Province)
+	name.StreetAddress = trimEmpty(name.StreetAddress)
+	name.PostalCode = trimEmpty(name.PostalCode)
+	return name
 }

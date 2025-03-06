@@ -16,6 +16,7 @@ package config
 
 import (
 	"crypto/x509/pkix"
+	"reflect"
 	"testing"
 )
 
@@ -60,7 +61,15 @@ func Test_parseDN(t *testing.T) {
 			args: args{
 				dn: "CN=,OU=,O=,L=,ST=,C=,POSTALCODE=,STREET=,SERIALNUMBER=",
 			},
-			want:    &pkix.Name{},
+			want: &pkix.Name{
+				OrganizationalUnit: []string{""},
+				Organization:       []string{""},
+				Locality:           []string{""},
+				Province:           []string{""},
+				Country:            []string{""},
+				PostalCode:         []string{""},
+				StreetAddress:      []string{""},
+			},
 			wantErr: false,
 		},
 		{
@@ -147,6 +156,153 @@ func Test_parseDN(t *testing.T) {
 			}
 			if got.String() != tt.want.String() {
 				t.Errorf("parseDN() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestApplyDefaultAttributes(t *testing.T) {
+	type args struct {
+		name        pkix.Name
+		defaultName pkix.Name
+	}
+	tests := []struct {
+		name string
+		args args
+		want pkix.Name
+	}{
+		{
+			name: "Apply default attributes",
+			args: args{
+				name: pkix.Name{},
+				defaultName: pkix.Name{
+					CommonName:         "defaultCommonName",
+					SerialNumber:       "defaultSerialNumber",
+					OrganizationalUnit: []string{"defaultOrganizationalUnit"},
+					Organization:       []string{"defaultOrganization"},
+					Locality:           []string{"defaultLocality"},
+					Province:           []string{"defaultProvince"},
+					Country:            []string{"defaultCountry"},
+					PostalCode:         []string{"defaultPostalCode"},
+					StreetAddress:      []string{"defaultStreetAddress"},
+				},
+			},
+			want: pkix.Name{
+				OrganizationalUnit: []string{"defaultOrganizationalUnit"},
+				Organization:       []string{"defaultOrganization"},
+				Locality:           []string{"defaultLocality"},
+				Province:           []string{"defaultProvince"},
+				Country:            []string{"defaultCountry"},
+				PostalCode:         []string{"defaultPostalCode"},
+				StreetAddress:      []string{"defaultStreetAddress"},
+			},
+		},
+		{
+			name: "Keep non-empty attributes",
+			args: args{
+				name: pkix.Name{
+					CommonName:         "dummyCommonName",
+					SerialNumber:       "dummySerialNumber",
+					OrganizationalUnit: []string{"dummyOrganizationalUnit"},
+					Organization:       []string{"dummyOrganization"},
+					Locality:           []string{"dummyLocality"},
+					Province:           []string{"dummyProvince"},
+					Country:            []string{"dummyCountry"},
+					PostalCode:         []string{"dummyPostalCode"},
+					StreetAddress:      []string{"dummyStreetAddress"},
+				},
+				defaultName: pkix.Name{
+					CommonName:         "defaultCommonName",
+					SerialNumber:       "defaultSerialNumber",
+					OrganizationalUnit: []string{"defaultOrganizationalUnit"},
+					Organization:       []string{"defaultOrganization"},
+					Locality:           []string{"defaultLocality"},
+					Province:           []string{"defaultProvince"},
+					Country:            []string{"defaultCountry"},
+					PostalCode:         []string{"defaultPostalCode"},
+					StreetAddress:      []string{"defaultStreetAddress"},
+				},
+			},
+			want: pkix.Name{
+				CommonName:         "dummyCommonName",
+				SerialNumber:       "dummySerialNumber",
+				OrganizationalUnit: []string{"dummyOrganizationalUnit"},
+				Organization:       []string{"dummyOrganization"},
+				Locality:           []string{"dummyLocality"},
+				Province:           []string{"dummyProvince"},
+				Country:            []string{"dummyCountry"},
+				PostalCode:         []string{"dummyPostalCode"},
+				StreetAddress:      []string{"dummyStreetAddress"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ApplyDefaultAttributes(tt.args.name, tt.args.defaultName); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ApplyDefaultAttributes() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTrimEmptyAttributeValue(t *testing.T) {
+	type args struct {
+		name pkix.Name
+	}
+	tests := []struct {
+		name string
+		args args
+		want pkix.Name
+	}{
+		{
+			name: "Trim empty attribute values",
+			args: args{
+				name: pkix.Name{
+					CommonName:         "",
+					SerialNumber:       "",
+					OrganizationalUnit: []string{"", ""},
+					Organization:       []string{"", ""},
+					Locality:           []string{"", ""},
+					Province:           []string{"", ""},
+					Country:            []string{"", ""},
+					PostalCode:         []string{"", ""},
+					StreetAddress:      []string{"", ""},
+				},
+			},
+			want: pkix.Name{},
+		},
+		{
+			name: "Trim empty attribute values but keep non-empty attributes",
+			args: args{
+				name: pkix.Name{
+					CommonName:         "CN",
+					SerialNumber:       "SERIALNUMBER",
+					OrganizationalUnit: []string{"", "OU", ""},
+					Organization:       []string{"O", "", ""},
+					Locality:           []string{"", "L", ""},
+					Province:           []string{"ST", "", ""},
+					Country:            []string{"", "C", ""},
+					PostalCode:         []string{"POSTALCODE", "", ""},
+					StreetAddress:      []string{"", "STREET", ""},
+				},
+			},
+			want: pkix.Name{
+				CommonName:         "CN",
+				SerialNumber:       "SERIALNUMBER",
+				OrganizationalUnit: []string{"OU"},
+				Organization:       []string{"O"},
+				Locality:           []string{"L"},
+				Province:           []string{"ST"},
+				Country:            []string{"C"},
+				PostalCode:         []string{"POSTALCODE"},
+				StreetAddress:      []string{"STREET"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TrimEmptyAttributeValue(tt.args.name); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("TrimEmptyAttributeValue() = %v, want %v", got, tt.want)
 			}
 		})
 	}
