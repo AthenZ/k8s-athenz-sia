@@ -208,7 +208,7 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	// PodUID
 	f.StringVar(&idCfg.ServerCACert, "server-ca-cert", idCfg.ServerCACert, "path to CA certificate file to verify ZTS server certs")
 	f.StringVar(&idCfg.rawCertExtraSANDNSs, "cert-extra-san-dns", idCfg.rawCertExtraSANDNSs, "extra SAN DNS names for the service certificate")
-	f.StringVar(&idCfg.rawCertSubject, "role-cert-subject", idCfg.rawCertSubject, "Subject field of the certificates in RFC 4514 format (e.g. C=JP,ST=Tokyo,O=Example Corporation)")
+	f.StringVar(&idCfg.rawCertSubject, "cert-subject", idCfg.rawCertSubject, "Subject field of the certificates in RFC 4514 format (e.g. C=JP,ST=Tokyo,O=Example Corporation)")
 	f.StringVar(&idCfg.rawTargetDomainRoles, "target-domain-roles", idCfg.rawTargetDomainRoles, "target Athenz roles with domain (e.g. athenz.subdomain"+idCfg.roleCertFilenameDelimiter+"admin,sys.auth"+idCfg.roleCertFilenameDelimiter+"providers) (required for role certificate and token provisioning)")
 	f.StringVar(&idCfg.roleCertDir, "rolecert-dir", idCfg.roleCertDir, "directory to write role certificate files (required for role certificate provisioning)")
 	f.StringVar(&idCfg.roleCertFilenameDelimiter, "role-cert-filename-delimiter", idCfg.roleCertFilenameDelimiter, "The delimiter that separates the domain name and role name when outputting the role cert to a file")

@@ -79,10 +79,6 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 		subject = *dn
 	}
 	// set role certificate subject attributes to its default values
-	// e.g.
-	//   - Given DEFAULT_ORGANIZATIONAL_UNIT=Athenz,
-	//     - CERT_SUBJECT='C=US' => C=US,OU=Athenz
-	//     - CERT_SUBJECT='C=US,OU=' => C=US
 	// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
 	// TODO: use DEFAULT_SUBJECT as default values
 	subject = ApplyDefaultAttributes(subject, pkix.Name{

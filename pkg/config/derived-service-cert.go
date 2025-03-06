@@ -85,10 +85,6 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		subject.CommonName = fmt.Sprintf("%s.%s", domainName, serviceName)
 		subject.OrganizationalUnit = []string{idCfg.providerService}
 		// set instance certificate subject attributes to its default values
-		// e.g.
-		//   - Given DEFAULT_PROVINCE=CA,
-		//     - CERT_SUBJECT='C=US' => C=US,ST=CA
-		//     - CERT_SUBJECT='C=US,ST=' => C=US
 		// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
 		// TODO: use DEFAULT_SUBJECT as default values
 		subject = ApplyDefaultAttributes(subject, pkix.Name{
