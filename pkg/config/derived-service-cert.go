@@ -86,13 +86,12 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		// set instance certificate subject attributes to its default values
 		// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
 		// TODO: use DEFAULT_SUBJECT as default values
-		subject = applyDefaultAttributes(subject, pkix.Name{
+		subject = trimEmptyAttributeValue(applyDefaultAttributes(subject, pkix.Name{
 			Country:      []string{DEFAULT_COUNTRY},
 			Province:     []string{DEFAULT_PROVINCE},
 			Organization: []string{DEFAULT_ORGANIZATION},
 			// OrganizationalUnit: []string{DEFAULT_ORGANIZATIONAL_UNIT}, // no effect
-		})
-		subject = trimEmptyAttributeValue(subject)
+		}))
 
 		idCfg.ServiceCert.CopperArgos = CopperArgosMode{
 			Use:      true,
