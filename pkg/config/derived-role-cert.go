@@ -80,13 +80,13 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	// set role certificate subject attributes to its default values
 	// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
 	// TODO: use DEFAULT_SUBJECT as default values
-	subject = ApplyDefaultAttributes(subject, pkix.Name{
+	subject = applyDefaultAttributes(subject, pkix.Name{
 		Country:            []string{DEFAULT_COUNTRY},
 		Province:           []string{DEFAULT_PROVINCE},
 		Organization:       []string{DEFAULT_ORGANIZATION},
 		OrganizationalUnit: []string{DEFAULT_ORGANIZATIONAL_UNIT},
 	})
-	subject = TrimEmptyAttributeValue(subject)
+	subject = trimEmptyAttributeValue(subject)
 
 	// Enabled from now on:
 	idCfg.RoleCert = DerivedRoleCert{

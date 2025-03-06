@@ -238,7 +238,7 @@ func TestApplyDefaultAttributes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ApplyDefaultAttributes(tt.args.name, tt.args.defaultName); !reflect.DeepEqual(got, tt.want) {
+			if got := applyDefaultAttributes(tt.args.name, tt.args.defaultName); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ApplyDefaultAttributes() = %v, want %v", got, tt.want)
 			}
 		})
@@ -301,7 +301,7 @@ func TestTrimEmptyAttributeValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := TrimEmptyAttributeValue(tt.args.name); !reflect.DeepEqual(got, tt.want) {
+			if got := trimEmptyAttributeValue(tt.args.name); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("TrimEmptyAttributeValue() = %v, want %v", got, tt.want)
 			}
 		})

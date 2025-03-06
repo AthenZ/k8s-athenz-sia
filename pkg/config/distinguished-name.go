@@ -82,8 +82,8 @@ func parseDN(dn string) (*pkix.Name, error) {
 	return name, nil
 }
 
-// ApplyDefaultAttributes applies default attributes to the input name if the attribute is empty
-func ApplyDefaultAttributes(name, defaultName pkix.Name) pkix.Name {
+// applyDefaultAttributes applies default attributes to the input name if the attribute is empty
+func applyDefaultAttributes(name, defaultName pkix.Name) pkix.Name {
 	valuedOrDefault := func(s, d []string) []string {
 		if len(s) == 0 {
 			return d
@@ -102,8 +102,8 @@ func ApplyDefaultAttributes(name, defaultName pkix.Name) pkix.Name {
 	return name
 }
 
-// TrimEmptyAttributeValue trims empty string attributes
-func TrimEmptyAttributeValue(name pkix.Name) pkix.Name {
+// trimEmptyAttributeValue trims empty string attributes
+func trimEmptyAttributeValue(name pkix.Name) pkix.Name {
 	trimEmpty := func(ss []string) []string {
 		ss = slices.DeleteFunc(ss, func(s string) bool {
 			return s == ""
