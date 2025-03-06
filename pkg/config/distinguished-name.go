@@ -98,7 +98,6 @@ func applyDefaultAttributes(name, defaultName pkix.Name) pkix.Name {
 	name.Province = valuedOrDefault(name.Province, defaultName.Province)
 	name.StreetAddress = valuedOrDefault(name.StreetAddress, defaultName.StreetAddress)
 	name.PostalCode = valuedOrDefault(name.PostalCode, defaultName.PostalCode)
-
 	return name
 }
 

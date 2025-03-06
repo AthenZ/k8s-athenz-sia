@@ -108,6 +108,17 @@ func Test_parseDN(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "Repeated attribute OU with empty values",
+			args: args{
+				dn: "CN=jsmith,OU=,OU=example,OU=net,OU=",
+			},
+			want: &pkix.Name{
+				CommonName:         "jsmith",
+				OrganizationalUnit: []string{"", "example", "net", ""},
+			},
+			wantErr: false,
+		},
+		{
 			name: "Multi-valued RDN",
 			args: args{
 				dn: "OU=Sales+CN=J.  Smith,OU=example,OU=net",
@@ -195,6 +206,32 @@ func TestApplyDefaultAttributes(t *testing.T) {
 				Country:            []string{"defaultCountry"},
 				PostalCode:         []string{"defaultPostalCode"},
 				StreetAddress:      []string{"defaultStreetAddress"},
+			},
+		},
+		{
+			name: "Apply default attributes with empty attributes",
+			args: args{
+				name: pkix.Name{},
+				defaultName: pkix.Name{
+					CommonName:         "defaultCommonName",
+					SerialNumber:       "defaultSerialNumber",
+					OrganizationalUnit: []string{"defaultOrganizationalUnit"},
+					Organization:       []string{"defaultOrganization"},
+					Locality:           []string{"", ""},
+					Province:           []string{""},
+					Country:            []string{""},
+					// PostalCode:         []string{"defaultPostalCode"},
+					// StreetAddress:      []string{"defaultStreetAddress"}},
+				},
+			},
+			want: pkix.Name{
+				OrganizationalUnit: []string{"defaultOrganizationalUnit"},
+				Organization:       []string{"defaultOrganization"},
+				Locality:           []string{"", ""},
+				Province:           []string{""},
+				Country:            []string{""},
+				PostalCode:         nil,
+				StreetAddress:      nil,
 			},
 		},
 		{
