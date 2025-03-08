@@ -43,3 +43,6 @@ vendor/*
 
 # Log files from the built binary
 *.log
+
+# Test data
+!**/testdata/*
