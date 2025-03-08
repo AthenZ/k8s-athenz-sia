@@ -17,7 +17,6 @@ package util
 import (
 	"os"
 	"path"
-	"path/filepath"
 	"testing"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -78,7 +77,7 @@ func TestCreateDirectory(t *testing.T) {
 		// },
 	}
 
-	log.InitLogger("", "debug", false) // init logger
+	log.InitLogger("", "DEBUG", false) // init logger
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t) // wraps with gomega
@@ -88,8 +87,6 @@ func TestCreateDirectory(t *testing.T) {
 				tt.before(testPath)
 			}
 			err := CreateDirectory(path.Join(testPath, "file.txt"))
-			entries, _ := os.ReadDir(filepath.Dir(testPath))
-			t.Logf("Entries: %v", entries)
 			// assert result
 			if tt.wantErr {
 				g.Expect(err).To(HaveOccurred())
