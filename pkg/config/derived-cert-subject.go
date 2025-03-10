@@ -65,7 +65,7 @@ func (idCfg *IdentityConfig) derivedCertSubject() error {
 	// clone certificate subject
 	idCfg.certSubject.roleCert = subject
 	idCfg.certSubject.serviceCert = pkix.Name{
-		Country:            slices.Clip(slices.Clone(subject.Country)), // copy the slice and remove unused capacity
+		Country:            slices.Clip(slices.Clone(subject.Country)), // copy the slice and remove unused capacity (ref: https://pkg.go.dev/slices#Clone)
 		Organization:       slices.Clip(slices.Clone(subject.Organization)),
 		OrganizationalUnit: slices.Clip(slices.Clone(subject.OrganizationalUnit)),
 		Locality:           slices.Clip(slices.Clone(subject.Locality)),
