@@ -16,6 +16,7 @@ package config
 
 import (
 	"crypto/x509/pkix"
+	"errors"
 	"testing"
 )
 
@@ -34,7 +35,7 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 		name    string
 		fields  fields
 		want    pkix.Name
-		wantErr bool
+		wantErr error
 		before  func()
 		after   func()
 	}{
@@ -52,7 +53,7 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 				PostalCode:         []string{"dummyPostalCode"},
 				StreetAddress:      []string{"dummyStreetAddress"},
 			},
-			wantErr: false,
+			wantErr: nil,
 		},
 		{
 			name: "Empty rawCertSubject",
@@ -69,7 +70,7 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 			want: pkix.Name{
 				OrganizationalUnit: []string{"Athenz"},
 			},
-			wantErr: false,
+			wantErr: nil,
 		},
 		{
 			name: "Multi-value attribute rawCertSubject",
@@ -79,7 +80,7 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 			want: pkix.Name{
 				OrganizationalUnit: []string{"1", "2"},
 			},
-			wantErr: false,
+			wantErr: nil,
 		},
 		{
 			name: "Use default attribute value if not set",
@@ -100,7 +101,7 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 				OrganizationalUnit: []string{"OrganizationalUnit"},
 				Locality:           []string{"Locality"},
 			},
-			wantErr: false,
+			wantErr: nil,
 		},
 		{
 			name: "Use default attribute value if attribute value is empty",
@@ -118,7 +119,7 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 				OrganizationalUnit: nil,
 				Organization:       []string{"dummyOrganization"},
 			},
-			wantErr: false,
+			wantErr: nil,
 		},
 		{
 			name: "Override default attribute value if set explicitly",
@@ -129,7 +130,7 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 				OrganizationalUnit: []string{"dummyOrganizationalUnit"},
 				Organization:       []string{"dummyOrganization"},
 			},
-			wantErr: false,
+			wantErr: nil,
 		},
 		{
 			name: "Invalid rawCertSubject",
@@ -137,7 +138,15 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 				rawCertSubject: "INVALID_DN",
 			},
 			want:    pkix.Name{},
-			wantErr: true,
+			wantErr: errors.New(`Failed to parse CERT_SUBJECT["INVALID_DN"]: DN ended with incomplete type, value pair`),
+		},
+		{
+			name: "Unknown attribute in rawCertSubject",
+			fields: fields{
+				rawCertSubject: "INVALID_DN=DN",
+			},
+			want:    pkix.Name{},
+			wantErr: errors.New(`Failed to parse CERT_SUBJECT["INVALID_DN=DN"]: Unknown attribute type when parsing distinguished names: "INVALID_DN"`),
 		},
 		{
 			name: "Non-empty SERIALNUMBER in rawCertSubject",
@@ -145,7 +154,7 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 				rawCertSubject: "SERIALNUMBER=dummySerialNumber",
 			},
 			want:    pkix.Name{},
-			wantErr: true,
+			wantErr: errors.New(`Non-empty SERIALNUMBER attribute: invalid CERT_SUBJECT["SERIALNUMBER=dummySerialNumber"]`),
 		},
 		{
 			name: "Non-empty CN in rawCertSubject",
@@ -153,7 +162,7 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 				rawCertSubject: "CN=dummyCommonName",
 			},
 			want:    pkix.Name{},
-			wantErr: true,
+			wantErr: errors.New(`Non-empty CN attribute: invalid CERT_SUBJECT["CN=dummyCommonName"]`),
 		},
 	}
 	for _, tt := range tests {
@@ -166,14 +175,24 @@ func TestIdentityConfig_derivedCertSubject(t *testing.T) {
 			if tt.before != nil {
 				tt.before()
 			}
-			if err := idCfg.derivedCertSubject(); (err != nil) != tt.wantErr {
-				t.Errorf("IdentityConfig.derivedCertSubject() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			err := idCfg.derivedCertSubject()
 			if tt.after != nil {
 				tt.after()
 			}
 
 			// assert equal
+
+			if tt.wantErr == nil || err == nil {
+				if tt.wantErr != err {
+					t.Errorf("IdentityConfig.derivedCertSubject() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+			} else {
+				if tt.wantErr.Error() != err.Error() {
+					t.Errorf("IdentityConfig.derivedCertSubject() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+			}
 			roleCert := idCfg.certSubject.roleCert
 			serviceCert := idCfg.certSubject.serviceCert
 			if roleCert.String() != tt.want.String() {
@@ -204,37 +223,73 @@ func TestIdentityConfig_derivedCertSubject_cloned(t *testing.T) {
 		after   func(*DerivedCertSubject)
 	}{
 		{
-			name: "Set serviceCert independent from roleCert",
+			name: "roleCert is independent from serviceCert",
 			fields: fields{
 				rawCertSubject: "OU=dummyOrganizationalUnit,O=dummyOrganization,L=dummyLocality,ST=dummyProvince,C=dummyCountry,POSTALCODE=dummyPostalCode,STREET=dummyStreetAddress",
 			},
 			after: func(got *DerivedCertSubject) {
 				got.roleCert.OrganizationalUnit[0] = "independent"
-				got.serviceCert.Organization[0] = "independent"
+				got.roleCert.Organization[0] = "independent"
 				got.roleCert.Locality[0] = "independent"
-				got.serviceCert.Province[0] = "independent"
+				got.roleCert.Province[0] = "independent"
 				got.roleCert.Country[0] = "independent"
-				got.serviceCert.PostalCode[0] = "independent"
+				got.roleCert.PostalCode[0] = "independent"
 				got.roleCert.StreetAddress[0] = "independent"
 			},
 			want: DerivedCertSubject{
 				roleCert: pkix.Name{
 					OrganizationalUnit: []string{"independent"},
-					Organization:       []string{"dummyOrganization"},
+					Organization:       []string{"independent"},
 					Locality:           []string{"independent"},
-					Province:           []string{"dummyProvince"},
+					Province:           []string{"independent"},
 					Country:            []string{"independent"},
-					PostalCode:         []string{"dummyPostalCode"},
+					PostalCode:         []string{"independent"},
 					StreetAddress:      []string{"independent"},
 				},
 				serviceCert: pkix.Name{
 					OrganizationalUnit: []string{"dummyOrganizationalUnit"},
-					Organization:       []string{"independent"},
+					Organization:       []string{"dummyOrganization"},
 					Locality:           []string{"dummyLocality"},
-					Province:           []string{"independent"},
+					Province:           []string{"dummyProvince"},
 					Country:            []string{"dummyCountry"},
-					PostalCode:         []string{"independent"},
+					PostalCode:         []string{"dummyPostalCode"},
 					StreetAddress:      []string{"dummyStreetAddress"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "serviceCert is independent from roleCert",
+			fields: fields{
+				rawCertSubject: "OU=dummyOrganizationalUnit,O=dummyOrganization,L=dummyLocality,ST=dummyProvince,C=dummyCountry,POSTALCODE=dummyPostalCode,STREET=dummyStreetAddress",
+			},
+			after: func(got *DerivedCertSubject) {
+				got.serviceCert.OrganizationalUnit[0] = "independent"
+				got.serviceCert.Organization[0] = "independent"
+				got.serviceCert.Locality[0] = "independent"
+				got.serviceCert.Province[0] = "independent"
+				got.serviceCert.Country[0] = "independent"
+				got.serviceCert.PostalCode[0] = "independent"
+				got.serviceCert.StreetAddress[0] = "independent"
+			},
+			want: DerivedCertSubject{
+				roleCert: pkix.Name{
+					OrganizationalUnit: []string{"dummyOrganizationalUnit"},
+					Organization:       []string{"dummyOrganization"},
+					Locality:           []string{"dummyLocality"},
+					Province:           []string{"dummyProvince"},
+					Country:            []string{"dummyCountry"},
+					PostalCode:         []string{"dummyPostalCode"},
+					StreetAddress:      []string{"dummyStreetAddress"},
+				},
+				serviceCert: pkix.Name{
+					OrganizationalUnit: []string{"independent"},
+					Organization:       []string{"independent"},
+					Locality:           []string{"independent"},
+					Province:           []string{"independent"},
+					Country:            []string{"independent"},
+					PostalCode:         []string{"independent"},
+					StreetAddress:      []string{"independent"},
 				},
 			},
 			wantErr: false,

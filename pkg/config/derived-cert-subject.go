@@ -40,11 +40,11 @@ func (idCfg *IdentityConfig) derivedCertSubject() error {
 		}
 		if dn.SerialNumber != "" {
 			// serial number should be managed by Athenz ZTS
-			return fmt.Errorf("Non-empty SERIALNUMBER attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
+			return fmt.Errorf("Non-empty SERIALNUMBER attribute: invalid CERT_SUBJECT[%q]", idCfg.rawCertSubject)
 		}
 		if dn.CommonName != "" {
 			// role cert common name should follow Athenz specification
-			return fmt.Errorf("Non-empty CN attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
+			return fmt.Errorf("Non-empty CN attribute: invalid CERT_SUBJECT[%q]", idCfg.rawCertSubject)
 		}
 		subject = *dn
 	}
@@ -62,7 +62,7 @@ func (idCfg *IdentityConfig) derivedCertSubject() error {
 	// clone certificate subject
 	idCfg.certSubject.roleCert = subject
 	idCfg.certSubject.serviceCert = pkix.Name{
-		Country:            slices.Clip(slices.Clone(subject.Country)),
+		Country:            slices.Clip(slices.Clone(subject.Country)), // copy the slice and remove unused capacity
 		Organization:       slices.Clip(slices.Clone(subject.Organization)),
 		OrganizationalUnit: slices.Clip(slices.Clone(subject.OrganizationalUnit)),
 		Locality:           slices.Clip(slices.Clone(subject.Locality)),
