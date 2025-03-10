@@ -99,7 +99,7 @@ func InitIdentityHandler(idCfg *config.IdentityConfig) (*identityHandler, error)
 	// Add User-Agent header to ZTS client for fetching x509 certificate
 	client.AddCredentials("User-Agent", config.USER_AGENT)
 
-	csrOptions, err := PrepareIdentityCsrOptions(idCfg, idCfg.ServiceCert.CopperArgos.AthenzDomainName, idCfg.ServiceCert.CopperArgos.AthenzServiceName)
+	csrOptions, err := PrepareIdentityCsrOptions(idCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -358,43 +358,20 @@ func (h *identityHandler) InstanceID() string {
 }
 
 // PrepareIdentityCsrOptions prepares csrOptions for an X.509 certificate
-func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig, domain, service string) (*util.CSROptions, error) {
+func PrepareIdentityCsrOptions(idCfg *config.IdentityConfig) (*util.CSROptions, error) {
 
 	if !idCfg.ServiceCert.CopperArgos.Use {
 		log.Debugf("Skipping to prepare csr with provider service[%s]", idCfg.ServiceCert.CopperArgos.Provider)
 		return nil, nil
 	}
 
-	spiffeURI, err := extutil.ServiceSpiffeURI(domain, service)
+	spiffeURI, err := extutil.ServiceSpiffeURI(idCfg.ServiceCert.CopperArgos.AthenzDomainName, idCfg.ServiceCert.CopperArgos.AthenzServiceName)
 	if err != nil {
 		return nil, err
 	}
 
-	subject := pkix.Name{
-		Country: func() []string {
-			if config.DEFAULT_COUNTRY != "" {
-				return []string{config.DEFAULT_COUNTRY}
-			}
-			return nil
-		}(),
-		Province: func() []string {
-			if config.DEFAULT_PROVINCE != "" {
-				return []string{config.DEFAULT_PROVINCE}
-			}
-			return nil
-		}(),
-		Organization: func() []string {
-			if config.DEFAULT_ORGANIZATION != "" {
-				return []string{config.DEFAULT_ORGANIZATION}
-			}
-			return nil
-		}(),
-		OrganizationalUnit: []string{idCfg.ServiceCert.CopperArgos.Provider},
-		CommonName:         fmt.Sprintf("%s.%s", domain, service),
-	}
-
 	csrOptions := &util.CSROptions{
-		Subject: subject,
+		Subject: *idCfg.ServiceCert.CopperArgos.Subject,
 		SANs: util.SubjectAlternateNames{
 			DNSNames: idCfg.ServiceCert.CopperArgos.Sans,
 			URIs:     []url.URL{*spiffeURI},
@@ -433,25 +410,13 @@ func PrepareRoleCsrOptions(idCfg *config.IdentityConfig, domain, service string)
 		}
 
 		subject := pkix.Name{
-			Country: func() []string {
-				if config.DEFAULT_COUNTRY != "" {
-					return []string{config.DEFAULT_COUNTRY}
-				}
-				return nil
-			}(),
-			Province: func() []string {
-				if config.DEFAULT_PROVINCE != "" {
-					return []string{config.DEFAULT_PROVINCE}
-				}
-				return nil
-			}(),
-			Organization: func() []string {
-				if config.DEFAULT_ORGANIZATION != "" {
-					return []string{config.DEFAULT_ORGANIZATION}
-				}
-				return nil
-			}(),
-			OrganizationalUnit: []string{config.DEFAULT_ORGANIZATIONAL_UNIT},
+			Country:            idCfg.RoleCert.Subject.Country,
+			Province:           idCfg.RoleCert.Subject.Province,
+			Organization:       idCfg.RoleCert.Subject.Organization,
+			Locality:           idCfg.RoleCert.Subject.Locality,
+			StreetAddress:      idCfg.RoleCert.Subject.StreetAddress,
+			PostalCode:         idCfg.RoleCert.Subject.PostalCode,
+			OrganizationalUnit: idCfg.RoleCert.Subject.OrganizationalUnit,
 			CommonName:         fmt.Sprintf("%s:role.%s", targetDomain, targetRole),
 		}
 

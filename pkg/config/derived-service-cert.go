@@ -15,6 +15,7 @@
 package config
 
 import (
+	"crypto/x509/pkix"
 	"fmt"
 	"strings"
 
@@ -22,9 +23,11 @@ import (
 )
 
 type CopperArgosMode struct {
-	Use               bool
-	Provider          string // provider service name
-	Sans              []string
+	Use      bool
+	Provider string // provider service name
+	Sans     []string
+	Subject  *pkix.Name // subject field for instance certificate
+
 	AthenzDomainName  string
 	AthenzServiceName string
 }
@@ -60,6 +63,11 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		domainName := extutil.NamespaceToDomain(idCfg.Namespace, idCfg.athenzPrefix, idCfg.athenzDomain, idCfg.athenzSuffix)
 		domainDNSPart := extutil.DomainToDNSPart(domainName)
 
+		// set instance certificate specific attributes
+		subject := &idCfg.certSubject.serviceCert
+		subject.CommonName = fmt.Sprintf("%s.%s", domainName, serviceName)
+		subject.OrganizationalUnit = []string{idCfg.providerService}
+
 		idCfg.ServiceCert.CopperArgos = CopperArgosMode{
 			Use:      true,
 			Provider: idCfg.providerService,
@@ -76,6 +84,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 				}
 				return sans
 			})(),
+			Subject:           subject,
 			AthenzDomainName:  domainName,
 			AthenzServiceName: serviceName,
 		}
