@@ -2,7 +2,23 @@
 
 Prefer to use [onsi/gomega: Ginkgo's Preferred Matcher Library](https://github.com/onsi/gomega) as the assertion library.
 
-## Wrap test with gomega
+## Run test
+
+```shell
+make test
+```
+
+### Current coverage
+
+```console
+$ go tool cover -func ./coverage.out
+...
+total: (statements) 15.7%
+```
+
+## Write test
+
+### Wrap test with gomega
 
 ```go
 // dot import gomega library to use methods directly with package name
@@ -39,7 +55,7 @@ import . "github.com/onsi/gomega"
   }
 ```
 
-## Test with ghttp
+### Test with ghttp
 
 ```go
 	// add before and after function for setup and teardown the test server
