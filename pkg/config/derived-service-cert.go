@@ -63,35 +63,10 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		domainName := extutil.NamespaceToDomain(idCfg.Namespace, idCfg.athenzPrefix, idCfg.athenzDomain, idCfg.athenzSuffix)
 		domainDNSPart := extutil.DomainToDNSPart(domainName)
 
-		// parse instance certificate subject field
-		subject := pkix.Name{}
-		if idCfg.rawCertSubject != "" {
-			dn, err := parseDN(idCfg.rawCertSubject)
-			if err != nil {
-				return fmt.Errorf("Failed to parse CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
-			}
-			if dn.SerialNumber != "" {
-				// serial number should be managed by Athenz ZTS
-				return fmt.Errorf("Non-empty SERIALNUMBER attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
-			}
-			if dn.CommonName != "" {
-				// instance cert common name should follow Athenz specification
-				return fmt.Errorf("Non-empty CN attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
-			}
-			subject = *dn
-		}
 		// set instance certificate specific attributes
+		subject := &idCfg.certSubject.serviceCert
 		subject.CommonName = fmt.Sprintf("%s.%s", domainName, serviceName)
 		subject.OrganizationalUnit = []string{idCfg.providerService}
-		// set instance certificate subject attributes to its default values
-		// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
-		// TODO: use DEFAULT_SUBJECT as default values
-		subject = trimEmptyAttributeValue(applyDefaultAttributes(subject, pkix.Name{
-			Country:      []string{DEFAULT_COUNTRY},
-			Province:     []string{DEFAULT_PROVINCE},
-			Organization: []string{DEFAULT_ORGANIZATION},
-			// OrganizationalUnit: []string{DEFAULT_ORGANIZATIONAL_UNIT}, // no effect
-		}))
 
 		idCfg.ServiceCert.CopperArgos = CopperArgosMode{
 			Use:      true,
@@ -109,7 +84,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 				}
 				return sans
 			})(),
-			Subject:           &subject,
+			Subject:           subject,
 			AthenzDomainName:  domainName,
 			AthenzServiceName: serviceName,
 		}

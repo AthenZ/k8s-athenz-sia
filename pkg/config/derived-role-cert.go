@@ -60,33 +60,6 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 		return fmt.Errorf("ROLE_CERT_KEY_FILE_OUTPUT[%t] is enabled but ROLE_CERT_KEY_NAMING_FORMAT[%s] and ROLECERT_DIR[%s] are not set. Please ensure that either ROLE_CERT_KEY_NAMING_FORMAT or ROLECERT_DIR is set.", idCfg.roleCertKeyFileOutput, idCfg.roleCertKeyNamingFormat, idCfg.roleCertDir)
 	}
 
-	// parse role certificate subject field
-	subject := pkix.Name{}
-	if idCfg.rawCertSubject != "" {
-		dn, err := parseDN(idCfg.rawCertSubject)
-		if err != nil {
-			return fmt.Errorf("Failed to parse CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
-		}
-		if dn.SerialNumber != "" {
-			// serial number should be managed by Athenz ZTS
-			return fmt.Errorf("Non-empty SERIALNUMBER attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
-		}
-		if dn.CommonName != "" {
-			// role cert common name should follow Athenz specification
-			return fmt.Errorf("Non-empty CN attribute: invalid CERT_SUBJECT[%q]: %w", idCfg.rawCertSubject, err)
-		}
-		subject = *dn
-	}
-	// set role certificate subject attributes to its default values
-	// TODO: deprecate: ATHENZ_SIA_DEFAULT_COUNTRY, ATHENZ_SIA_DEFAULT_PROVINCE, ATHENZ_SIA_DEFAULT_ORGANIZATION, ATHENZ_SIA_DEFAULT_ORGANIZATIONAL_UNIT
-	// TODO: use DEFAULT_SUBJECT as default values
-	subject = trimEmptyAttributeValue(applyDefaultAttributes(subject, pkix.Name{
-		Country:            []string{DEFAULT_COUNTRY},
-		Province:           []string{DEFAULT_PROVINCE},
-		Organization:       []string{DEFAULT_ORGANIZATION},
-		OrganizationalUnit: []string{DEFAULT_ORGANIZATIONAL_UNIT},
-	}))
-
 	// Enabled from now on:
 	idCfg.RoleCert = DerivedRoleCert{
 		Use:               true,
@@ -108,7 +81,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 			return "" // means no separate key file output feature enabled
 		}(),
 		Delimiter: idCfg.roleCertFilenameDelimiter,
-		Subject:   &subject,
+		Subject:   &idCfg.certSubject.roleCert,
 	}
 
 	// if certificate provisioning is disabled (use external key) and splitting role certificate key file is disabled, role certificate and external key mismatch problem may occur when external key rotates.

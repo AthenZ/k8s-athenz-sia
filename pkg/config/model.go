@@ -48,11 +48,14 @@ type IdentityConfig struct {
 	Reloader               *util.CertReloader
 	ServerCACert           string
 	K8sSecretBackup        DerivedK8sSecretBackup
+
+	// private derived states that ONLY used within the config package
+	targetDomainRoles DerivedTargetDomainRoles
+	certSubject       DerivedCertSubject
+
 	// ServiceCerts Derived State and its related fields:
 	ServiceCert DerivedServiceCert
-	//
-	TokenTargetDomainRoles []DomainRole             // TODO: Will be migrated into DerivedTargetDomainRoles
-	targetDomainRoles      DerivedTargetDomainRoles // private as the derived state is used only within the config package
+
 	// RoleCerts Derived State and its related fields:
 	RoleCert                  DerivedRoleCert
 	roleCertDir               string
@@ -60,15 +63,16 @@ type IdentityConfig struct {
 	roleCertKeyFileOutput     bool
 	roleCertNamingFormat      string
 	roleCertKeyNamingFormat   string
-	//
+
 	// Token Cache Derived State and its related fields:
+	TokenTargetDomainRoles       []DomainRole // TODO: Will be migrated into DerivedTargetDomainRoles
 	TokenFile                    DerivedTokenFile
 	tokenDir                     string
 	accessTokenFilenameDelimiter string
 	accessTokenNamingFormat      string
 	roleTokenFilenameDelimiter   string
 	roleTokenNamingFormat        string
-	//
+
 	// Token Server Derived State and its related fields:
 	TokenServer            DerivedTokenServer
 	roleAuthHeader         string
@@ -81,7 +85,7 @@ type IdentityConfig struct {
 	useTokenServer         bool
 	shutdownTimeout        time.Duration
 	shutdownDelay          time.Duration
-	//
+
 	TokenRefresh        time.Duration
 	TokenExpiry         time.Duration
 	TokenType           string
