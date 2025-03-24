@@ -12,6 +12,7 @@ require (
 	github.com/AthenZ/athenz v1.12.11
 	github.com/bmatcuk/doublestar/v4 v4.8.1
 	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/dimiro1/health v0.0.0-20231118160444-e388c68d7d7e
 	github.com/go-ldap/ldap/v3 v3.4.10
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0
