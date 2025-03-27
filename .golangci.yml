@@ -1,0 +1,10 @@
+version: "2"
+issues:
+  max-same-issues: 0
+linters:
+  # example to exclude glg lint error
+  # settings:
+  #   errcheck:
+  #     exclude-functions:
+  #       - "glg.*"
+  default: all

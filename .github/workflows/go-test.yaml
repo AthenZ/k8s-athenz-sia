@@ -7,6 +7,9 @@ name: Build and Publish Docker Image
 
 on:
   workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        required: true
 
 jobs:
 
@@ -49,7 +52,7 @@ jobs:
         id: setup_go
         # You may pin to the exact commit or the version.
         # uses: https://github.com/actions/setup-go/tags
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           # go-version: stable
           go-version-file: './go.mod'
@@ -63,6 +66,30 @@ jobs:
         run: |
           go version
           make test
+
+      # This action uploads coverage to Codecov.
+      # https://github.com/codecov/codecov-action
+      -
+        name: Upload coverage reports to Codecov
+        id: go-coverage
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }} # Repository upload token: https://app.codecov.io/gh/AthenZ/k8s-athenz-sia/config/general
+          files: ./coverage.out
+          flags: unittests
+          fail_ci_if_error: true # set to false temporarily if the CI failed
+          verbose: true
+          version: "latest"
+
+      # This action runs golangci-lint and reports issues from linters.
+      # https://github.com/golangci/golangci-lint-action
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
+          version: "latest"
+          # Optional: golangci-lint command line arguments.
+          args: --issues-exit-code=0 -c ./.golangci.yml # or set "continue-on-error: true" in Github Actions
 
       # https://github.com/apache/skywalking-eyes
       # issue: go version hard-coded: https://github.com/apache/skywalking-eyes/blob/5dfa68f93380a5e57259faaf95088b7f133b5778/header/action.yml#L47-L51

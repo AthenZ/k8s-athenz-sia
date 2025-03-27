@@ -27,6 +27,8 @@ jobs: # https://docs.github.com/en/actions/learn-github-actions/contexts#context
   go-test:
     name: "Run unit test"
     uses: ./.github/workflows/go-test.yaml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   set-platforms:
     runs-on: ubuntu-latest
