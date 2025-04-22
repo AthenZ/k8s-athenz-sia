@@ -73,7 +73,9 @@ build: submodule-update
 test:
 	@echo "Testing..."
 	go test -v -failfast -timeout 1m -race -covermode=atomic -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out -o coverage.html
+
+lint:
+	golangci-lint run -c ./.golangci.yml
 
 upgrade:
 	go list -u -m all
