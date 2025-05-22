@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -152,9 +153,11 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 	if config.PollInterval == 0 {
 		config.PollInterval = time.Duration(DefaultPollInterval)
 	}
+	certFile := strings.Split(config.CertFile, ",")[0]
+	keyFile := strings.Split(config.KeyFile, ",")[0]
 	r := &CertReloader{
-		certFile:     config.CertFile,
-		keyFile:      config.KeyFile,
+		certFile:     certFile,
+		keyFile:      keyFile,
 		logger:       config.Logger,
 		pollInterval: config.PollInterval,
 		stop:         make(chan struct{}, 10),
