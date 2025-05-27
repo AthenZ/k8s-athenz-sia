@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -139,8 +138,10 @@ type ReloadConfig struct {
 	Init            bool
 	ProviderService string
 	CertFile        string // the cert file
+	CertFiles       []string
 	KeyFile         string // the key file
-	Logger          LogFn  // custom log function for errors, optional
+	KeyFiles        []string
+	Logger          LogFn // custom log function for errors, optional
 	PollInterval    time.Duration
 }
 
@@ -153,11 +154,9 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 	if config.PollInterval == 0 {
 		config.PollInterval = time.Duration(DefaultPollInterval)
 	}
-	certFile := strings.Split(config.CertFile, ",")[0]
-	keyFile := strings.Split(config.KeyFile, ",")[0]
 	r := &CertReloader{
-		certFile:     certFile,
-		keyFile:      keyFile,
+		certFile:     config.CertFiles[0],
+		keyFile:      config.KeyFiles[0],
 		logger:       config.Logger,
 		pollInterval: config.PollInterval,
 		stop:         make(chan struct{}, 10),

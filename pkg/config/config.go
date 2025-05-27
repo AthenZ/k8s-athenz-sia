@@ -145,6 +145,8 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid DELAY_JITTER_SECONDS [%q], %w", idCfg.rawDelayJitterSeconds, err)
 	}
+	idCfg.CertFiles = strings.Split(idCfg.CertFile, ",")
+	idCfg.KeyFiles = strings.Split(idCfg.KeyFile, ",")
 	idCfg.roleCertKeyFileOutput, err = strconv.ParseBool(idCfg.rawRoleCertKeyFileOutput)
 	if err != nil {
 		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %w", idCfg.rawRoleCertKeyFileOutput, err)
@@ -282,7 +284,9 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		Init:            idCfg.Init,
 		ProviderService: idCfg.providerService,
 		KeyFile:         idCfg.KeyFile,
+		KeyFiles:        idCfg.KeyFiles,
 		CertFile:        idCfg.CertFile,
+		CertFiles:       idCfg.CertFiles,
 		Logger:          log.Debugf,
 		PollInterval:    pollInterval,
 	})
@@ -304,8 +308,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		}
 		log.Infof("Deleting the existing key and cert...")
 
-		certPaths := strings.Split(idCfg.CertFile, ",")
-		for _, certPath := range certPaths {
+		for _, certPath := range idCfg.CertFiles {
 			certPath = strings.TrimSpace(certPath)
 			if certPath != "" {
 				if err := os.Remove(certPath); err != nil {
@@ -314,8 +317,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 			}
 		}
 
-		keyPaths := strings.Split(idCfg.KeyFile, ",")
-		for _, keyPath := range keyPaths {
+		for _, keyPath := range idCfg.KeyFiles {
 			keyPath = strings.TrimSpace(keyPath)
 			if keyPath != "" {
 				if err := os.Remove(keyPath); err != nil {
