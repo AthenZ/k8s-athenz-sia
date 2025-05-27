@@ -84,10 +84,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				}
 				log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
 					x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
-				certFiles := strings.Split(idCfg.CertFile, ",")
-				keyFiles := strings.Split(idCfg.KeyFile, ",")
 
-				for _, certFile := range certFiles {
+				for _, certFile := range idCfg.CertFiles {
 					certFile = strings.TrimSpace(certFile)
 					if certFile == "" {
 						continue
@@ -103,7 +101,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					}
 				}
 
-				for _, keyFile := range keyFiles {
+				for _, keyFile := range idCfg.KeyFiles {
 					keyFile = strings.TrimSpace(keyFile)
 					if keyFile == "" {
 						continue
