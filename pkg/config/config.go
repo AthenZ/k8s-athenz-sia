@@ -145,8 +145,6 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	if err != nil {
 		return fmt.Errorf("Invalid DELAY_JITTER_SECONDS [%q], %w", idCfg.rawDelayJitterSeconds, err)
 	}
-	idCfg.CertFiles = strings.Split(idCfg.CertFile, ",")
-	idCfg.KeyFiles = strings.Split(idCfg.KeyFile, ",")
 	idCfg.roleCertKeyFileOutput, err = strconv.ParseBool(idCfg.rawRoleCertKeyFileOutput)
 	if err != nil {
 		return fmt.Errorf("Invalid ROLE_CERT_OUTPUT_KEY_FILE [%q], %w", idCfg.rawRoleCertKeyFileOutput, err)
@@ -257,6 +255,13 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 	idCfg.Init, err = parseMode(idCfg.rawMode)
 	if err != nil {
 		return fmt.Errorf("Invalid MODE/mode [%q], %w", idCfg.rawMode, err)
+	}
+
+	if idCfg.CertFile != "" {
+		idCfg.CertFiles = strings.Split(idCfg.CertFile, ",")
+	}
+	if idCfg.KeyFile != "" {
+		idCfg.KeyFiles = strings.Split(idCfg.KeyFile, ",")
 	}
 
 	return err
