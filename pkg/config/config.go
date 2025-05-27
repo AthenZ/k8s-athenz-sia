@@ -308,20 +308,20 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		}
 		log.Infof("Deleting the existing key and cert...")
 
-		for _, certPath := range idCfg.CertFiles {
-			certPath = strings.TrimSpace(certPath)
-			if certPath != "" {
-				if err := os.Remove(certPath); err != nil {
-					log.Errorf("Error deleting %s file: %s", certPath, err.Error())
+		for _, certFile := range idCfg.CertFiles {
+			certFile = strings.TrimSpace(certFile)
+			if certFile != "" {
+				if err := os.Remove(certFile); err != nil {
+					log.Errorf("Error deleting %s file: %s", certFile, err.Error())
 				}
 			}
 		}
 
-		for _, keyPath := range idCfg.KeyFiles {
-			keyPath = strings.TrimSpace(keyPath)
-			if keyPath != "" {
-				if err := os.Remove(keyPath); err != nil {
-					log.Errorf("Error deleting %s file: %s", keyPath, err.Error())
+		for _, keyFile := range idCfg.KeyFiles {
+			keyFile = strings.TrimSpace(keyFile)
+			if keyFile != "" {
+				if err := os.Remove(keyFile); err != nil {
+					log.Errorf("Error deleting %s file: %s", keyFile, err.Error())
 				}
 			}
 		}
