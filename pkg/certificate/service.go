@@ -91,6 +91,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 						continue
 					}
 
+					if err := extutil.CreateDirectory(certFile); err != nil {
+						return fmt.Errorf("unable to create directory for x509 cert: %w", err)
+					}
+
 					log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), certFile)
 					if err := w.AddBytes(certFile, 0644, leafPEM); err != nil {
 						return fmt.Errorf("unable to save x509 cert: %w", err)
@@ -104,7 +108,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					}
 
 					if err := extutil.CreateDirectory(keyFile); err != nil {
-						return fmt.Errorf("unable to create directory for x509 key: %w", err)
+						return fmt.Errorf("unable to create directory for x509 cert: %w", err)
 					}
 
 					log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), keyFile)
