@@ -138,8 +138,10 @@ type ReloadConfig struct {
 	Init            bool
 	ProviderService string
 	CertFile        string // the cert file
+	CertFiles       []string
 	KeyFile         string // the key file
-	Logger          LogFn  // custom log function for errors, optional
+	KeyFiles        []string
+	Logger          LogFn // custom log function for errors, optional
 	PollInterval    time.Duration
 }
 
@@ -153,8 +155,8 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 		config.PollInterval = time.Duration(DefaultPollInterval)
 	}
 	r := &CertReloader{
-		certFile:     config.CertFile,
-		keyFile:      config.KeyFile,
+		certFile:     config.CertFiles[0],
+		keyFile:      config.KeyFiles[0],
 		logger:       config.Logger,
 		pollInterval: config.PollInterval,
 		stop:         make(chan struct{}, 10),

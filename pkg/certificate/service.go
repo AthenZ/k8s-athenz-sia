@@ -17,6 +17,7 @@ package certificate
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -83,13 +84,37 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				}
 				log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
 					x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
-				log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), idCfg.CertFile)
-				if err := w.AddBytes(idCfg.CertFile, 0644, leafPEM); err != nil {
-					return fmt.Errorf("unable to save x509 cert: %w", err)
+
+				for _, certFile := range idCfg.CertFiles {
+					certFile = strings.TrimSpace(certFile)
+					if certFile == "" {
+						continue
+					}
+
+					if err := extutil.CreateDirectory(certFile); err != nil {
+						return fmt.Errorf("unable to create directory for x509 cert: %w", err)
+					}
+
+					log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), certFile)
+					if err := w.AddBytes(certFile, 0644, leafPEM); err != nil {
+						return fmt.Errorf("unable to save x509 cert: %w", err)
+					}
 				}
-				log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idCfg.KeyFile)
-				if err := w.AddBytes(idCfg.KeyFile, 0644, keyPEM); err != nil {
-					return fmt.Errorf("unable to save x509 key: %w", err)
+
+				for _, keyFile := range idCfg.KeyFiles {
+					keyFile = strings.TrimSpace(keyFile)
+					if keyFile == "" {
+						continue
+					}
+
+					if err := extutil.CreateDirectory(keyFile); err != nil {
+						return fmt.Errorf("unable to create directory for x509 key: %w", err)
+					}
+
+					log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), keyFile)
+					if err := w.AddBytes(keyFile, 0644, keyPEM); err != nil {
+						return fmt.Errorf("unable to save x509 key: %w", err)
+					}
 				}
 			}
 

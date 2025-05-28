@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
@@ -256,6 +257,13 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 		return fmt.Errorf("Invalid MODE/mode [%q], %w", idCfg.rawMode, err)
 	}
 
+	if idCfg.CertFile != "" {
+		idCfg.CertFiles = strings.Split(idCfg.CertFile, ",")
+	}
+	if idCfg.KeyFile != "" {
+		idCfg.KeyFiles = strings.Split(idCfg.KeyFile, ",")
+	}
+
 	return err
 }
 
@@ -281,7 +289,9 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		Init:            idCfg.Init,
 		ProviderService: idCfg.providerService,
 		KeyFile:         idCfg.KeyFile,
+		KeyFiles:        idCfg.KeyFiles,
 		CertFile:        idCfg.CertFile,
+		CertFiles:       idCfg.CertFiles,
 		Logger:          log.Debugf,
 		PollInterval:    pollInterval,
 	})
@@ -302,12 +312,25 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 			log.Infof("[X.509 Certificate] Subject: %v, DNS SANs: %v, IPs: %v", cert.Leaf.Subject, cert.Leaf.DNSNames, cert.Leaf.IPAddresses)
 		}
 		log.Infof("Deleting the existing key and cert...")
-		if err := os.Remove(idCfg.CertFile); err != nil {
-			log.Errorf("Error deleting %s file: %s", idCfg.CertFile, err.Error())
+
+		for _, certFile := range idCfg.CertFiles {
+			certFile = strings.TrimSpace(certFile)
+			if certFile != "" {
+				if err := os.Remove(certFile); err != nil {
+					log.Errorf("Error deleting %s file: %s", certFile, err.Error())
+				}
+			}
 		}
-		if err := os.Remove(idCfg.KeyFile); err != nil {
-			log.Errorf("Error deleting %s file: %s", idCfg.KeyFile, err.Error())
+
+		for _, keyFile := range idCfg.KeyFiles {
+			keyFile = strings.TrimSpace(keyFile)
+			if keyFile != "" {
+				if err := os.Remove(keyFile); err != nil {
+					log.Errorf("Error deleting %s file: %s", keyFile, err.Error())
+				}
+			}
 		}
+
 		return errors.New("Deleted X.509 certificate that already existed.")
 	}
 	// If SIA is not in init mode, it needs to update the certificate and issue tokens.

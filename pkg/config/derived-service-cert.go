@@ -92,7 +92,7 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 	}
 
 	// k8s-athenz-sia uses third-party service certificate, instead of using CopperArgos:
-	if idCfg.KeyFile != "" && idCfg.CertFile != "" {
+	if len(idCfg.KeyFiles) > 0 && len(idCfg.CertFiles) > 0 {
 		idCfg.ServiceCert.LocalCert = LocalCertMode{Use: true}
 		return nil // Use LocalCert Mode
 	}
