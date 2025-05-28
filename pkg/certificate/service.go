@@ -108,7 +108,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					}
 
 					if err := extutil.CreateDirectory(keyFile); err != nil {
-						return fmt.Errorf("unable to create directory for x509 cert: %w", err)
+						return fmt.Errorf("unable to create directory for x509 key: %w", err)
 					}
 
 					log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), keyFile)
