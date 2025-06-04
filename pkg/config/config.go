@@ -257,13 +257,6 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 		return fmt.Errorf("Invalid MODE/mode [%q], %w", idCfg.rawMode, err)
 	}
 
-	if idCfg.CertFile != "" {
-		idCfg.CertFiles = strings.Split(idCfg.CertFile, ",")
-	}
-	if idCfg.KeyFile != "" {
-		idCfg.KeyFiles = strings.Split(idCfg.KeyFile, ",")
-	}
-
 	return err
 }
 
@@ -289,9 +282,9 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		Init:            idCfg.Init,
 		ProviderService: idCfg.providerService,
 		KeyFile:         idCfg.KeyFile,
-		KeyFiles:        idCfg.KeyFiles,
+		KeyFiles:        idCfg.ServiceCert.CopperArgos.KeyPaths,
 		CertFile:        idCfg.CertFile,
-		CertFiles:       idCfg.CertFiles,
+		CertFiles:       idCfg.ServiceCert.CopperArgos.CertPaths,
 		Logger:          log.Debugf,
 		PollInterval:    pollInterval,
 	})
@@ -313,7 +306,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		}
 		log.Infof("Deleting the existing key and cert...")
 
-		for _, certFile := range idCfg.CertFiles {
+		for _, certFile := range idCfg.ServiceCert.CopperArgos.CertPaths {
 			certFile = strings.TrimSpace(certFile)
 			if certFile != "" {
 				if err := os.Remove(certFile); err != nil {
@@ -322,7 +315,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 			}
 		}
 
-		for _, keyFile := range idCfg.KeyFiles {
+		for _, keyFile := range idCfg.ServiceCert.CopperArgos.KeyPaths {
 			keyFile = strings.TrimSpace(keyFile)
 			if keyFile != "" {
 				if err := os.Remove(keyFile); err != nil {

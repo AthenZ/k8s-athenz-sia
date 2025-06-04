@@ -20,20 +20,25 @@ import (
 	"strings"
 
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
+	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
 type CopperArgosMode struct {
-	Use      bool
-	Provider string // provider service name
-	Sans     []string
-	Subject  *pkix.Name // subject field for instance certificate
+	Use       bool
+	Provider  string // provider service name
+	Sans      []string
+	Subject   *pkix.Name // subject field for instance certificate
+	CertPaths []string   // multiple cert paths
+	KeyPaths  []string   // multiple key paths
 
 	AthenzDomainName  string
 	AthenzServiceName string
 }
 
 type LocalCertMode struct {
-	Use bool
+	Use      bool
+	CertPath string // only accepts one cert path (multiple paths will return error or accept the first with warning)
+	KeyPath  string // only accepts one key path (multiple paths will return error or accept the first with warning)
 }
 
 type DerivedServiceCert struct {
@@ -47,15 +52,29 @@ type DerivedServiceCert struct {
 // Also, there is a hidden mode where k8s-athenz-sia prepares service-cert with k8s-secret mode, but the state is managed in DerivedK8sSecretBackup instead,
 // as the backup mode can be used for every mode, if enabled.
 func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
+	var certPaths, keyPaths []string
+	if idCfg.CertFile != "" {
+		certPaths = strings.Split(idCfg.CertFile, ",")
+	}
+	if idCfg.KeyFile != "" {
+		keyPaths = strings.Split(idCfg.KeyFile, ",")
+	}
+
 	// default:
 	idCfg.ServiceCert = DerivedServiceCert{
 		CopperArgos: CopperArgosMode{
 			Use:               false,
 			Provider:          "",
+			CertPaths:         certPaths,
+			KeyPaths:          keyPaths,
 			AthenzDomainName:  "",
 			AthenzServiceName: "",
 		},
-		LocalCert: LocalCertMode{Use: false},
+		LocalCert: LocalCertMode{
+			Use:      false,
+			CertPath: "",
+			KeyPath:  "",
+		},
 	}
 
 	if idCfg.providerService != "" {
@@ -69,8 +88,10 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		subject.OrganizationalUnit = []string{idCfg.providerService}
 
 		idCfg.ServiceCert.CopperArgos = CopperArgosMode{
-			Use:      true,
-			Provider: idCfg.providerService,
+			Use:       true,
+			Provider:  idCfg.providerService,
+			CertPaths: certPaths,
+			KeyPaths:  keyPaths,
 			Sans: (func() []string {
 				sans := []string{
 					// The following are the default SANs for CopperArgos mode:
@@ -92,8 +113,15 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 	}
 
 	// k8s-athenz-sia uses third-party service certificate, instead of using CopperArgos:
-	if len(idCfg.KeyFiles) > 0 && len(idCfg.CertFiles) > 0 {
-		idCfg.ServiceCert.LocalCert = LocalCertMode{Use: true}
+	if len(keyPaths) > 0 && len(certPaths) > 0 {
+		if len(certPaths) > 1 || len(keyPaths) > 1 {
+			log.Warn("Multiple cert/key paths provided. Using the first path.")
+		}
+		idCfg.ServiceCert.LocalCert = LocalCertMode{
+			Use:      true,
+			CertPath: certPaths[0],
+			KeyPath:  keyPaths[0],
+		}
 		return nil // Use LocalCert Mode
 	}
 

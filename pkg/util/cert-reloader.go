@@ -155,8 +155,18 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 		config.PollInterval = time.Duration(DefaultPollInterval)
 	}
 	r := &CertReloader{
-		certFile:     config.CertFiles[0],
-		keyFile:      config.KeyFiles[0],
+		certFile: func() string {
+			if len(config.CertFiles) > 0 {
+				return config.CertFiles[0]
+			}
+			return ""
+		}(),
+		keyFile: func() string {
+			if len(config.KeyFiles) > 0 {
+				return config.KeyFiles[0]
+			}
+			return ""
+		}(),
 		logger:       config.Logger,
 		pollInterval: config.PollInterval,
 		stop:         make(chan struct{}, 10),

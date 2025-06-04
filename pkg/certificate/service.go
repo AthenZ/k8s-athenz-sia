@@ -85,7 +85,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
 					x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
 
-				for _, certFile := range idCfg.CertFiles {
+				for _, certFile := range idCfg.ServiceCert.CopperArgos.CertPaths {
 					certFile = strings.TrimSpace(certFile)
 					if certFile == "" {
 						continue
@@ -94,14 +94,13 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					if err := extutil.CreateDirectory(certFile); err != nil {
 						return fmt.Errorf("unable to create directory for x509 cert: %w", err)
 					}
-
 					log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), certFile)
 					if err := w.AddBytes(certFile, 0644, leafPEM); err != nil {
 						return fmt.Errorf("unable to save x509 cert: %w", err)
 					}
 				}
 
-				for _, keyFile := range idCfg.KeyFiles {
+				for _, keyFile := range idCfg.ServiceCert.CopperArgos.KeyPaths {
 					keyFile = strings.TrimSpace(keyFile)
 					if keyFile == "" {
 						continue
