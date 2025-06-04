@@ -30,8 +30,8 @@ type IdentityConfig struct {
 	DNSSuffix              string
 	Refresh                time.Duration
 	DelayJitterSeconds     int64
-	KeyFile                string
-	CertFile               string
+	keyFile                string
+	certFile               string
 	CaCertFile             string
 	IntermediateCertBundle string
 	backup                 string

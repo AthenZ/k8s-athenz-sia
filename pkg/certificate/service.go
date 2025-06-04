@@ -251,7 +251,15 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				keyPEM = localFileKeyPEM
 			}
 		} else { // We are not immediately returning an error here, as there is a chance that the kubernetes secret backup is enabled:
-			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idCfg.ServiceCert.CopperArgos.Provider, idCfg.KeyFile, idCfg.CertFile)
+			var keyLog, certLog string
+			if idCfg.ServiceCert.CopperArgos.Use {
+				keyLog = strings.Join(idCfg.ServiceCert.CopperArgos.KeyPaths, ",")
+				certLog = strings.Join(idCfg.ServiceCert.CopperArgos.CertPaths, ",")
+			} else if idCfg.ServiceCert.LocalCert.Use {
+				keyLog = idCfg.ServiceCert.LocalCert.KeyPath
+				certLog = idCfg.ServiceCert.LocalCert.CertPath
+			}
+			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idCfg.ServiceCert.CopperArgos.Provider, keyLog, certLog)
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
@@ -311,9 +319,25 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		err = writeFiles()
 		if err != nil {
 			if forceInitIdentity != nil || forceInitKeyPEM != nil {
-				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCert.TargetDomainRoles)
+				var keyLog, certLog string
+				if idCfg.ServiceCert.CopperArgos.Use {
+					keyLog = strings.Join(idCfg.ServiceCert.CopperArgos.KeyPaths, ",")
+					certLog = strings.Join(idCfg.ServiceCert.CopperArgos.CertPaths, ",")
+				} else if idCfg.ServiceCert.LocalCert.Use {
+					keyLog = idCfg.ServiceCert.LocalCert.KeyPath
+					certLog = idCfg.ServiceCert.LocalCert.CertPath
+				}
+				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", keyLog, certLog, idCfg.RoleCert.TargetDomainRoles)
 			} else {
-				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCert.TargetDomainRoles)
+				var keyLog, certLog string
+				if idCfg.ServiceCert.CopperArgos.Use {
+					keyLog = strings.Join(idCfg.ServiceCert.CopperArgos.KeyPaths, ",")
+					certLog = strings.Join(idCfg.ServiceCert.CopperArgos.CertPaths, ",")
+				} else if idCfg.ServiceCert.LocalCert.Use {
+					keyLog = idCfg.ServiceCert.LocalCert.KeyPath
+					certLog = idCfg.ServiceCert.LocalCert.CertPath
+				}
+				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", keyLog, certLog, idCfg.RoleCert.TargetDomainRoles)
 			}
 		}
 
@@ -361,7 +385,10 @@ func (cs *certService) Start(ctx context.Context) error {
 				log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 			}
 			for {
-				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret, cs.idCfg.Refresh)
+				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s",
+					strings.Join(cs.idCfg.ServiceCert.CopperArgos.KeyPaths, ","),
+					strings.Join(cs.idCfg.ServiceCert.CopperArgos.CertPaths, ","),
+					cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret, cs.idCfg.Refresh)
 
 				select {
 				case <-cs.shutdownChan:
@@ -370,7 +397,10 @@ func (cs *certService) Start(ctx context.Context) error {
 				case <-t.C:
 					// skip refresh if context is done but Shutdown() is not called
 					if ctx.Err() != nil {
-						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret)
+						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]",
+							strings.Join(cs.idCfg.ServiceCert.CopperArgos.KeyPaths, ","),
+							strings.Join(cs.idCfg.ServiceCert.CopperArgos.CertPaths, ","),
+							cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret)
 						continue
 					}
 

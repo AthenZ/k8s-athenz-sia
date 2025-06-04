@@ -53,11 +53,11 @@ type DerivedServiceCert struct {
 // as the backup mode can be used for every mode, if enabled.
 func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 	var certPaths, keyPaths []string
-	if idCfg.CertFile != "" {
-		certPaths = strings.Split(idCfg.CertFile, ",")
+	if idCfg.certFile != "" {
+		certPaths = strings.Split(idCfg.certFile, ",")
 	}
-	if idCfg.KeyFile != "" {
-		keyPaths = strings.Split(idCfg.KeyFile, ",")
+	if idCfg.keyFile != "" {
+		keyPaths = strings.Split(idCfg.keyFile, ",")
 	}
 
 	// default:
