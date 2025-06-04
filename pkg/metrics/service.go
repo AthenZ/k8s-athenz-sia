@@ -78,6 +78,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					}
 				}
 			}
+			log.Debug("LocalCert.Use: %t, LocalCert.CertPath: %s, LocalCert.KeyPath: %s", idCfg.ServiceCert.LocalCert.Use, idCfg.ServiceCert.LocalCert.CertPath, idCfg.ServiceCert.LocalCert.KeyPath)
 			if idCfg.ServiceCert.LocalCert.Use && idCfg.ServiceCert.LocalCert.CertPath != "" {
 				files = append(files, idCfg.ServiceCert.LocalCert.CertPath)
 			}
