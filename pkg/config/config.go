@@ -54,12 +54,12 @@ func LoadConfig(program string, args []string) (*IdentityConfig, error) {
 		return nil, err
 	}
 
-	// check fatal errors that startup should be stopped
-	if err := idCfg.validateAndInit(); err != nil {
+	if err := idCfg.loadDerivedConfig(); err != nil {
 		return nil, err
 	}
 
-	if err := idCfg.loadDerivedConfig(); err != nil {
+	// check fatal errors that startup should be stopped
+	if err := idCfg.validateAndInit(); err != nil {
 		return nil, err
 	}
 
