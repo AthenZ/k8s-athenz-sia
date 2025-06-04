@@ -21,7 +21,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	athenz "github.com/AthenZ/athenz/libs/go/sia/util"
@@ -305,20 +304,14 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		log.Infof("Deleting the existing key and cert...")
 
 		for _, certFile := range idCfg.ServiceCert.CopperArgos.CertPaths {
-			certFile = strings.TrimSpace(certFile)
-			if certFile != "" {
-				if err := os.Remove(certFile); err != nil {
-					log.Errorf("Error deleting %s file: %s", certFile, err.Error())
-				}
+			if err := os.Remove(certFile); err != nil {
+				log.Errorf("Error deleting %s file: %s", certFile, err.Error())
 			}
 		}
 
 		for _, keyFile := range idCfg.ServiceCert.CopperArgos.KeyPaths {
-			keyFile = strings.TrimSpace(keyFile)
-			if keyFile != "" {
-				if err := os.Remove(keyFile); err != nil {
-					log.Errorf("Error deleting %s file: %s", keyFile, err.Error())
-				}
+			if err := os.Remove(keyFile); err != nil {
+				log.Errorf("Error deleting %s file: %s", keyFile, err.Error())
 			}
 		}
 

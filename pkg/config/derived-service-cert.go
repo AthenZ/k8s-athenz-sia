@@ -37,8 +37,8 @@ type CopperArgosMode struct {
 
 type LocalCertMode struct {
 	Use      bool
-	CertPath string // only accepts one cert path (multiple paths will return error or accept the first with warning)
-	KeyPath  string // only accepts one key path (multiple paths will return error or accept the first with warning)
+	CertPath string // only accepts one cert path (accept the first with warning)
+	KeyPath  string // only accepts one key path (accept the first with warning)
 }
 
 type DerivedServiceCert struct {
@@ -52,13 +52,8 @@ type DerivedServiceCert struct {
 // Also, there is a hidden mode where k8s-athenz-sia prepares service-cert with k8s-secret mode, but the state is managed in DerivedK8sSecretBackup instead,
 // as the backup mode can be used for every mode, if enabled.
 func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
-	var certPaths, keyPaths []string
-	if idCfg.certFile != "" {
-		certPaths = strings.Split(idCfg.certFile, ",")
-	}
-	if idCfg.keyFile != "" {
-		keyPaths = strings.Split(idCfg.keyFile, ",")
-	}
+	certPaths := splitAndFilterPaths(idCfg.certFile)
+	keyPaths := splitAndFilterPaths(idCfg.keyFile)
 
 	// default:
 	idCfg.ServiceCert = DerivedServiceCert{
@@ -126,4 +121,20 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 	}
 
 	return nil
+}
+
+// splitAndFilterPaths splits a comma-separated string, trims spaces, and filters out empty elements.
+func splitAndFilterPaths(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	var result []string
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }

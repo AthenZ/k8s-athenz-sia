@@ -86,11 +86,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
 
 				for _, certFile := range idCfg.ServiceCert.CopperArgos.CertPaths {
-					certFile = strings.TrimSpace(certFile)
-					if certFile == "" {
-						continue
-					}
-
 					if err := extutil.CreateDirectory(certFile); err != nil {
 						return fmt.Errorf("unable to create directory for x509 cert: %w", err)
 					}
@@ -101,11 +96,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				}
 
 				for _, keyFile := range idCfg.ServiceCert.CopperArgos.KeyPaths {
-					keyFile = strings.TrimSpace(keyFile)
-					if keyFile == "" {
-						continue
-					}
-
 					if err := extutil.CreateDirectory(keyFile); err != nil {
 						return fmt.Errorf("unable to create directory for x509 key: %w", err)
 					}
@@ -251,15 +241,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				keyPEM = localFileKeyPEM
 			}
 		} else { // We are not immediately returning an error here, as there is a chance that the kubernetes secret backup is enabled:
-			var keyLog, certLog string
-			if idCfg.ServiceCert.CopperArgos.Use {
-				keyLog = strings.Join(idCfg.ServiceCert.CopperArgos.KeyPaths, ",")
-				certLog = strings.Join(idCfg.ServiceCert.CopperArgos.CertPaths, ",")
-			} else if idCfg.ServiceCert.LocalCert.Use {
-				keyLog = idCfg.ServiceCert.LocalCert.KeyPath
-				certLog = idCfg.ServiceCert.LocalCert.CertPath
-			}
-			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idCfg.ServiceCert.CopperArgos.Provider, keyLog, certLog)
+			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s]", idCfg.ServiceCert.CopperArgos.Provider)
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
@@ -397,7 +379,7 @@ func (cs *certService) Start(ctx context.Context) error {
 				case <-t.C:
 					// skip refresh if context is done but Shutdown() is not called
 					if ctx.Err() != nil {
-						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]",
+						log.Infof("Skipped to refresh key[%v], cert[%v] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]",
 							strings.Join(cs.idCfg.ServiceCert.CopperArgos.KeyPaths, ","),
 							strings.Join(cs.idCfg.ServiceCert.CopperArgos.CertPaths, ","),
 							cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret)
