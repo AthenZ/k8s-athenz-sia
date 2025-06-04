@@ -31,9 +31,7 @@ type IdentityConfig struct {
 	Refresh                time.Duration
 	DelayJitterSeconds     int64
 	KeyFile                string
-	KeyFiles               []string
 	CertFile               string
-	CertFiles              []string
 	CaCertFile             string
 	IntermediateCertBundle string
 	backup                 string
