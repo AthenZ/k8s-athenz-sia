@@ -17,7 +17,6 @@ package certificate
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -85,7 +84,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
 					x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
 
-				for _, certFile := range idCfg.ServiceCert.CopperArgos.CertPaths {
+				for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
 					if err := extutil.CreateDirectory(certFile); err != nil {
 						return fmt.Errorf("unable to create directory for x509 cert: %w", err)
 					}
@@ -95,7 +94,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					}
 				}
 
-				for _, keyFile := range idCfg.ServiceCert.CopperArgos.KeyPaths {
+				for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
 					if err := extutil.CreateDirectory(keyFile); err != nil {
 						return fmt.Errorf("unable to create directory for x509 key: %w", err)
 					}
@@ -301,25 +300,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		err = writeFiles()
 		if err != nil {
 			if forceInitIdentity != nil || forceInitKeyPEM != nil {
-				var keyLog, certLog string
-				if idCfg.ServiceCert.CopperArgos.Use {
-					keyLog = strings.Join(idCfg.ServiceCert.CopperArgos.KeyPaths, ",")
-					certLog = strings.Join(idCfg.ServiceCert.CopperArgos.CertPaths, ",")
-				} else if idCfg.ServiceCert.LocalCert.Use {
-					keyLog = idCfg.ServiceCert.LocalCert.KeyPath
-					certLog = idCfg.ServiceCert.LocalCert.CertPath
-				}
-				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", keyLog, certLog, idCfg.RoleCert.TargetDomainRoles)
+
+				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idCfg.ServiceCert.CopperArgos.Key.Raw, idCfg.ServiceCert.CopperArgos.Cert.Raw, idCfg.RoleCert.TargetDomainRoles)
 			} else {
-				var keyLog, certLog string
-				if idCfg.ServiceCert.CopperArgos.Use {
-					keyLog = strings.Join(idCfg.ServiceCert.CopperArgos.KeyPaths, ",")
-					certLog = strings.Join(idCfg.ServiceCert.CopperArgos.CertPaths, ",")
-				} else if idCfg.ServiceCert.LocalCert.Use {
-					keyLog = idCfg.ServiceCert.LocalCert.KeyPath
-					certLog = idCfg.ServiceCert.LocalCert.CertPath
-				}
-				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", keyLog, certLog, idCfg.RoleCert.TargetDomainRoles)
+				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idCfg.ServiceCert.CopperArgos.Key.Raw, idCfg.ServiceCert.CopperArgos.Cert.Raw, idCfg.RoleCert.TargetDomainRoles)
 			}
 		}
 
@@ -368,8 +352,7 @@ func (cs *certService) Start(ctx context.Context) error {
 			}
 			for {
 				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s",
-					strings.Join(cs.idCfg.ServiceCert.CopperArgos.KeyPaths, ","),
-					strings.Join(cs.idCfg.ServiceCert.CopperArgos.CertPaths, ","),
+					cs.idCfg.ServiceCert.CopperArgos.Key.Raw, cs.idCfg.ServiceCert.CopperArgos.Cert.Raw,
 					cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret, cs.idCfg.Refresh)
 
 				select {
@@ -380,8 +363,7 @@ func (cs *certService) Start(ctx context.Context) error {
 					// skip refresh if context is done but Shutdown() is not called
 					if ctx.Err() != nil {
 						log.Infof("Skipped to refresh key[%v], cert[%v] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]",
-							strings.Join(cs.idCfg.ServiceCert.CopperArgos.KeyPaths, ","),
-							strings.Join(cs.idCfg.ServiceCert.CopperArgos.CertPaths, ","),
+							cs.idCfg.ServiceCert.CopperArgos.Key.Raw, cs.idCfg.ServiceCert.CopperArgos.Cert.Raw,
 							cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret)
 						continue
 					}

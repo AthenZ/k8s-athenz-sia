@@ -72,7 +72,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		Files: func() []string {
 			files := []string{}
 			if idCfg.ServiceCert.CopperArgos.Use {
-				for _, certFile := range idCfg.ServiceCert.CopperArgos.CertPaths {
+				for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
 					if certFile != "" {
 						files = append(files, certFile)
 					}

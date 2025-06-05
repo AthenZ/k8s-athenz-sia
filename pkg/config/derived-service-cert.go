@@ -23,13 +23,19 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
+type X509File struct {
+	Paths []string
+	Raw   string // raw content of the file, usually for the log
+}
+
 type CopperArgosMode struct {
-	Use       bool
-	Provider  string // provider service name
-	Sans      []string
-	Subject   *pkix.Name // subject field for instance certificate
-	CertPaths []string   // multiple cert paths
-	KeyPaths  []string   // multiple key paths
+	Use        bool
+	Provider   string // provider service name
+	Sans       []string
+	Subject    *pkix.Name    // subject field for instance certificate
+	Cert       X509File      // X509File for cert, if needed
+	Key        X509File      // X509File for key, if needed
+	GetKeyPath func() string // function to get the key path, if needed
 
 	AthenzDomainName  string
 	AthenzServiceName string
@@ -60,8 +66,8 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		CopperArgos: CopperArgosMode{
 			Use:               false,
 			Provider:          "",
-			CertPaths:         certPaths,
-			KeyPaths:          keyPaths,
+			Cert:              X509File{Paths: certPaths, Raw: idCfg.certFile},
+			Key:               X509File{Paths: keyPaths, Raw: idCfg.keyFile},
 			AthenzDomainName:  "",
 			AthenzServiceName: "",
 		},
@@ -83,10 +89,10 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 		subject.OrganizationalUnit = []string{idCfg.providerService}
 
 		idCfg.ServiceCert.CopperArgos = CopperArgosMode{
-			Use:       true,
-			Provider:  idCfg.providerService,
-			CertPaths: certPaths,
-			KeyPaths:  keyPaths,
+			Use:      true,
+			Provider: idCfg.providerService,
+			Cert:     X509File{Paths: certPaths, Raw: idCfg.certFile},
+			Key:      X509File{Paths: keyPaths, Raw: idCfg.keyFile},
 			Sans: (func() []string {
 				sans := []string{
 					// The following are the default SANs for CopperArgos mode:

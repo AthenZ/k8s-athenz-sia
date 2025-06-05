@@ -280,8 +280,8 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 	idCfg.Reloader, err = util.NewCertReloader(util.ReloadConfig{
 		Init:            idCfg.Init,
 		ProviderService: idCfg.providerService,
-		KeyFiles:        idCfg.ServiceCert.CopperArgos.KeyPaths,
-		CertFiles:       idCfg.ServiceCert.CopperArgos.CertPaths,
+		KeyFiles:        idCfg.ServiceCert.CopperArgos.Key.Paths,
+		CertFiles:       idCfg.ServiceCert.CopperArgos.Cert.Paths,
 		Logger:          log.Debugf,
 		PollInterval:    pollInterval,
 	})
@@ -303,7 +303,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		}
 		log.Infof("Deleting the existing key and cert...")
 
-		for _, certFile := range idCfg.ServiceCert.CopperArgos.CertPaths {
+		for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
 			_, err := os.Stat(certFile)
 			if err == nil {
 				if err := os.Remove(certFile); err != nil {
@@ -318,7 +318,7 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 			log.Warnf("Failed to stat cert file: %s (%v)", certFile, err)
 		}
 
-		for _, keyFile := range idCfg.ServiceCert.CopperArgos.KeyPaths {
+		for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
 			_, err := os.Stat(keyFile)
 			if err == nil {
 				if err := os.Remove(keyFile); err != nil {
