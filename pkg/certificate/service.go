@@ -83,13 +83,26 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				}
 				log.Infof("[New Instance Certificate] Subject: %s, Issuer: %s, NotBefore: %s, NotAfter: %s, SerialNumber: %s, DNSNames: %s",
 					x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
-				log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), idCfg.CertFile)
-				if err := w.AddBytes(idCfg.CertFile, 0644, leafPEM); err != nil {
-					return fmt.Errorf("unable to save x509 cert: %w", err)
+
+				for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
+					if err := extutil.CreateDirectory(certFile); err != nil {
+						return fmt.Errorf("unable to create directory for x509 cert: %w", err)
+					}
+					log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), certFile)
+					if err := w.AddBytes(certFile, 0644, leafPEM); err != nil {
+						return fmt.Errorf("unable to save x509 cert: %w", err)
+					}
 				}
-				log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), idCfg.KeyFile)
-				if err := w.AddBytes(idCfg.KeyFile, 0644, keyPEM); err != nil {
-					return fmt.Errorf("unable to save x509 key: %w", err)
+
+				for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
+					if err := extutil.CreateDirectory(keyFile); err != nil {
+						return fmt.Errorf("unable to create directory for x509 key: %w", err)
+					}
+
+					log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), keyFile)
+					if err := w.AddBytes(keyFile, 0644, keyPEM); err != nil {
+						return fmt.Errorf("unable to save x509 key: %w", err)
+					}
 				}
 			}
 
@@ -227,7 +240,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				keyPEM = localFileKeyPEM
 			}
 		} else { // We are not immediately returning an error here, as there is a chance that the kubernetes secret backup is enabled:
-			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s], key[%s], cert[%s]", idCfg.ServiceCert.CopperArgos.Provider, idCfg.KeyFile, idCfg.CertFile)
+			log.Debugf("Skipping to request/load x509 certificate: identity provider[%s]", idCfg.ServiceCert.CopperArgos.Provider)
 		}
 
 		if identity == nil || len(keyPEM) == 0 {
@@ -287,9 +300,10 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		err = writeFiles()
 		if err != nil {
 			if forceInitIdentity != nil || forceInitKeyPEM != nil {
-				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCert.TargetDomainRoles)
+
+				log.Errorf("Failed to save files for renewed key[%s], renewed cert[%s] and renewed certificates for roles[%v]", idCfg.ServiceCert.CopperArgos.Key.Raw, idCfg.ServiceCert.CopperArgos.Cert.Raw, idCfg.RoleCert.TargetDomainRoles)
 			} else {
-				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idCfg.KeyFile, idCfg.CertFile, idCfg.RoleCert.TargetDomainRoles)
+				log.Errorf("Failed to save files for key[%s], cert[%s] and certificates for roles[%v]", idCfg.ServiceCert.CopperArgos.Key.Raw, idCfg.ServiceCert.CopperArgos.Cert.Raw, idCfg.RoleCert.TargetDomainRoles)
 			}
 		}
 
@@ -337,7 +351,9 @@ func (cs *certService) Start(ctx context.Context) error {
 				log.Errorf("Failed to refresh certificates: %s. Retrying in %s", err.Error(), backoffDelay)
 			}
 			for {
-				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret, cs.idCfg.Refresh)
+				log.Infof("Will refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s] within %s",
+					cs.idCfg.ServiceCert.CopperArgos.Key.Raw, cs.idCfg.ServiceCert.CopperArgos.Cert.Raw,
+					cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret, cs.idCfg.Refresh)
 
 				select {
 				case <-cs.shutdownChan:
@@ -346,7 +362,9 @@ func (cs *certService) Start(ctx context.Context) error {
 				case <-t.C:
 					// skip refresh if context is done but Shutdown() is not called
 					if ctx.Err() != nil {
-						log.Infof("Skipped to refresh key[%s], cert[%s] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]", cs.idCfg.KeyFile, cs.idCfg.CertFile, cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret)
+						log.Infof("Skipped to refresh key[%v], cert[%v] and certificates for roles[%v] with provider[%s], backup[%s] and secret[%s]",
+							cs.idCfg.ServiceCert.CopperArgos.Key.Raw, cs.idCfg.ServiceCert.CopperArgos.Cert.Raw,
+							cs.idCfg.RoleCert.TargetDomainRoles, cs.idCfg.ServiceCert.CopperArgos.Provider, cs.idCfg.K8sSecretBackup.Raw, cs.idCfg.K8sSecretBackup.Secret)
 						continue
 					}
 

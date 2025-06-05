@@ -137,9 +137,9 @@ func (w *CertReloader) UpdateCertificate(certPEM []byte, keyPEM []byte) error {
 type ReloadConfig struct {
 	Init            bool
 	ProviderService string
-	CertFile        string // the cert file
-	KeyFile         string // the key file
-	Logger          LogFn  // custom log function for errors, optional
+	CertFiles       []string
+	KeyFiles        []string
+	Logger          LogFn // custom log function for errors, optional
 	PollInterval    time.Duration
 }
 
@@ -153,8 +153,18 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 		config.PollInterval = time.Duration(DefaultPollInterval)
 	}
 	r := &CertReloader{
-		certFile:     config.CertFile,
-		keyFile:      config.KeyFile,
+		certFile: func() string {
+			if len(config.CertFiles) > 0 {
+				return config.CertFiles[0]
+			}
+			return ""
+		}(),
+		keyFile: func() string {
+			if len(config.KeyFiles) > 0 {
+				return config.KeyFiles[0]
+			}
+			return ""
+		}(),
 		logger:       config.Logger,
 		pollInterval: config.PollInterval,
 		stop:         make(chan struct{}, 10),
@@ -172,7 +182,7 @@ func NewCertReloader(config ReloadConfig) (*CertReloader, error) {
 	//   - SIA does not use identityd to issue certificates (or fig.ProviderService == "")
 	//   - File paths for certificates and keys are provided. (or config.CertFile != "" && config.KeyFile != "")
 	// TODO: Issue created based on this: https://github.com/AthenZ/k8s-athenz-sia/issues/113
-	if config.ProviderService == "" && config.CertFile != "" && config.KeyFile != "" {
+	if config.ProviderService == "" && len(config.CertFiles) > 0 && len(config.CertFiles) > 0 {
 		go r.pollRefresh()
 	}
 	return r, nil
