@@ -192,8 +192,8 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.DNSSuffix, "dns-suffix", idCfg.DNSSuffix, "DNS Suffix for x509 identity/role certificates (required for identity/role certificate provisioning)")
 	f.DurationVar(&idCfg.Refresh, "refresh-interval", idCfg.Refresh, "certificate refresh interval")
 	f.Int64Var(&idCfg.DelayJitterSeconds, "delay-jitter-seconds", idCfg.DelayJitterSeconds, "delay boot with random jitter within the specified seconds (0 to disable)")
-	f.StringVar(&idCfg.keyFile, "key", idCfg.keyFile, "key file for the certificate (required)")
-	f.StringVar(&idCfg.certFile, "cert", idCfg.certFile, "certificate file to identity a service (required)")
+	f.StringVar(&idCfg.keyFile, "key", idCfg.keyFile, "key file(s) for the certificate (required). Supports a single path or multiple comma-separated paths. All paths will be trimmed and empty entries ignored.")
+	f.StringVar(&idCfg.certFile, "cert", idCfg.certFile, "certificate file(s) to identify a service (required). Supports a single path or multiple comma-separated paths. All paths will be trimmed and empty entries ignored.")
 	f.StringVar(&idCfg.CaCertFile, "out-ca-cert", idCfg.CaCertFile, "CA certificate file to write")
 	// IntermediateCertBundle
 	f.StringVar(&idCfg.backup, "backup", idCfg.backup, "backup certificate to Kubernetes secret (\"\", \"read\", \"write\" or \"read+write\" must be run uniquely for each secret to prevent conflict)")
@@ -304,15 +304,33 @@ func (idCfg *IdentityConfig) validateAndInit() (err error) {
 		log.Infof("Deleting the existing key and cert...")
 
 		for _, certFile := range idCfg.ServiceCert.CopperArgos.CertPaths {
-			if err := os.Remove(certFile); err != nil {
-				log.Errorf("Error deleting %s file: %s", certFile, err.Error())
+			_, err := os.Stat(certFile)
+			if err == nil {
+				if err := os.Remove(certFile); err != nil {
+					log.Errorf("Error deleting %s file: %s", certFile, err.Error())
+				}
+				continue
 			}
+			if errors.Is(err, os.ErrNotExist) {
+				log.Warnf("Cert file does not exist: %s", certFile)
+				continue
+			}
+			log.Warnf("Failed to stat cert file: %s (%v)", certFile, err)
 		}
 
 		for _, keyFile := range idCfg.ServiceCert.CopperArgos.KeyPaths {
-			if err := os.Remove(keyFile); err != nil {
-				log.Errorf("Error deleting %s file: %s", keyFile, err.Error())
+			_, err := os.Stat(keyFile)
+			if err == nil {
+				if err := os.Remove(keyFile); err != nil {
+					log.Errorf("Error deleting %s file: %s", keyFile, err.Error())
+				}
+				continue
 			}
+			if errors.Is(err, os.ErrNotExist) {
+				log.Warnf("Key file does not exist: %s", keyFile)
+				continue
+			}
+			log.Warnf("Failed to stat key file: %s (%v)", keyFile, err)
 		}
 
 		return errors.New("Deleted X.509 certificate that already existed.")
