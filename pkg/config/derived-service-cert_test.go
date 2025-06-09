@@ -85,6 +85,8 @@ func TestIdentityConfig_derivedServiceCertConfig_CopperArgosMode_Subject(t *test
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			idCfg := IdentityConfig{
+				certFile:        "/tmp/cert.pem",
+				keyFile:         "/tmp/key.pem",
 				Namespace:       "",
 				athenzPrefix:    "",
 				athenzSuffix:    "",
