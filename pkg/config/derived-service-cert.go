@@ -24,8 +24,8 @@ import (
 )
 
 type X509File struct {
-	Paths []string
-	Raw   string // raw content of the file, usually for the log
+	Paths []string // Stored paths are never empty with splitAndFilterPaths() => Expect paths to be a valid path string.
+	Raw   string   // raw content of the file, usually for the log
 }
 
 type CopperArgosMode struct {
@@ -58,8 +58,14 @@ type DerivedServiceCert struct {
 // Also, there is a hidden mode where k8s-athenz-sia prepares service-cert with k8s-secret mode, but the state is managed in DerivedK8sSecretBackup instead,
 // as the backup mode can be used for every mode, if enabled.
 func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
-	certPaths := splitAndFilterPaths(idCfg.certFile)
-	keyPaths := splitAndFilterPaths(idCfg.keyFile)
+	certPaths, err := splitAndFilterPaths(idCfg.certFile)
+	if err != nil {
+		return fmt.Errorf("Invalid certFile: %w", err)
+	}
+	keyPaths, err := splitAndFilterPaths(idCfg.keyFile)
+	if err != nil {
+		return fmt.Errorf("Invalid keyFile: %w", err)
+	}
 
 	// default:
 	idCfg.ServiceCert = DerivedServiceCert{
@@ -130,11 +136,11 @@ func (idCfg *IdentityConfig) derivedServiceCertConfig() error {
 }
 
 // splitAndFilterPaths splits a comma-separated string, trims spaces, and filters out empty elements.
-func splitAndFilterPaths(s string) []string {
-	if s == "" {
-		return nil
+func splitAndFilterPaths(path string) ([]string, error) {
+	if path == "" {
+		return nil, fmt.Errorf("Path string is empty")
 	}
-	parts := strings.Split(s, ",")
+	parts := strings.Split(path, ",")
 	var result []string
 	for _, p := range parts {
 		trimmed := strings.TrimSpace(p)
@@ -142,5 +148,5 @@ func splitAndFilterPaths(s string) []string {
 			result = append(result, trimmed)
 		}
 	}
-	return result
+	return result, nil
 }
