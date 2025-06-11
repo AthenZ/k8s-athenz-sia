@@ -88,7 +88,7 @@ func (idCfg *IdentityConfig) derivedRoleCertConfig() error {
 	// error case: issue role certificate, rotate external key, mismatch period, issue role certificate, resolve, rotate external key, ...
 	if !idCfg.ServiceCert.CopperArgos.Use && idCfg.RoleCert.KeyFormat == "" {
 		// if role certificate issuing is enabled, warn user about the mismatch problem
-		log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idCfg.KeyFile)
+		log.Warnf("Rotating KEY_FILE[%s] may cause key mismatch with issued role certificate due to different rotation cycle. Please manually restart SIA when you rotate the key file.", idCfg.keyFile)
 	}
 
 	return nil
