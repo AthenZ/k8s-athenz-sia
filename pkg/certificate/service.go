@@ -94,7 +94,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				target_path = path
 			}
 
-			if unix.Access(target_path, unix.W_OK) != nil {
+			err = unix.Access(target_path, unix.W_OK)
+			if err != nil {
 				// no permition for writing file
 				return fmt.Errorf("operation not permited: %w", err)
 			}
