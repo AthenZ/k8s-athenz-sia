@@ -28,6 +28,7 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 	"github.com/cenkalti/backoff"
+	"golang.org/x/sys/unix"
 )
 
 type certService struct {
@@ -76,25 +77,24 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// validate files
 	isValidFiles := func() error {
 		isValidFile := func(path string) error {
-			var info os.FileInfo
-			file_info, err := os.Stat(path)
+			var target_path string
+			_, err := os.Stat(path)
 			if err != nil {
 				if os.IsNotExist(err) {
 					dir := filepath.Dir(path)
-					dir_info, err := os.Stat(dir)
+					_, err := os.Stat(dir)
 					if err != nil {
 						return fmt.Errorf("file is not exist: %w", err)
 					}
-					info = dir_info
+					target_path = dir
 				} else {
 					return fmt.Errorf("unknown path error: %w", err)
 				}
 			} else {
-				info = file_info
+				target_path = path
 			}
 
-			mode := info.Mode().Perm()
-			if mode&0200 == 0 {
+			if unix.Access(target_path, unix.W_OK) != nil {
 				// no permition for writing file
 				return fmt.Errorf("operation not permited: %w", err)
 			}
