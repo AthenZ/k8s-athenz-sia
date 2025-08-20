@@ -28,7 +28,6 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/util"
 	"github.com/cenkalti/backoff"
-	"golang.org/x/sys/unix"
 )
 
 type certService struct {
@@ -74,35 +73,48 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	var localFileKeyPEM []byte
 	var localFileIdentity *InstanceIdentity
 
-	// validate files
-	isValidFiles := func() error {
-		isValidFile := func(path string) error {
-			var target_path string
-			_, err := os.Stat(path)
-			if err != nil {
-				if os.IsNotExist(err) {
-					dir := filepath.Dir(path)
-					_, err := os.Stat(dir)
-					if err != nil {
-						return fmt.Errorf("file is not exist: %w", err)
-					}
-					target_path = dir
-				} else {
-					return fmt.Errorf("unknown path error: %w", err)
-				}
-			} else {
-				target_path = path
-			}
+	isFileWritable := func(path string) bool {
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+		defer f.Close()
+		return err == nil
+	}
 
-			err = unix.Access(target_path, unix.W_OK)
-			if err != nil {
-				// no permition for writing file
-				return fmt.Errorf("operation not permited: %w", err)
-			}
+	isDirWritable := func(path string) bool {
+		f, err := os.CreateTemp(path, "tmpfile*")
+		defer f.Close()
+		if err != nil {
+			return false
+		}
+		name := f.Name()
+		_ = os.Remove(name)
+		return true
+	}
 
-			return nil
+	// validate file
+	isValidFile := func(file_path string) error {
+		dir_path := filepath.Dir(file_path)
+		_, file_err := os.Stat(file_path)
+		_, dir_err := os.Stat(dir_path)
+
+		if file_err == nil {
+			// validate file path
+			if !isFileWritable(file_path) {
+				return fmt.Errorf("file not writable")
+			}
+		} else if os.IsNotExist(file_err) && dir_err == nil {
+			// validate dir path
+			if !isDirWritable(dir_path) {
+				return fmt.Errorf("directory not writable")
+			}
+		} else {
+			return fmt.Errorf("file path not exist: %w, %w", file_err, dir_err)
 		}
 
+		return nil
+	}
+
+	// validate files
+	isValidFiles := func() error {
 		for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
 			err := isValidFile(certFile)
 			if err != nil {
