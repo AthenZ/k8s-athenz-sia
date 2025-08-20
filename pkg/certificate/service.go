@@ -17,6 +17,7 @@ package certificate
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -70,6 +71,46 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// identity & keyPEM that will NOT be STORED to the local file system:
 	var localFileKeyPEM []byte
 	var localFileIdentity *InstanceIdentity
+
+	// validate files
+	isValidFiles := func() error {
+		isValidFile := func(path string) error {
+			info, err := os.Stat(path)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return fmt.Errorf("file is not exist: %w", err)
+				} else {
+					return fmt.Errorf("unknown path error: %w", err)
+				}
+			}
+
+			mode := info.Mode().Perm()
+			if mode&0200 == 0 {
+				// no permition for writing file
+				return fmt.Errorf("operation not permited: %w", err)
+			}
+
+			return nil
+		}
+
+		for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
+			err := isValidFile(certFile)
+			if err != nil {
+				return err
+			}
+		}
+		for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
+			err := isValidFile(keyFile)
+			if err != nil {
+				return err
+			}
+		}
+		err := isValidFile(idCfg.CaCertFile)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
 
 	// Write files to local file system
 	writeFiles := func() error {
@@ -209,6 +250,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	run := func() error {
+		err := isValidFiles()
+		if err != nil {
+			return err
+		}
+
 		if idCfg.ServiceCert.CopperArgos.Use {
 			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idCfg.ServiceCert.CopperArgos.Provider)
 
