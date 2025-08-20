@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -75,13 +76,21 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// validate files
 	isValidFiles := func() error {
 		isValidFile := func(path string) error {
-			info, err := os.Stat(path)
+			var info os.FileInfo
+			file_info, err := os.Stat(path)
 			if err != nil {
 				if os.IsNotExist(err) {
-					return fmt.Errorf("file is not exist: %w", err)
+					dir := filepath.Dir(path)
+					dir_info, err := os.Stat(dir)
+					if err != nil {
+						return fmt.Errorf("file is not exist: %w", err)
+					}
+					info = dir_info
 				} else {
 					return fmt.Errorf("unknown path error: %w", err)
 				}
+			} else {
+				info = file_info
 			}
 
 			mode := info.Mode().Perm()
