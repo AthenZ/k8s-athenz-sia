@@ -101,21 +101,23 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// validate files
 	isValidFiles := func() error {
-		for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
-			err := isValidFile(certFile)
+		if !idCfg.ServiceCert.LocalCert.Use {
+			for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
+				err := isValidFile(certFile)
+				if err != nil {
+					return err
+				}
+			}
+			for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
+				err := isValidFile(keyFile)
+				if err != nil {
+					return err
+				}
+			}
+			err := isValidFile(idCfg.CaCertFile)
 			if err != nil {
 				return err
 			}
-		}
-		for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
-			err := isValidFile(keyFile)
-			if err != nil {
-				return err
-			}
-		}
-		err := isValidFile(idCfg.CaCertFile)
-		if err != nil {
-			return err
 		}
 		return nil
 	}
@@ -123,7 +125,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// Write files to local file system
 	writeFiles := func() error {
 		w := util.NewWriter()
-		if identity != nil && localFileKeyPEM == nil && localFileIdentity == nil {
+		if identity != nil && !idCfg.ServiceCert.LocalCert.Use {
 			leafPEM := []byte(identity.X509CertificatePEM)
 			if len(leafPEM) != 0 && len(keyPEM) != 0 {
 				x509Cert, err := util.CertificateFromPEMBytes(leafPEM)
