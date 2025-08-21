@@ -280,15 +280,17 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 			}
 		} else if idCfg.ServiceCert.LocalCert.Use {
 			log.Debug("Attempting to load x509 certificate from cert reloader...")
-			localFileKeyPEM, localFileCertPEM, err := idCfg.Reloader.GetLatestKeyAndCert()
+			_localFileKeyPEM, localFileCertPEM, err := idCfg.Reloader.GetLatestKeyAndCert()
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate key from cert reloader: %s", err.Error())
 				return err
 			}
-			localFileIdentity, err = InstanceIdentityFromPEMBytes(localFileCertPEM)
+			_localFileIdentity, err := InstanceIdentityFromPEMBytes(localFileCertPEM)
 			if err != nil {
 				log.Warnf("Error while parsing x509 certificate from cert reloader: %s", err.Error())
 			}
+			localFileKeyPEM = _localFileKeyPEM
+			localFileIdentity = _localFileIdentity
 			if localFileIdentity == nil || len(localFileKeyPEM) == 0 {
 				log.Errorf("Failed to load x509 certificate from cert reloader to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(localFileCertPEM), len(localFileKeyPEM))
 			} else {
