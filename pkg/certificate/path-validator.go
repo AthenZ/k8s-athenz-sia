@@ -27,10 +27,6 @@ import (
 // To see how each file is validated, see extutil.ValidateFilePath() file directly.
 
 func validalidateAllPaths(idCfg *config.IdentityConfig) error {
-	if idCfg.ServiceCert.LocalCert.Use {
-		return nil
-	}
-
 	// TODO: Write a reason why LocalCert Mode does not require the cert path validation!!
 	if idCfg.ServiceCert.LocalCert.Use {
 		return nil
