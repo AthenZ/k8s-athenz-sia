@@ -209,7 +209,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	run := func() error {
-		if err := idCfg.IsValidFiles(); err != nil {
+		if err := idCfg.ValidateCertFilePath(); err != nil {
 			return err
 		}
 

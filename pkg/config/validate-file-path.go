@@ -8,8 +8,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// validate file
-func isValidFile(file_path string) error {
+func validFilePath(file_path string) error {
 	dir_path := filepath.Dir(file_path)
 	var target_path string
 	_, file_err := os.Stat(file_path)
@@ -33,24 +32,24 @@ func isValidFile(file_path string) error {
 	return nil
 }
 
-// validate files
-func (idCfg *IdentityConfig) IsValidFiles() error {
+// Verify that the certificate file paths are in writable locations
+func (idCfg *IdentityConfig) ValidateCertFilePath() error {
 	// When idCfg.ServiceCert.LocalCert.Use is true, skip file writing and return early
 	if idCfg.ServiceCert.LocalCert.Use {
 		return nil
 	}
 
 	for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
-		err := isValidFile(certFile)
+		err := validFilePath(certFile)
 		if err != nil {
 			return err
 		}
 	}
 	for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
-		err := isValidFile(keyFile)
+		err := validFilePath(keyFile)
 		if err != nil {
 			return err
 		}
 	}
-	return isValidFile(idCfg.CaCertFile)
+	return validFilePath(idCfg.CaCertFile)
 }
