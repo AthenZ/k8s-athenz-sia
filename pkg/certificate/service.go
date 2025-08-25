@@ -125,7 +125,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// Write files to local file system
 	writeFiles := func() error {
 		w := util.NewWriter()
-		if identity != nil && !idCfg.ServiceCert.LocalCert.Use {
+		if identity != nil && localFileKeyPEM == nil && localFileIdentity == nil {
 			leafPEM := []byte(identity.X509CertificatePEM)
 			if len(leafPEM) != 0 && len(keyPEM) != 0 {
 				x509Cert, err := util.CertificateFromPEMBytes(leafPEM)
@@ -280,17 +280,15 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 			}
 		} else if idCfg.ServiceCert.LocalCert.Use {
 			log.Debug("Attempting to load x509 certificate from cert reloader...")
-			_localFileKeyPEM, localFileCertPEM, err := idCfg.Reloader.GetLatestKeyAndCert()
+			localFileKeyPEM, localFileCertPEM, err := idCfg.Reloader.GetLatestKeyAndCert()
 			if err != nil {
 				log.Warnf("Error while reading x509 certificate key from cert reloader: %s", err.Error())
 				return err
 			}
-			_localFileIdentity, err := InstanceIdentityFromPEMBytes(localFileCertPEM)
+			localFileIdentity, err := InstanceIdentityFromPEMBytes(localFileCertPEM)
 			if err != nil {
 				log.Warnf("Error while parsing x509 certificate from cert reloader: %s", err.Error())
 			}
-			localFileKeyPEM = _localFileKeyPEM
-			localFileIdentity = _localFileIdentity
 			if localFileIdentity == nil || len(localFileKeyPEM) == 0 {
 				log.Errorf("Failed to load x509 certificate from cert reloader to get x509 role certs: key size[%d]bytes, certificate size[%d]bytes", len(localFileCertPEM), len(localFileKeyPEM))
 			} else {
