@@ -233,7 +233,7 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				log.Warnf("Error while reading x509 certificate key from cert reloader: %s", err.Error())
 				return err
 			}
-			localFileIdentity, err := InstanceIdentityFromPEMBytes(localFileCertPEM)
+			localFileIdentity, err = InstanceIdentityFromPEMBytes(localFileCertPEM)
 			if err != nil {
 				log.Warnf("Error while parsing x509 certificate from cert reloader: %s", err.Error())
 			}
