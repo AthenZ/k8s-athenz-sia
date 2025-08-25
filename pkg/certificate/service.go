@@ -101,25 +101,24 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// validate files
 	isValidFiles := func() error {
-		if !idCfg.ServiceCert.LocalCert.Use {
-			for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
-				err := isValidFile(certFile)
-				if err != nil {
-					return err
-				}
-			}
-			for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
-				err := isValidFile(keyFile)
-				if err != nil {
-					return err
-				}
-			}
-			err := isValidFile(idCfg.CaCertFile)
+		// When idCfg.ServiceCert.LocalCert.Use is true, skip file writing and return early
+		if idCfg.ServiceCert.LocalCert.Use {
+			return nil
+		}
+
+		for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
+			err := isValidFile(certFile)
 			if err != nil {
 				return err
 			}
 		}
-		return nil
+		for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
+			err := isValidFile(keyFile)
+			if err != nil {
+				return err
+			}
+		}
+		return isValidFile(idCfg.CaCertFile)
 	}
 
 	// Write files to local file system
