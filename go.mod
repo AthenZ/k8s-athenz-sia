@@ -1,6 +1,6 @@
 module github.com/AthenZ/k8s-athenz-sia/v3
 
-go 1.23.12
+go 1.24.9
 
 replace golang.org/x/net => golang.org/x/net v0.38.0
 
@@ -12,6 +12,7 @@ require (
 	github.com/AthenZ/athenz v1.12.11
 	github.com/bmatcuk/doublestar/v4 v4.8.1
 	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/dimiro1/health v0.0.0-20231118160444-e388c68d7d7e
 	github.com/go-ldap/ldap/v3 v3.4.10
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0

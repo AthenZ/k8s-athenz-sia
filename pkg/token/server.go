@@ -50,9 +50,9 @@ func postRoleToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 			errMsg := fmt.Sprintf("Error: %s requestID[%s]\t%s", err.Error(), requestID, http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
 			if errors.Is(err, ClientError) {
-				log.Warnf(errMsg)
+				log.Warn(errMsg)
 			} else {
-				log.Errorf(errMsg)
+				log.Warn(errMsg)
 			}
 		}
 	}()
@@ -138,9 +138,9 @@ func postAccessToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 			errMsg := fmt.Sprintf("Error: %s requestID[%s]\t%s", err.Error(), requestID, http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
 			if errors.Is(err, ClientError) {
-				log.Warnf(errMsg)
+				log.Warn(errMsg)
 			} else {
-				log.Errorf(errMsg)
+				log.Error(errMsg)
 			}
 		}
 	}()

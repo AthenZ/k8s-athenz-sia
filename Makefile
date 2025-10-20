@@ -68,11 +68,11 @@ endif
 
 build: submodule-update
 	@echo "Building..."
-	CGO_ENABLED=1 go build $(LDFLAGS) -o $(GOPATH)/bin/athenz-sia cmd/athenz-sia/*.go
+	CGO_ENABLED=1 GOEXPERIMENT=noswissmap go build $(LDFLAGS) -o $(GOPATH)/bin/athenz-sia cmd/athenz-sia/*.go
 
 test:
 	@echo "Testing..."
-	go test -v -failfast -timeout 1m -race -covermode=atomic -coverprofile=coverage.out ./...
+	GOEXPERIMENT=noswissmap go test -v -failfast -timeout 1m -race -covermode=atomic -coverprofile=coverage.out ./...
 
 lint:
 	golangci-lint run -c ./.golangci.yml
