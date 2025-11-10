@@ -472,6 +472,8 @@ func (d *tokenService) writeFile(token Token, outPath string, tt mode) error {
 	}
 
 	// Create the directory before saving tokens
+	// Note that Access/Role Tokens do not require predecessor tokens to be requested,
+	// We do not need to create the directory earlier in the process:
 	if err := extutil.CreateDirectory(outPath); err != nil {
 		return fmt.Errorf("unable to create directory for token: %w", err)
 	}
