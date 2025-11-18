@@ -54,6 +54,11 @@ var (
 
 	// default maximum elapsed time on initialization
 	DEFAULT_MAX_ELAPSED_TIME_ON_INIT = 1 * time.Minute
+
+	// default values for authorization server
+	DEFAULT_POLICY_REFRESH_INTERVAL      = 30 * time.Second
+	DEFAULT_PUBLICKEY_REFRESH_INTERVAL   = 30 * time.Second
+	DEFAULT_AUTHORIZATION_CACHE_INTERVAL = 30 * time.Second
 )
 
 func init() {
@@ -123,6 +128,14 @@ func DefaultIdentityConfig() *IdentityConfig {
 		useTokenServer:               false,
 		shutdownTimeout:              DEFAULT_SHUTDOWN_TIMEOUT,
 		shutdownDelay:                DEFAULT_SHUTDOWN_DELAY,
+
+		// Authorization Server defaults
+		AuthorizationServerAddr:               "",
+		authorizationPolicyDomains:            "",
+		policyRefreshInterval:                 DEFAULT_POLICY_REFRESH_INTERVAL,
+		publicKeyRefreshInterval:              DEFAULT_PUBLICKEY_REFRESH_INTERVAL,
+		authorizationCacheInterval:            DEFAULT_AUTHORIZATION_CACHE_INTERVAL,
+		enableMTLSCertificateBoundAccessToken: false,
 
 		LogDir:   fmt.Sprintf("/var/log/%s", APP_NAME),
 		LogLevel: "INFO",
