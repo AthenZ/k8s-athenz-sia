@@ -24,7 +24,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/google/uuid"
 )
 
