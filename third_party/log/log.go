@@ -161,3 +161,8 @@ func Fatalln(args ...interface{}) {
 func Panicln(args ...interface{}) {
 	log.Panicln(args...)
 }
+
+// WithField creates a child logger with the given field
+func WithField(key string, value interface{}) *logrus.Entry {
+	return log.WithField(key, value)
+}

@@ -24,7 +24,10 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"github.com/sirupsen/logrus"
 )
+
+var logger *logrus.Entry = log.WithField("component", "healthcheck")
 
 type hcService struct {
 	shutdownChan chan struct{}
@@ -37,7 +40,7 @@ type hcService struct {
 
 func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
 	if ctx.Err() != nil {
-		log.Info("Skipped health check initiation")
+		logger.Info("Skipped health check initiation")
 		return nil, nil
 	}
 
@@ -48,11 +51,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// check initialization skip
 	if idCfg.Init {
-		log.Infof("Health check server is disabled for init mode: address[%s]", idCfg.HealthCheckAddr)
+		logger.Infof("Health check server is disabled for init mode: address[%s]", idCfg.HealthCheckAddr)
 		return hs, nil
 	}
 	if idCfg.HealthCheckAddr == "" {
-		log.Infof("Health check server is disabled with empty options: address[%s]", idCfg.HealthCheckAddr)
+		logger.Infof("Health check server is disabled with empty options: address[%s]", idCfg.HealthCheckAddr)
 		return hs, nil
 	}
 
@@ -69,23 +72,23 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 // Start starts the health check server
 func (hs *hcService) Start(ctx context.Context) error {
 	if ctx.Err() != nil {
-		log.Info("Skipped health check start")
+		logger.Info("Skipped health check start")
 		return nil
 	}
 
 	if hs.hcServer != nil {
-		log.Infof("Starting health check server[%s]", hs.idCfg.HealthCheckAddr)
+		logger.Infof("Starting health check server[%s]", hs.idCfg.HealthCheckAddr)
 		hs.shutdownWg.Add(1)
 		go func() {
 			defer hs.shutdownWg.Done()
 			if err := hs.hcServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("Failed to start health check server: %s", err.Error())
+				logger.Fatalf("Failed to start health check server: %s", err.Error())
 			}
-			log.Info("Stopped health check server")
+			logger.Info("Stopped health check server")
 		}()
 
 		if err := daemon.WaitForServerReady(hs.hcServer.Addr, false, false); err != nil {
-			log.Errorf("Failed to confirm health check server ready: %s", err.Error())
+			logger.Errorf("Failed to confirm health check server ready: %s", err.Error())
 			return err
 		}
 		hs.hcServerRunning = true
@@ -95,7 +98,7 @@ func (hs *hcService) Start(ctx context.Context) error {
 }
 
 func (hs *hcService) Shutdown() {
-	log.Info("Initiating shutdown of health check daemon ...")
+	logger.Info("Initiating shutdown of health check daemon ...")
 	close(hs.shutdownChan)
 
 	if hs.hcServer != nil {
@@ -105,7 +108,7 @@ func (hs *hcService) Shutdown() {
 		cancel() // force shutdown health check server without delay
 		hs.hcServer.SetKeepAlivesEnabled(false)
 		if err := hs.hcServer.Shutdown(forcedCtx); err != nil && err != context.Canceled {
-			log.Errorf("Failed to shutdown health check server: %s", err.Error())
+			logger.Errorf("Failed to shutdown health check server: %s", err.Error())
 		}
 	}
 
@@ -121,7 +124,7 @@ func handleHealthCheckRequest(w http.ResponseWriter, r *http.Request) {
 			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			log.Errorf("http: panic serving %v: %v\n%s", r.RemoteAddr, err, buf)
+			logger.Errorf("http: panic serving %v: %v\n%s", r.RemoteAddr, err, buf)
 
 			w.WriteHeader(http.StatusInternalServerError)
 		}
@@ -132,7 +135,7 @@ func handleHealthCheckRequest(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-type", "text/plain; charset=utf-8")
 		_, err := fmt.Fprint(w, http.StatusText(http.StatusOK))
 		if err != nil {
-			log.Errorf("Failed to write health check server response: %v", err)
+			logger.Errorf("Failed to write health check server response: %v", err)
 		}
 	}
 }

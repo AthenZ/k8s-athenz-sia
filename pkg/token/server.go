@@ -50,9 +50,9 @@ func postRoleToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 			errMsg := fmt.Sprintf("Error: %s requestID[%s]\t%s", err.Error(), requestID, http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
 			if errors.Is(err, ClientError) {
-				log.Warn(errMsg)
+				logger.Warn(errMsg)
 			} else {
-				log.Warn(errMsg)
+				logger.Warn(errMsg)
 			}
 		}
 	}()
@@ -110,7 +110,7 @@ func postRoleToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 
 	// check context cancelled
 	if r.Context().Err() != nil {
-		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], requestID[%s], Err[%s]", r.URL.String(), domain, role, requestID, r.Context().Err().Error())
+		logger.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], requestID[%s], Err[%s]", r.URL.String(), domain, role, requestID, r.Context().Err().Error())
 		return
 	}
 
@@ -138,9 +138,9 @@ func postAccessToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 			errMsg := fmt.Sprintf("Error: %s requestID[%s]\t%s", err.Error(), requestID, http.StatusText(http.StatusInternalServerError))
 			http.Error(w, errMsg, http.StatusInternalServerError)
 			if errors.Is(err, ClientError) {
-				log.Warn(errMsg)
+				logger.Warn(errMsg)
 			} else {
-				log.Error(errMsg)
+				logger.Error(errMsg)
 			}
 		}
 	}()
@@ -193,7 +193,7 @@ func postAccessToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 
 	// check context cancelled
 	if r.Context().Err() != nil {
-		log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s], requestID[%s]", r.URL.String(), domain, role, r.Context().Err().Error(), requestID)
+		logger.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], Err[%s], requestID[%s]", r.URL.String(), domain, role, r.Context().Err().Error(), requestID)
 		return
 	}
 
@@ -223,7 +223,7 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 				const size = 64 << 10
 				buf := make([]byte, size)
 				buf = buf[:runtime.Stack(buf, false)]
-				log.Errorf("http: panic serving %v: %v requestID[%s]\n%s", r.RemoteAddr, err, requestID, buf)
+				logger.Errorf("http: panic serving %v: %v requestID[%s]\n%s", r.RemoteAddr, err, requestID, buf)
 
 				w.WriteHeader(http.StatusInternalServerError)
 			}
@@ -276,18 +276,18 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 
 		// check context cancelled
 		if r.Context().Err() != nil {
-			log.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], requestID[%s], Err[%s]", r.URL.String(), domain, role, requestID, r.Context().Err().Error())
+			logger.Warnf("Request context cancelled: URL[%s], domain[%s], role[%s], requestID[%s], Err[%s]", r.URL.String(), domain, role, requestID, r.Context().Err().Error())
 			return
 		}
 
 		if len(errMsg) > 0 {
 			response, err := json.Marshal(map[string]string{"error": errMsg})
 			if err != nil {
-				log.Errorf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
+				logger.Errorf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			log.Warn(fmt.Errorf("%w: while handling request with: %s[%s] %s[%s], error[%s]", ClientError, DOMAIN_HEADER, domain, ROLE_HEADER, role, errMsg))
+			logger.Warn(fmt.Errorf("%w: while handling request with: %s[%s] %s[%s], error[%s]", ClientError, DOMAIN_HEADER, domain, ROLE_HEADER, role, errMsg))
 			w.WriteHeader(http.StatusBadRequest)
 			io.WriteString(w, string(response))
 			return
@@ -306,12 +306,12 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 		}
 		response, err := json.Marshal(resJSON)
 		if err != nil {
-			log.Errorf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
+			logger.Errorf("Error while preparing json response with: message[%s], error[%v]", errMsg, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		log.Debugf("Returning %d for domain[%s], role[%s]", ts.tokenType, domain, role)
+		logger.Debugf("Returning %d for domain[%s], role[%s]", ts.tokenType, domain, role)
 		io.WriteString(w, string(response))
 	}
 
