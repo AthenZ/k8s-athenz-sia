@@ -14,6 +14,21 @@ import (
 
 var log *logrus.Logger
 
+func init() {
+	// Initialize with a default logger to avoid nil pointer errors
+	// This will be overwritten when InitLogger is called
+	log = &logrus.Logger{
+		Out:       os.Stdout,
+		Formatter: &logrus.TextFormatter{
+			ForceColors:            true,
+			DisableSorting:         true,
+			FullTimestamp:          true,
+			DisableLevelTruncation: true,
+		},
+		Level: logrus.InfoLevel,
+	}
+}
+
 func newLogger(logFile, level string, formatter logrus.Formatter, enableStdOut bool) *logrus.Logger {
 	var fileWriter io.Writer
 
