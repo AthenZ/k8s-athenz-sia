@@ -146,15 +146,13 @@ func main() {
 		}
 
 		authConfig := &authorization.AuthorizationConfig{
-			ServerAddr:                        idCfg.GetAuthorizationServerAddr(),
-			PolicyDomains:                     idCfg.GetAuthorizationPolicyDomains(),
-			TokenType:                         idCfg.TokenType,
-			PolicyRefreshInterval:             idCfg.GetPolicyRefreshInterval(),
-			PublicKeyRefreshInterval:          idCfg.GetPublicKeyRefreshInterval(),
-			CacheInterval:                     idCfg.GetAuthorizationCacheInterval(),
-			AthenzURL:                         athenzURL.String(),
-			HTTPClient:                        httpClient,
-			RoleAuthHeader:                    idCfg.GetRoleAuthHeader(),
+			ServerAddr:                            idCfg.GetAuthorizationServerAddr(),
+			PolicyDomains:                         idCfg.GetAuthorizationPolicyDomains(),
+			PolicyRefreshInterval:                 idCfg.GetPolicyRefreshInterval(),
+			PublicKeyRefreshInterval:              idCfg.GetPublicKeyRefreshInterval(),
+			CacheInterval:                         idCfg.GetAuthorizationCacheInterval(),
+			AthenzURL:                             athenzURL.String(),
+			HTTPClient:                            httpClient,
 			EnableMTLSCertificateBoundAccessToken: idCfg.GetEnableMTLSCertificateBoundAccessToken(),
 		}
 
