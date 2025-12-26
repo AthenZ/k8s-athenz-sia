@@ -206,7 +206,7 @@ func (as *AuthorizationServer) authorizationHandler(w http.ResponseWriter, r *ht
 	w.Header().Set("X-Athenz-Role", strings.Join(principal.Roles(), ","))
 	w.Header().Set("X-Athenz-Issued-At", fmt.Sprintf("%d", principal.IssueTime()))
 	w.Header().Set("X-Athenz-Expires-At", fmt.Sprintf("%d", principal.ExpiryTime()))
-	w.Header().Set("X-Athenz-AuthorizedRoles", strings.Join(principal.AuthorizedRoles(), ","))
+	w.Header().Set("X-Athenz-Authorized-Role", strings.Join(principal.AuthorizedRoles(), ","))
 
 	if c, ok := principal.(authorizerd.OAuthAccessToken); ok {
 		w.Header().Set("X-Athenz-Client-ID", c.ClientID())
