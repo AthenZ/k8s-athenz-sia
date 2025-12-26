@@ -94,6 +94,7 @@ func (as *AuthorizationServer) Start(ctx context.Context) error {
 		authorizerd.WithAccessTokenParam(authorizerd.NewAccessTokenParam(true, as.config.EnableMTLSCertificateBoundAccessToken, "", "", false, nil)),
 		authorizerd.WithEnableRoleToken(),
 		authorizerd.WithRoleAuthHeader(as.config.RoleAuthHeader),
+		authorizerd.WithEnableTokenCache(), // Enable token validation caching
 	)
 	if err != nil {
 		return fmt.Errorf("failed to initialize authorizer: %w", err)
