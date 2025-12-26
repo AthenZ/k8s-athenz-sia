@@ -94,6 +94,14 @@ type IdentityConfig struct {
 	HealthCheckEndpoint string
 	DeleteInstanceID    bool
 
+	// Authorization Server Configuration
+	AuthorizationServerAddr               string
+	authorizationPolicyDomains            string
+	policyRefreshInterval                 time.Duration
+	publicKeyRefreshInterval              time.Duration
+	authorizationCacheInterval            time.Duration
+	enableMTLSCertificateBoundAccessToken bool
+
 	LogDir   string
 	LogLevel string
 
@@ -111,9 +119,14 @@ type IdentityConfig struct {
 	rawTokenServerRESTAPI    string
 	rawTokenServerTimeout    string
 	rawDeleteInstanceID      string
-	rawUseTokenServer        string
-	rawShutdownTimeout       string
-	rawShutdownDelay         string
+	rawUseTokenServer                        string
+	rawShutdownTimeout                       string
+	rawShutdownDelay                         string
+	rawAuthorizationPolicyDomains            string
+	rawPolicyRefreshInterval                 string
+	rawPublicKeyRefreshInterval              string
+	rawAuthorizationCacheInterval            string
+	rawEnableMTLSCertificateBoundAccessToken string
 }
 
 type DomainRole struct {
@@ -123,4 +136,39 @@ type DomainRole struct {
 
 func (dr DomainRole) String() string {
 	return fmt.Sprintf("%s:role.%s", dr.Domain, dr.Role)
+}
+
+// GetAuthorizationServerAddr returns the authorization server address
+func (idCfg *IdentityConfig) GetAuthorizationServerAddr() string {
+	return idCfg.AuthorizationServerAddr
+}
+
+// GetAuthorizationPolicyDomains returns the authorization policy domains
+func (idCfg *IdentityConfig) GetAuthorizationPolicyDomains() string {
+	return idCfg.authorizationPolicyDomains
+}
+
+// GetPolicyRefreshInterval returns the policy refresh interval
+func (idCfg *IdentityConfig) GetPolicyRefreshInterval() time.Duration {
+	return idCfg.policyRefreshInterval
+}
+
+// GetPublicKeyRefreshInterval returns the public key refresh interval
+func (idCfg *IdentityConfig) GetPublicKeyRefreshInterval() time.Duration {
+	return idCfg.publicKeyRefreshInterval
+}
+
+// GetAuthorizationCacheInterval returns the authorization cache interval
+func (idCfg *IdentityConfig) GetAuthorizationCacheInterval() time.Duration {
+	return idCfg.authorizationCacheInterval
+}
+
+// GetEnableMTLSCertificateBoundAccessToken returns the MTLS certificate bound access token setting
+func (idCfg *IdentityConfig) GetEnableMTLSCertificateBoundAccessToken() bool {
+	return idCfg.enableMTLSCertificateBoundAccessToken
+}
+
+// GetRoleAuthHeader returns the role auth header
+func (idCfg *IdentityConfig) GetRoleAuthHeader() string {
+	return idCfg.roleAuthHeader
 }
