@@ -128,6 +128,14 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("SHUTDOWN_TIMEOUT", &idCfg.rawShutdownTimeout)
 	loadEnv("SHUTDOWN_DELAY", &idCfg.rawShutdownDelay)
 
+	// Authorization Server ENVs
+	loadEnv("AUTHORIZATION_SERVER_ADDR", &idCfg.AuthorizationServerAddr)
+	loadEnv("AUTHORIZATION_POLICY_DOMAINS", &idCfg.rawAuthorizationPolicyDomains)
+	loadEnv("POLICY_REFRESH_INTERVAL", &idCfg.rawPolicyRefreshInterval)
+	loadEnv("PUBLICKEY_REFRESH_INTERVAL", &idCfg.rawPublicKeyRefreshInterval)
+	loadEnv("AUTHORIZATION_CACHE_INTERVAL", &idCfg.rawAuthorizationCacheInterval)
+	loadEnv("MTLS_CERTIFICATE_BOUND_ACCESS_TOKEN", &idCfg.rawEnableMTLSCertificateBoundAccessToken)
+
 	// parse values
 	var err error
 	if idCfg.rawPodIP != "" {
@@ -243,6 +251,15 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	// graceful shutdown option
 	f.DurationVar(&idCfg.shutdownTimeout, "shutdown-timeout", idCfg.shutdownTimeout, "graceful shutdown timeout")
 	f.DurationVar(&idCfg.shutdownDelay, "shutdown-delay", idCfg.shutdownDelay, "graceful shutdown delay")
+
+	// Authorization Server options
+	f.StringVar(&idCfg.AuthorizationServerAddr, "authorization-server-addr", idCfg.AuthorizationServerAddr, "authorization server address")
+	f.StringVar(&idCfg.rawAuthorizationPolicyDomains, "authorization-policy-domains", idCfg.rawAuthorizationPolicyDomains, "authorization policy domains (comma-separated)")
+	f.DurationVar(&idCfg.policyRefreshInterval, "policy-refresh-interval", idCfg.policyRefreshInterval, "policy refresh interval")
+	f.DurationVar(&idCfg.publicKeyRefreshInterval, "publickey-refresh-interval", idCfg.publicKeyRefreshInterval, "public key refresh interval")
+	f.DurationVar(&idCfg.authorizationCacheInterval, "authorization-cache-interval", idCfg.authorizationCacheInterval, "authorization cache interval")
+	f.BoolVar(&idCfg.enableMTLSCertificateBoundAccessToken, "mtls-certificate-bound-access-token", idCfg.enableMTLSCertificateBoundAccessToken, "enable MTLS certificate bound access token")
+
 	if err := f.Parse(args); err != nil {
 		return err
 	}
@@ -254,6 +271,35 @@ func (idCfg *IdentityConfig) parseRawValues() (err error) {
 	idCfg.Init, err = parseMode(idCfg.rawMode)
 	if err != nil {
 		return fmt.Errorf("Invalid MODE/mode [%q], %w", idCfg.rawMode, err)
+	}
+
+	// Parse authorization server settings if they are set
+	if idCfg.rawAuthorizationPolicyDomains != "" {
+		idCfg.authorizationPolicyDomains = idCfg.rawAuthorizationPolicyDomains
+	}
+	if idCfg.rawPolicyRefreshInterval != "" {
+		idCfg.policyRefreshInterval, err = time.ParseDuration(idCfg.rawPolicyRefreshInterval)
+		if err != nil {
+			return fmt.Errorf("Invalid POLICY_REFRESH_INTERVAL [%q], %w", idCfg.rawPolicyRefreshInterval, err)
+		}
+	}
+	if idCfg.rawPublicKeyRefreshInterval != "" {
+		idCfg.publicKeyRefreshInterval, err = time.ParseDuration(idCfg.rawPublicKeyRefreshInterval)
+		if err != nil {
+			return fmt.Errorf("Invalid PUBLICKEY_REFRESH_INTERVAL [%q], %w", idCfg.rawPublicKeyRefreshInterval, err)
+		}
+	}
+	if idCfg.rawAuthorizationCacheInterval != "" {
+		idCfg.authorizationCacheInterval, err = time.ParseDuration(idCfg.rawAuthorizationCacheInterval)
+		if err != nil {
+			return fmt.Errorf("Invalid AUTHORIZATION_CACHE_INTERVAL [%q], %w", idCfg.rawAuthorizationCacheInterval, err)
+		}
+	}
+	if idCfg.rawEnableMTLSCertificateBoundAccessToken != "" {
+		idCfg.enableMTLSCertificateBoundAccessToken, err = strconv.ParseBool(idCfg.rawEnableMTLSCertificateBoundAccessToken)
+		if err != nil {
+			return fmt.Errorf("Invalid MTLS_CERTIFICATE_BOUND_ACCESS_TOKEN [%q], %w", idCfg.rawEnableMTLSCertificateBoundAccessToken, err)
+		}
 	}
 
 	return err

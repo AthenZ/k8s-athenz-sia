@@ -16,15 +16,19 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
 
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/authorization"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/certificate"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/healthcheck"
@@ -123,6 +127,45 @@ func main() {
 		log.Fatalf("Error initiating health check: %s", err.Error())
 	}
 
+	// initiate authorization service if configured
+	var authService *authorization.AuthorizationServer
+	if idCfg.GetAuthorizationServerAddr() != "" {
+		// Create HTTP client with default TLS config
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+			},
+		}
+
+		// Parse Athenz endpoint URL
+		athenzURL, err := url.Parse(idCfg.Endpoint)
+		if err != nil {
+			log.Fatalf("Error parsing Athenz endpoint URL: %s", err.Error())
+		}
+
+		authConfig := &authorization.AuthorizationConfig{
+			ServerAddr:                            idCfg.GetAuthorizationServerAddr(),
+			PolicyDomains:                         idCfg.GetAuthorizationPolicyDomains(),
+			PolicyRefreshInterval:                 idCfg.GetPolicyRefreshInterval(),
+			PublicKeyRefreshInterval:              idCfg.GetPublicKeyRefreshInterval(),
+			CacheInterval:                         idCfg.GetAuthorizationCacheInterval(),
+			AthenzURL:                             athenzURL.String(),
+			HTTPClient:                            httpClient,
+			EnableMTLSCertificateBoundAccessToken: idCfg.GetEnableMTLSCertificateBoundAccessToken(),
+		}
+
+		// Create stop channel for authorization service
+		stopChan := make(chan struct{})
+		go func() {
+			<-runCtx.Done()
+			close(stopChan)
+		}()
+
+		authService = authorization.NewAuthorizationServer(authConfig, stopChan)
+	}
+
 	// mode=init, end the process
 	if initCtx.Err() != nil {
 		log.Infof("Init stopped by cause: %s", context.Cause(initCtx).Error())
@@ -149,6 +192,12 @@ func main() {
 	if err := hcService.Start(runCtx); err != nil {
 		log.Errorf("Error starting health check: %s", err.Error())
 		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
+	}
+	if authService != nil {
+		if err := authService.Start(runCtx); err != nil {
+			log.Errorf("Error starting authorization server: %s", err.Error())
+			cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
+		}
 	}
 
 	// mode=refresh, wait for signal and then shutdown gracefully
