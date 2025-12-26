@@ -2,6 +2,8 @@ github.com/AthenZ/athenz v1.12.11 h1:fXM27cmJn886Pk4+LlllEgko4/BcyoNQPHWSPsVyPPs
 github.com/AthenZ/athenz v1.12.11/go.mod h1:yJ9qe2dQpVVHmfDcAgN3rC7kXscucVDMFYP+gLhzkMk=
 github.com/AthenZ/athenz-authorizer/v5 v5.7.0 h1:dv8stDthB7hSFFhSTRserVrA3Jzdn10vNjg9IUCJi4k=
 github.com/AthenZ/athenz-authorizer/v5 v5.7.0/go.mod h1:ke1An6DZdEWFaVNCQId64bWWWj94i27sWw5XDODPmMI=
+github.com/AthenZ/athenz-authorizer/v5 v5.7.1-0.20251226060650-c1947f6bfd0c h1:4HuOOYZMcRgz3cEKGBZtUacYP/A0xWqAxZeSoNWPKas=
+github.com/AthenZ/athenz-authorizer/v5 v5.7.1-0.20251226060650-c1947f6bfd0c/go.mod h1:ke1An6DZdEWFaVNCQId64bWWWj94i27sWw5XDODPmMI=
 github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 h1:mFRzDkZVAjdal+s7s0MwaRv9igoPqLRdzOLzw/8Xvq8=
 github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358/go.mod h1:chxPXzSsl7ZWRAuOIE23GDNzjWuZquvFlgA8xmpunjU=
 github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=

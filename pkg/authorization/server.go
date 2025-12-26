@@ -16,18 +16,16 @@ package authorization
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	authorizerd "github.com/AthenZ/athenz-authorizer/v5"
-	"github.com/pkg/errors"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
@@ -35,19 +33,17 @@ import (
 // AuthorizationConfig holds configuration for the authorization server
 type AuthorizationConfig struct {
 	// Server configuration
-	ServerAddr                        string
-	PolicyDomains                     string
-	TokenType                         string
+	ServerAddr    string
+	PolicyDomains string
 
 	// Refresh intervals
-	PolicyRefreshInterval             time.Duration
-	PublicKeyRefreshInterval          time.Duration
-	CacheInterval                     time.Duration
+	PolicyRefreshInterval    time.Duration
+	PublicKeyRefreshInterval time.Duration
+	CacheInterval            time.Duration
 
 	// Athenz configuration
-	AthenzURL                         string
-	HTTPClient                        *http.Client
-	RoleAuthHeader                    string
+	AthenzURL                             string
+	HTTPClient                            *http.Client
 	EnableMTLSCertificateBoundAccessToken bool
 }
 
@@ -69,9 +65,9 @@ func NewAuthorizationServer(config *AuthorizationConfig, stopChan <-chan struct{
 
 // Start initializes and starts the authorization server
 func (as *AuthorizationServer) Start(ctx context.Context) error {
-	if as.config.ServerAddr == "" || as.config.PolicyDomains == "" || as.config.TokenType == "" {
-		log.Infof("Authorizer is disabled with empty options: address[%s], domains[%s], authorizer-type[%s]",
-			as.config.ServerAddr, as.config.PolicyDomains, as.config.TokenType)
+	if as.config.ServerAddr == "" || as.config.PolicyDomains == "" {
+		log.Infof("Authorizer is disabled with empty options: address[%s], domains[%s]",
+			as.config.ServerAddr, as.config.PolicyDomains)
 		return nil
 	}
 
@@ -92,8 +88,6 @@ func (as *AuthorizationServer) Start(ctx context.Context) error {
 		authorizerd.WithEnablePolicyd(),
 		authorizerd.WithEnableJwkd(),
 		authorizerd.WithAccessTokenParam(authorizerd.NewAccessTokenParam(true, as.config.EnableMTLSCertificateBoundAccessToken, "", "", false, nil)),
-		authorizerd.WithEnableRoleToken(),
-		authorizerd.WithRoleAuthHeader(as.config.RoleAuthHeader),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to initialize authorizer: %w", err)
@@ -146,55 +140,92 @@ func (as *AuthorizationServer) Start(ctx context.Context) error {
 // authorizationHandler handles authorization requests
 func (as *AuthorizationServer) authorizationHandler(w http.ResponseWriter, r *http.Request) {
 	const (
-		actionHeader      = "X-Athenz-Action"
-		resourceHeader    = "X-Athenz-Resource"
+		actionHeader   = "X-Athenz-Action"
+		resourceHeader = "X-Athenz-Resource"
+		// Access token header (fallback when JWT claims are not available)
 		accessTokenHeader = "Authorization"
-		certificateHeader = "X-Athenz-Certificate"
+		// JWT claims headers (set by Envoy after JWT verification)
+		jwtClaimDomainHeader    = "X-Athenz-Domain"
+		jwtClaimRolesHeader     = "X-Athenz-Role"
+		jwtClaimPrincipalHeader = "X-Athenz-Principal"
+		jwtClaimClientIDHeader  = "X-Athenz-Client-Id"
+		jwtClaimIssuedAtHeader  = "X-Athenz-Issued-At"
+		jwtClaimExpiresAtHeader = "X-Athenz-Expires-At"
 	)
 
 	// Extract headers
 	action := r.Header.Get(actionHeader)
 	resource := r.Header.Get(resourceHeader)
 
+	// Extract access token (fallback when JWT claims are not available)
 	accessTokenHeaderValue := strings.Split(r.Header.Get(accessTokenHeader), " ")
 	accessToken := accessTokenHeaderValue[len(accessTokenHeaderValue)-1]
 
-	roleToken := r.Header.Get(as.config.RoleAuthHeader)
-
-	certificatePEM, _ := url.QueryUnescape(r.Header.Get(certificateHeader))
+	// Extract JWT claims from headers (if Envoy has already verified the JWT)
+	jwtDomain := r.Header.Get(jwtClaimDomainHeader)
+	jwtRolesStr := r.Header.Get(jwtClaimRolesHeader)
+	jwtPrincipal := r.Header.Get(jwtClaimPrincipalHeader)
+	jwtClientID := r.Header.Get(jwtClaimClientIDHeader)
+	jwtIssuedAt := r.Header.Get(jwtClaimIssuedAtHeader)
+	jwtExpiresAt := r.Header.Get(jwtClaimExpiresAtHeader)
 
 	// Validate required headers
-	if (accessToken == "" && roleToken == "" && certificatePEM == "") || action == "" || resource == "" {
-		log.Infof("Required http headers are not set: %s len(%d), %s len(%d), %s len(%d), action[%s], resource[%s]",
-			accessTokenHeader, len(accessToken), as.config.RoleAuthHeader, len(roleToken),
-			certificateHeader, len(certificatePEM), action, resource)
+	hasJWTClaims := jwtDomain != "" && jwtRolesStr != "" && jwtPrincipal != ""
+	hasAccessToken := accessToken != ""
+
+	if (!hasJWTClaims && !hasAccessToken) || action == "" || resource == "" {
+		log.Infof("Required http headers are not set: %s len(%d), jwt-claims[%v], action[%s], resource[%s]",
+			accessTokenHeader, len(accessToken), hasJWTClaims, action, resource)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	// Parse certificate if provided
-	var cert *x509.Certificate
-	if certificatePEM != "" {
-		block, _ := pem.Decode([]byte(certificatePEM))
-		if block == nil {
-			log.Infof("Malformed PEM certificate was set: %s[%s]", certificateHeader, certificatePEM)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		var err error
-		cert, err = x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			log.Infof("Malformed X.509 certificate was set: %s[%s]", certificateHeader, certificatePEM)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-	}
-
 	// Perform authorization
 	ctx := context.Background()
-	principal, err := as.authorize(ctx, cert, accessToken, roleToken, action, resource)
+	var principal authorizerd.Principal
+	var err error
+
+	// If JWT claims are provided by Envoy, use them directly
+	if hasJWTClaims {
+		// Parse roles from comma-separated string
+		roles := strings.Split(jwtRolesStr, ",")
+		// Trim spaces from roles
+		for i := range roles {
+			roles[i] = strings.TrimSpace(roles[i])
+		}
+
+		// Parse issueTime and expiryTime from headers
+		var issueTime, expiryTime int64
+		if jwtIssuedAt != "" {
+			issueTime, err = strconv.ParseInt(jwtIssuedAt, 10, 64)
+			if err != nil {
+				log.Infof("Invalid issued-at header value: %s, error: %v", jwtIssuedAt, err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		}
+		if jwtExpiresAt != "" {
+			expiryTime, err = strconv.ParseInt(jwtExpiresAt, 10, 64)
+			if err != nil {
+				log.Infof("Invalid expires-at header value: %s, error: %v", jwtExpiresAt, err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		}
+
+		log.Debugf("Authorizing with JWT claims: domain[%s], roles[%v], principal[%s], action[%s], resource[%s], iat[%d], exp[%d]",
+			jwtDomain, roles, jwtPrincipal, action, resource, issueTime, expiryTime)
+
+		// Use AuthorizeWithClaims for claims-based authorization
+		principal, err = as.daemon.AuthorizeWithClaims(ctx, jwtDomain, roles, jwtPrincipal, action, resource, issueTime, expiryTime)
+	} else {
+		// Fall back to access token-based authorization
+		log.Debugf("Authorizing with access token: action[%s], resource[%s]", action, resource)
+		principal, err = as.daemon.AuthorizeAccessToken(ctx, accessToken, action, resource, nil)
+	}
+
 	if err != nil || principal == nil {
+		log.Debugf("Authorization failed: %v", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -203,22 +234,56 @@ func (as *AuthorizationServer) authorizationHandler(w http.ResponseWriter, r *ht
 	w.Header().Set("X-Athenz-Principal", principal.Name())
 	w.Header().Set("X-Athenz-Domain", principal.Domain())
 	w.Header().Set("X-Athenz-Role", strings.Join(principal.Roles(), ","))
-	w.Header().Set("X-Athenz-Issued-At", fmt.Sprintf("%d", principal.IssueTime()))
-	w.Header().Set("X-Athenz-Expires-At", fmt.Sprintf("%d", principal.ExpiryTime()))
-	w.Header().Set("X-Athenz-AuthorizedRoles", strings.Join(principal.AuthorizedRoles(), ","))
+	w.Header().Set("X-Athenz-Authorized-Role", strings.Join(principal.AuthorizedRoles(), ","))
 
-	if c, ok := principal.(authorizerd.OAuthAccessToken); ok {
-		w.Header().Set("X-Athenz-Client-ID", c.ClientID())
+	// Use JWT claim values from Envoy if available, otherwise use values from principal
+	if hasJWTClaims {
+		// JWT claims-based authorization: use values from Envoy headers
+		if jwtIssuedAt != "" {
+			w.Header().Set("X-Athenz-Issued-At", jwtIssuedAt)
+		}
+		if jwtExpiresAt != "" {
+			w.Header().Set("X-Athenz-Expires-At", jwtExpiresAt)
+		}
+		if jwtClientID != "" {
+			w.Header().Set("X-Athenz-Client-ID", jwtClientID)
+		}
+	} else {
+		// Token-based authorization: use values from principal
+		w.Header().Set("X-Athenz-Issued-At", fmt.Sprintf("%d", principal.IssueTime()))
+		w.Header().Set("X-Athenz-Expires-At", fmt.Sprintf("%d", principal.ExpiryTime()))
+		if c, ok := principal.(authorizerd.OAuthAccessToken); ok {
+			w.Header().Set("X-Athenz-Client-ID", c.ClientID())
+		}
 	}
 
 	// Prepare JSON response
 	result := map[string]string{
-		"principal":        principal.Name(),
+		"principal":       principal.Name(),
 		"domain":          principal.Domain(),
 		"role":            strings.Join(principal.Roles(), ","),
-		"issued-at":       fmt.Sprintf("%d", principal.IssueTime()),
-		"expires-at":      fmt.Sprintf("%d", principal.ExpiryTime()),
-		"authorizedroles": strings.Join(principal.AuthorizedRoles(), ","),
+		"authorized-role": strings.Join(principal.AuthorizedRoles(), ","),
+	}
+
+	// Add issued-at and expires-at to JSON response
+	if hasJWTClaims {
+		// JWT claims-based authorization: use values from Envoy headers
+		if jwtIssuedAt != "" {
+			result["issued-at"] = jwtIssuedAt
+		}
+		if jwtExpiresAt != "" {
+			result["expires-at"] = jwtExpiresAt
+		}
+		if jwtClientID != "" {
+			result["client-id"] = jwtClientID
+		}
+	} else {
+		// Token-based authorization: use values from principal
+		result["issued-at"] = fmt.Sprintf("%d", principal.IssueTime())
+		result["expires-at"] = fmt.Sprintf("%d", principal.ExpiryTime())
+		if c, ok := principal.(authorizerd.OAuthAccessToken); ok {
+			result["client-id"] = c.ClientID()
+		}
 	}
 
 	response, err := json.Marshal(result)
@@ -230,39 +295,4 @@ func (as *AuthorizationServer) authorizationHandler(w http.ResponseWriter, r *ht
 
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, string(response))
-}
-
-// authorize performs authorization using multiple methods (certificate, access token, role token)
-func (as *AuthorizationServer) authorize(ctx context.Context, cert *x509.Certificate, accessToken, roleToken, action, resource string) (authorizerd.Principal, error) {
-	// Try role certificate first
-	if cert != nil && accessToken == "" {
-		principal, err := as.daemon.AuthorizeRoleCert(ctx, []*x509.Certificate{cert}, action, resource)
-		if err != nil {
-			log.Debugf("Authorization failed with role certificate, action[%s], resource[%s]: %s", action, resource, err.Error())
-		} else if principal != nil {
-			return principal, nil
-		}
-	}
-
-	// Try access token
-	if accessToken != "" {
-		principal, err := as.daemon.AuthorizeAccessToken(ctx, accessToken, action, resource, cert)
-		if err != nil {
-			log.Debugf("Authorization failed with access token, action[%s], resource[%s]: %s", action, resource, err.Error())
-		} else if principal != nil {
-			return principal, nil
-		}
-	}
-
-	// Try role token
-	if roleToken != "" {
-		principal, err := as.daemon.AuthorizeRoleToken(ctx, roleToken, action, resource)
-		if err != nil {
-			log.Debugf("Authorization failed with role token, action[%s], resource[%s]: %s", action, resource, err.Error())
-		} else if principal != nil {
-			return principal, nil
-		}
-	}
-
-	return nil, errors.New("authorization failed with all methods")
 }

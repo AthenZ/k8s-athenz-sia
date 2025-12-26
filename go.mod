@@ -34,7 +34,7 @@ require (
 )
 
 require (
-	github.com/AthenZ/athenz-authorizer/v5 v5.7.0 // indirect
+	github.com/AthenZ/athenz-authorizer/v5 v5.7.1-0.20251226060650-c1947f6bfd0c // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/ardielle/ardielle-go v1.5.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
