@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -29,7 +28,6 @@ import (
 	"time"
 
 	authorizerd "github.com/AthenZ/athenz-authorizer/v5"
-	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/certificate"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -70,13 +68,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		return as, nil
 	}
 
-	// Initialize identity handler (needed for initialization, even if not stored)
-	_, err := certificate.InitIdentityHandler(idCfg)
-	if err != nil {
-		log.Errorf("Failed to initialize client for authorizer: %s", err.Error())
-		return nil, err
-	}
-
 	// Parse Athenz URL
 	authorizerURL, err := url.Parse(idCfg.Endpoint)
 	if err != nil {
@@ -88,9 +79,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	// We need to create a new client because the identityHandler's client field is unexported
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
-	}
-	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		return idCfg.Reloader.GetLatestCertificate()
 	}
 	if idCfg.ServerCACert != "" {
 		certPool := x509.NewCertPool()
@@ -252,104 +240,36 @@ func (as *authorizerService) handleAuthorizerRequest(w http.ResponseWriter, r *h
 	accessTokenHeader := strings.Split(r.Header.Get("Authorization"), " ")
 	at := accessTokenHeader[len(accessTokenHeader)-1]
 
-	rt := r.Header.Get(as.idCfg.Authorizer.RoleAuthHeader)
-
-	// rolecert authentication or bound access token
-	certificatePEM, _ := url.QueryUnescape(r.Header.Get("X-Athenz-Certificate"))
-
 	// Validate required headers
-	if (at == "" && rt == "" && certificatePEM == "") || action == "" || resource == "" {
-		log.Infof("Required http headers are not set: Authorization len(%d), %s len(%d), X-Athenz-Certificate len(%d), action[%s], resource[%s]",
-			len(at), as.idCfg.Authorizer.RoleAuthHeader, len(rt), len(certificatePEM), action, resource)
-		w.WriteHeader(http.StatusBadRequest)
+	if at == "" || action == "" || resource == "" {
+		log.Infof("Required http headers are not set: Authorization len(%d), action[%s], resource[%s]",
+			len(at), action, resource)
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	// Parse certificate if provided
-	var cert *x509.Certificate
-	if certificatePEM != "" {
-		block, _ := pem.Decode([]byte(certificatePEM))
-		if block == nil {
-			log.Infof("Malformed PEM certificate was set: X-Athenz-Certificate[%s]", certificatePEM)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		var err error
-		cert, err = x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			log.Infof("Malformed X.509 certificate was set: X-Athenz-Certificate[%s]: %s", certificatePEM, err.Error())
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-	}
-
 	// Authorize
-	principal, err := as.authorize(r.Context(), cert, at, rt, action, resource)
+	principal, err := as.authorizerDaemon.AuthorizeAccessToken(r.Context(), at, action, resource, nil)
 	if err != nil || principal == nil {
+		err = fmt.Errorf("authorization failed with access token, action[%s], resource[%s]: %w", action, resource, err)
+		log.Debugf("Authorization failed: %s", err.Error())
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	// Set response headers
-	w.Header().Set("X-Athenz-Principal", principal.Name())
-	w.Header().Set("X-Athenz-Domain", principal.Domain())
-	w.Header().Set("X-Athenz-Role", strings.Join(principal.Roles(), ","))
-	w.Header().Set("X-Athenz-Issued-At", fmt.Sprintf("%d", principal.IssueTime()))
-	w.Header().Set("X-Athenz-Expires-At", fmt.Sprintf("%d", principal.ExpiryTime()))
-	w.Header().Set("X-Athenz-AuthorizedRole", strings.Join(principal.AuthorizedRoles(), ","))
+	w.Header().Set("x-athenz-principal", principal.Name())
+	w.Header().Set("x-athenz-domain", principal.Domain())
+	w.Header().Set("x-athenz-role", strings.Join(principal.Roles(), ","))
+	w.Header().Set("x-athenz-issued-at", fmt.Sprintf("%d", principal.IssueTime()))
+	w.Header().Set("x-athenz-expires-at", fmt.Sprintf("%d", principal.ExpiryTime()))
+	w.Header().Set("x-athenz-authorized-role", strings.Join(principal.AuthorizedRoles(), ","))
 
 	if c, ok := principal.(authorizerd.OAuthAccessToken); ok {
-		w.Header().Set("X-Athenz-Client-ID", c.ClientID())
+		w.Header().Set("x-athenz-client-id", c.ClientID())
 	}
 
 	w.WriteHeader(http.StatusOK)
 
-	log.Debugf("successfully authorized request with Authorization len(%d), %s len(%d), X-Athenz-Certificate len(%d), action[%s], resource[%s]", len(at), as.idCfg.Authorizer.RoleAuthHeader, len(rt), len(certificatePEM), action, resource)
-}
-
-func (as *authorizerService) authorize(ctx context.Context, cert *x509.Certificate, at, rt, action, resource string) (authorizerd.Principal, error) {
-	var principal authorizerd.Principal
-	var err error
-
-	// Try role certificate (not implemented)
-	if cert != nil && at == "" {
-		principal, err = as.authorizerDaemon.AuthorizeRoleCert(ctx, []*x509.Certificate{cert}, action, resource)
-		if err != nil {
-			err = fmt.Errorf("authorization failed with role certificate, action[%s], resource[%s]: %w", action, resource, err)
-			log.Debugf("Authorization failed: %s", err.Error())
-		}
-		if principal != nil {
-			return principal, nil
-		}
-	}
-
-	// Try access token
-	if at != "" {
-		principal, err = as.authorizerDaemon.AuthorizeAccessToken(ctx, at, action, resource, cert)
-		if err != nil {
-			err = fmt.Errorf("authorization failed with access token, action[%s], resource[%s]: %w", action, resource, err)
-			log.Debugf("Authorization failed: %s", err.Error())
-		}
-		if principal != nil {
-			return principal, nil
-		}
-	}
-
-	// Try role token
-	if rt != "" {
-		principal, err = as.authorizerDaemon.AuthorizeRoleToken(ctx, rt, action, resource)
-		if err != nil {
-			err = fmt.Errorf("authorization failed with role token, action[%s], resource[%s]: %w", action, resource, err)
-			log.Debugf("Authorization failed: %s", err.Error())
-		}
-		if principal != nil {
-			return principal, nil
-		}
-	}
-
-	if err != nil {
-		log.Infof("Authorization failed: %s", err.Error())
-	}
-
-	return nil, err
+	log.Debugf("successfully authorized request with Authorization len(%d), action[%s], resource[%s]", len(at), action, resource)
 }
