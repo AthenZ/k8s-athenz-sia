@@ -1,4 +1,4 @@
-// Copyright 2023 LY Corporation
+// Copyright 2024 LY Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/authorizer"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/certificate"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/healthcheck"
@@ -122,6 +123,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error initiating health check: %s", err.Error())
 	}
+	authorizerService, err := authorizer.New(initCtx, idCfg)
+	if err != nil {
+		log.Fatalf("Error initiating authorizer: %s", err.Error())
+	}
 
 	// mode=init, end the process
 	if initCtx.Err() != nil {
@@ -150,10 +155,15 @@ func main() {
 		log.Errorf("Error starting health check: %s", err.Error())
 		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
 	}
+	if err := authorizerService.Start(runCtx); err != nil {
+		log.Errorf("Error starting authorizer: %s", err.Error())
+		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
+	}
 
 	// mode=refresh, wait for signal and then shutdown gracefully
 	<-runCtx.Done()
 	log.Infof("Initiating shutdown by cause: %s ...", context.Cause(runCtx).Error())
+	authorizerService.Shutdown()
 	hcService.Shutdown()
 	metricsService.Shutdown()
 	tokenService.Shutdown()
