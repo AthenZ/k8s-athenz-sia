@@ -261,9 +261,11 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 			// TODO: Maybe we need to separate the cache keys for RT and AT?
 			if ts.tokenType&mACCESS_TOKEN != 0 {
 				k := CacheKey{Domain: domain, Role: role}
+				// TODO: Uncomment when supporting X-Athenz-ProxyForPrincipal
 				// if proxyForPrincipal != "" {
 				// 	k.ProxyForPrincipal = proxyForPrincipal
 				// }
+				// TODO: Uncomment when supporting X-Athenz-Expiry
 				// if rawExpiry != "" && expiry > 0 {
 				// 	k.MaxExpiry = expiry
 				// }
@@ -278,9 +280,11 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 			}
 			if ts.tokenType&mROLE_TOKEN != 0 {
 				k := CacheKey{Domain: domain, Role: role}
+				// TODO: Uncomment when supporting X-Athenz-ProxyForPrincipal
 				// if proxyForPrincipal != "" {
 				// 	k.ProxyForPrincipal = proxyForPrincipal
 				// }
+				// TODO: Uncomment when supporting X-Athenz-Expiry
 				// if rawExpiry != "" && expiry > 0 {
 				// 	k.MaxExpiry = expiry
 				// }
