@@ -1,4 +1,4 @@
-// Copyright 2023 LY Corporation
+// Copyright 2024 LY Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,6 +86,15 @@ type IdentityConfig struct {
 	shutdownTimeout        time.Duration
 	shutdownDelay          time.Duration
 
+	// Authorizer Derived State and its related fields:
+	Authorizer                            DerivedAuthorizer
+	AuthorizationServerAddr               string
+	AuthorizationPolicyDomains            string
+	AuthorizationCacheInterval            time.Duration
+	PolicyRefreshInterval                 time.Duration
+	PublicKeyRefreshInterval              time.Duration
+	EnableMTLSCertificateBoundAccessToken bool
+
 	TokenRefresh        time.Duration
 	TokenExpiry         time.Duration
 	TokenType           string
@@ -98,22 +107,26 @@ type IdentityConfig struct {
 	LogLevel string
 
 	// raw strings before parsing
-	rawMode                  string
-	rawPodIP                 string
-	rawTargetDomainRoles     string
-	rawRefresh               string
-	rawDelayJitterSeconds    string
-	rawCertExtraSANDNSs      string
-	rawCertSubject           string
-	rawRoleCertKeyFileOutput string
-	rawTokenRefresh          string
-	rawTokenExpiry           string
-	rawTokenServerRESTAPI    string
-	rawTokenServerTimeout    string
-	rawDeleteInstanceID      string
-	rawUseTokenServer        string
-	rawShutdownTimeout       string
-	rawShutdownDelay         string
+	rawMode                                  string
+	rawPodIP                                 string
+	rawTargetDomainRoles                     string
+	rawRefresh                               string
+	rawDelayJitterSeconds                    string
+	rawCertExtraSANDNSs                      string
+	rawCertSubject                           string
+	rawRoleCertKeyFileOutput                 string
+	rawTokenRefresh                          string
+	rawTokenExpiry                           string
+	rawTokenServerRESTAPI                    string
+	rawTokenServerTimeout                    string
+	rawDeleteInstanceID                      string
+	rawUseTokenServer                        string
+	rawShutdownTimeout                       string
+	rawShutdownDelay                         string
+	rawAuthorizationCacheInterval            string
+	rawPolicyRefreshInterval                 string
+	rawPublicKeyRefreshInterval              string
+	rawEnableMTLSCertificateBoundAccessToken string
 }
 
 type DomainRole struct {

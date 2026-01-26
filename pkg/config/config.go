@@ -1,4 +1,4 @@
-// Copyright 2023 LY Corporation
+// Copyright 2024 LY Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -125,6 +125,13 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("HEALTH_CHECK_ADDR", &idCfg.HealthCheckAddr)
 	loadEnv("HEALTH_CHECK_ENDPOINT", &idCfg.HealthCheckEndpoint)
 
+	loadEnv("AUTHORIZATION_SERVER_ADDR", &idCfg.AuthorizationServerAddr)
+	loadEnv("AUTHORIZATION_POLICY_DOMAINS", &idCfg.AuthorizationPolicyDomains)
+	loadEnv("AUTHORIZATION_CACHE_INTERVAL", &idCfg.rawAuthorizationCacheInterval)
+	loadEnv("POLICY_REFRESH_INTERVAL", &idCfg.rawPolicyRefreshInterval)
+	loadEnv("PUBLIC_KEY_REFRESH_INTERVAL", &idCfg.rawPublicKeyRefreshInterval)
+	loadEnv("ENABLE_MTLS_CERTIFICATE_BOUND_ACCESS_TOKEN", &idCfg.rawEnableMTLSCertificateBoundAccessToken)
+
 	loadEnv("SHUTDOWN_TIMEOUT", &idCfg.rawShutdownTimeout)
 	loadEnv("SHUTDOWN_DELAY", &idCfg.rawShutdownDelay)
 
@@ -179,6 +186,22 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	idCfg.shutdownDelay, err = time.ParseDuration(idCfg.rawShutdownDelay)
 	if err != nil {
 		return fmt.Errorf("Invalid SHUTDOWN_DELAY [%q], %w", idCfg.rawShutdownDelay, err)
+	}
+	idCfg.AuthorizationCacheInterval, err = time.ParseDuration(idCfg.rawAuthorizationCacheInterval)
+	if err != nil {
+		return fmt.Errorf("Invalid AUTHORIZATION_CACHE_INTERVAL [%q], %w", idCfg.rawAuthorizationCacheInterval, err)
+	}
+	idCfg.PolicyRefreshInterval, err = time.ParseDuration(idCfg.rawPolicyRefreshInterval)
+	if err != nil {
+		return fmt.Errorf("Invalid POLICY_REFRESH_INTERVAL [%q], %w", idCfg.rawPolicyRefreshInterval, err)
+	}
+	idCfg.PublicKeyRefreshInterval, err = time.ParseDuration(idCfg.rawPublicKeyRefreshInterval)
+	if err != nil {
+		return fmt.Errorf("Invalid PUBLIC_KEY_REFRESH_INTERVAL [%q], %w", idCfg.rawPublicKeyRefreshInterval, err)
+	}
+	idCfg.EnableMTLSCertificateBoundAccessToken, err = strconv.ParseBool(idCfg.rawEnableMTLSCertificateBoundAccessToken)
+	if err != nil {
+		return fmt.Errorf("Invalid ENABLE_MTLS_CERTIFICATE_BOUND_ACCESS_TOKEN [%q], %w", idCfg.rawEnableMTLSCertificateBoundAccessToken, err)
 	}
 	return nil
 }
@@ -240,6 +263,13 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	// healthCheck
 	f.StringVar(&idCfg.HealthCheckAddr, "health-check-addr", idCfg.HealthCheckAddr, "HTTP server address to provide health check")
 	f.StringVar(&idCfg.HealthCheckEndpoint, "health-check-endpoint", idCfg.HealthCheckEndpoint, "HTTP server endpoint to provide health check")
+	// authorizer
+	f.StringVar(&idCfg.AuthorizationServerAddr, "authorization-server-addr", idCfg.AuthorizationServerAddr, "HTTP server address to provide authorization service")
+	f.StringVar(&idCfg.AuthorizationPolicyDomains, "authorization-policy-domains", idCfg.AuthorizationPolicyDomains, "Athenz policy domains for authorization (comma-separated)")
+	f.DurationVar(&idCfg.AuthorizationCacheInterval, "authorization-cache-interval", idCfg.AuthorizationCacheInterval, "authorization cache expiration interval")
+	f.DurationVar(&idCfg.PolicyRefreshInterval, "policy-refresh-interval", idCfg.PolicyRefreshInterval, "policy refresh interval")
+	f.DurationVar(&idCfg.PublicKeyRefreshInterval, "public-key-refresh-interval", idCfg.PublicKeyRefreshInterval, "public key refresh interval")
+	f.BoolVar(&idCfg.EnableMTLSCertificateBoundAccessToken, "enable-mtls-certificate-bound-access-token", idCfg.EnableMTLSCertificateBoundAccessToken, "enable mTLS certificate bound access token (true/false)")
 	// graceful shutdown option
 	f.DurationVar(&idCfg.shutdownTimeout, "shutdown-timeout", idCfg.shutdownTimeout, "graceful shutdown timeout")
 	f.DurationVar(&idCfg.shutdownDelay, "shutdown-delay", idCfg.shutdownDelay, "graceful shutdown delay")

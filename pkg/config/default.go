@@ -1,4 +1,4 @@
-// Copyright 2023 LY Corporation
+// Copyright 2024 LY Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,24 +124,36 @@ func DefaultIdentityConfig() *IdentityConfig {
 		shutdownTimeout:              DEFAULT_SHUTDOWN_TIMEOUT,
 		shutdownDelay:                DEFAULT_SHUTDOWN_DELAY,
 
+		// Authorizer configuration
+		AuthorizationServerAddr:               "",
+		AuthorizationPolicyDomains:            "",
+		AuthorizationCacheInterval:            5 * time.Minute,
+		PolicyRefreshInterval:                 30 * time.Minute,
+		PublicKeyRefreshInterval:              30 * time.Minute,
+		EnableMTLSCertificateBoundAccessToken: false,
+
 		LogDir:   fmt.Sprintf("/var/log/%s", APP_NAME),
 		LogLevel: "INFO",
 
-		rawMode:                  "init",
-		rawPodIP:                 "",
-		rawTargetDomainRoles:     "",
-		rawRefresh:               "24h",
-		rawDelayJitterSeconds:    "0",
-		rawCertExtraSANDNSs:      "",
-		rawCertSubject:           "",
-		rawRoleCertKeyFileOutput: "false",
-		rawTokenRefresh:          DEFAULT_TOKEN_REFRESH.String(),
-		rawTokenExpiry:           DEFAULT_TOKEN_EXPIRY.String(),
-		rawTokenServerRESTAPI:    "false",
-		rawTokenServerTimeout:    DEFAULT_TOKEN_SERVER_TIMEOUT.String(),
-		rawDeleteInstanceID:      "false",
-		rawUseTokenServer:        "false",
-		rawShutdownTimeout:       DEFAULT_SHUTDOWN_TIMEOUT.String(),
-		rawShutdownDelay:         DEFAULT_SHUTDOWN_DELAY.String(),
+		rawMode:                                  "init",
+		rawPodIP:                                 "",
+		rawTargetDomainRoles:                     "",
+		rawRefresh:                               "24h",
+		rawDelayJitterSeconds:                    "0",
+		rawCertExtraSANDNSs:                      "",
+		rawCertSubject:                           "",
+		rawRoleCertKeyFileOutput:                 "false",
+		rawTokenRefresh:                          DEFAULT_TOKEN_REFRESH.String(),
+		rawTokenExpiry:                           DEFAULT_TOKEN_EXPIRY.String(),
+		rawTokenServerRESTAPI:                    "false",
+		rawTokenServerTimeout:                    DEFAULT_TOKEN_SERVER_TIMEOUT.String(),
+		rawDeleteInstanceID:                      "false",
+		rawUseTokenServer:                        "false",
+		rawShutdownTimeout:                       DEFAULT_SHUTDOWN_TIMEOUT.String(),
+		rawShutdownDelay:                         DEFAULT_SHUTDOWN_DELAY.String(),
+		rawAuthorizationCacheInterval:            "5m",
+		rawPolicyRefreshInterval:                 "30m",
+		rawPublicKeyRefreshInterval:              "30m",
+		rawEnableMTLSCertificateBoundAccessToken: "false",
 	}
 }
