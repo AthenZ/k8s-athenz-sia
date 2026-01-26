@@ -263,6 +263,13 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	// healthCheck
 	f.StringVar(&idCfg.HealthCheckAddr, "health-check-addr", idCfg.HealthCheckAddr, "HTTP server address to provide health check")
 	f.StringVar(&idCfg.HealthCheckEndpoint, "health-check-endpoint", idCfg.HealthCheckEndpoint, "HTTP server endpoint to provide health check")
+	// authorizer
+	f.StringVar(&idCfg.AuthorizationServerAddr, "authorization-server-addr", idCfg.AuthorizationServerAddr, "HTTP server address to provide authorization service")
+	f.StringVar(&idCfg.AuthorizationPolicyDomains, "authorization-policy-domains", idCfg.AuthorizationPolicyDomains, "Athenz policy domains for authorization (comma-separated)")
+	f.DurationVar(&idCfg.AuthorizationCacheInterval, "authorization-cache-interval", idCfg.AuthorizationCacheInterval, "authorization cache expiration interval")
+	f.DurationVar(&idCfg.PolicyRefreshInterval, "policy-refresh-interval", idCfg.PolicyRefreshInterval, "policy refresh interval")
+	f.DurationVar(&idCfg.PublicKeyRefreshInterval, "public-key-refresh-interval", idCfg.PublicKeyRefreshInterval, "public key refresh interval")
+	f.BoolVar(&idCfg.EnableMTLSCertificateBoundAccessToken, "enable-mtls-certificate-bound-access-token", idCfg.EnableMTLSCertificateBoundAccessToken, "enable mTLS certificate bound access token (true/false)")
 	// graceful shutdown option
 	f.DurationVar(&idCfg.shutdownTimeout, "shutdown-timeout", idCfg.shutdownTimeout, "graceful shutdown timeout")
 	f.DurationVar(&idCfg.shutdownDelay, "shutdown-delay", idCfg.shutdownDelay, "graceful shutdown delay")
