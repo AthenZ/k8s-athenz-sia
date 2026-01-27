@@ -37,7 +37,7 @@ func (idCfg *IdentityConfig) derivedAuthorizerConfig() error {
 		PolicyDomains:                         "",
 		CacheInterval:                         5 * time.Minute,
 		PolicyRefreshInterval:                 30 * time.Minute,
-		PublicKeyRefreshInterval:              30 * time.Minute,
+		PublicKeyRefreshInterval:              24 * time.Hour,
 		EnableMTLSCertificateBoundAccessToken: false,
 		RoleAuthHeader:                        DEFAULT_ROLE_AUTH_HEADER,
 	}

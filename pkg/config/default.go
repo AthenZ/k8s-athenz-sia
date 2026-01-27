@@ -129,7 +129,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		AuthorizationPolicyDomains:            "",
 		AuthorizationCacheInterval:            5 * time.Minute,
 		PolicyRefreshInterval:                 30 * time.Minute,
-		PublicKeyRefreshInterval:              30 * time.Minute,
+		PublicKeyRefreshInterval:              24 * time.Hour,
 		EnableMTLSCertificateBoundAccessToken: false,
 
 		LogDir:   fmt.Sprintf("/var/log/%s", APP_NAME),
@@ -153,7 +153,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawShutdownDelay:                         DEFAULT_SHUTDOWN_DELAY.String(),
 		rawAuthorizationCacheInterval:            "5m",
 		rawPolicyRefreshInterval:                 "30m",
-		rawPublicKeyRefreshInterval:              "30m",
+		rawPublicKeyRefreshInterval:              "24h",
 		rawEnableMTLSCertificateBoundAccessToken: "false",
 	}
 }
