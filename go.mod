@@ -2,6 +2,8 @@ module github.com/AthenZ/k8s-athenz-sia/v3
 
 go 1.25.6
 
+replace github.com/bmatcuk/doublestar/v4 => github.com/enix/doublestar/v4 v4.0.0-20230517103320-2fbc4cd74d7f
+
 require (
 	github.com/AthenZ/athenz v1.12.38
 	github.com/bmatcuk/doublestar/v4 v4.8.1
