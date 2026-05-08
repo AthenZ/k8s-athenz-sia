@@ -1,0 +1,39 @@
+name: Kind Athenz k8s-athenz-sia E2E
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  E2E_ATHENZ_DISTRIBUTION_REF: latest
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout k8s-athenz-sia
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Golang
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./e2e/go.mod
+          check-latest: true
+          cache: true
+
+      - name: Setup KinD
+        uses: engineerd/setup-kind@v0.6.2
+        with:
+          version: v0.26.0
+
+      - name: Run k8s-athenz-sia BDD e2e
+        run: make e2e

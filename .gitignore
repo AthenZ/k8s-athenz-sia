@@ -15,6 +15,7 @@
 
 # Third-party libraries
 vendor/*
+.external/
 
 # Go build binary
 /k8s-athenz-sia
