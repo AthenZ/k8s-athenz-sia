@@ -15,80 +15,87 @@
 package token
 
 import (
-	"math"
 	"testing"
 	"unsafe"
 )
 
-func Test_getMapBucketLenAndSize(t *testing.T) {
-	type args struct {
-		c map[CacheKey]Token
+func Test_getMapAllocatedSize(t *testing.T) {
+	slotSize := int64(unsafe.Sizeof(CacheKey{})) + 16
+	groupDataSize := int64(8) + int64(8)*slotSize
+
+	// computeExpectedSize computes the expected allocated size for a map with the given hint.
+	// swissmap: maxAvgGroupLoad=7, MapGroupSlots=8, maxTableCapacity=1024
+	computeExpectedSize := func(hint int) int64 {
+		if hint <= 8 {
+			// Small map: single group, no table/directory overhead
+			return groupDataSize
+		}
+
+		// Compute required capacity (power of 2, minimum 8)
+		// growthLeft = (capacity * maxAvgGroupLoad) / MapGroupSlots
+		// We need growthLeft >= hint, so capacity >= hint * 8 / 7
+		capacity := 8
+		for (capacity*7)/8 < hint {
+			capacity *= 2
+		}
+
+		numGroups := capacity / 8
+		tableSize := int64(unsafe.Sizeof(swissTable{})) + int64(numGroups)*groupDataSize
+
+		if capacity <= 1024 {
+			// Single table, directory length = 1
+			dirSize := int64(1) * int64(unsafe.Sizeof(uintptr(0)))
+			return dirSize + tableSize
+		}
+
+		// Multiple tables: each table has maxTableCapacity=1024, numGroups=128
+		numTables := capacity / 1024
+		singleTableSize := int64(unsafe.Sizeof(swissTable{})) + int64(1024/8)*groupDataSize
+		dirLen := numTables
+		dirSize := int64(dirLen) * int64(unsafe.Sizeof(uintptr(0)))
+		return dirSize + singleTableSize*int64(numTables)
 	}
-	b := unsafe.Sizeof(bmap{})
-	computeRequiredBuckets := func(l float64) int64 {
-		// ensure number of buckets in power of 2 > entries size / load factor (i.e. 6.5)
-		// e.g. 1000 entries /6.5 = 153.8 < 2^8 = 256 buckets
-		// https://github.com/golang/go/blob/2184a394777ccc9ce9625932b2ad773e6e626be0/src/runtime/map.go#L73C3-L73C3
-		return 1 << uint(math.Ceil(math.Log2(l/13.0*2.0)))
-	}
+
+	smallMap := make(map[CacheKey]Token)
+	smallMap[CacheKey{Domain: "d", Role: "r"}] = &AccessToken{}
+
 	tests := []struct {
-		name           string
-		args           args
-		wantBucketLen  int
-		wantBucketSize int64
+		name     string
+		c        map[CacheKey]Token
+		wantSize int64
 	}{
 		{
-			name: "empty map",
-			args: args{
-				c: make(map[CacheKey]Token, 0),
-			},
-			wantBucketLen:  1,
-			wantBucketSize: int64(b),
+			name:     "empty map",
+			c:        make(map[CacheKey]Token, 0),
+			wantSize: 0, // no allocation until first insert
 		},
 		{
-			name: "1000 map",
-			args: args{
-				c: make(map[CacheKey]Token, 1000),
-			},
-			wantBucketLen:  256,
-			wantBucketSize: int64(b) * computeRequiredBuckets(1000),
+			name:     "hint 8 (no allocation)",
+			c:        make(map[CacheKey]Token, 8),
+			wantSize: 0, // hint <= MapGroupSlots: lazy allocation
 		},
 		{
-			name: "10000 map",
-			args: args{
-				c: make(map[CacheKey]Token, 10000),
-			},
-			wantBucketLen:  2048,
-			wantBucketSize: int64(b) * computeRequiredBuckets(10000),
+			name:     "small map with entry",
+			c:        smallMap,
+			wantSize: groupDataSize, // single group, no table/directory
 		},
-		// will fail as there are special handling logic when entry size is large, the simple formula in computeRequiredBuckets() does not apply
-		// special handling logic: https://github.com/golang/go/blob/2184a394777ccc9ce9625932b2ad773e6e626be0/src/runtime/map.go#L346
-		// {
-		// 	name: "100000 map",
-		// 	args: args{
-		// 		c: make(map[CacheKey]Token, 100000),
-		// 	},
-		// 	wantBucketLen:  16384,
-		// 	wantBucketSize: int64(b) * computeRequiredBuckets(100000),
-		// },
 		{
-			name: "150000 map",
-			args: args{
-				c: make(map[CacheKey]Token, 150000),
-			},
-			wantBucketLen:  32768,
-			wantBucketSize: int64(b) * computeRequiredBuckets(150000),
+			name:     "hint 1000",
+			c:        make(map[CacheKey]Token, 1000),
+			wantSize: computeExpectedSize(1000),
+		},
+		{
+			name:     "hint 10000",
+			c:        make(map[CacheKey]Token, 10000),
+			wantSize: computeExpectedSize(10000),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotBucketLen, gotBucketSize := getMapBucketLenAndSize(tt.args.c)
-			if gotBucketLen != tt.wantBucketLen {
-				t.Errorf("getMapBucketLenAndSize() gotBucketLen = %v, want %v", gotBucketLen, tt.wantBucketLen)
-			}
-			if gotBucketSize != tt.wantBucketSize {
-				t.Errorf("getMapBucketLenAndSize() gotBucketSize = %v, want %v", gotBucketSize, tt.wantBucketSize)
+			gotSize := getMapAllocatedSize(tt.c)
+			if gotSize != tt.wantSize {
+				t.Errorf("getMapAllocatedSize() = %v, want %v", gotSize, tt.wantSize)
 			}
 		})
 	}

@@ -168,8 +168,8 @@ func (c *LockedTokenCache) Size() int64 {
 	lockSize := uint(unsafe.Sizeof(c.lock))   // not exact, there are hidden variables in sync.RWMutex
 	memSize := uint(unsafe.Sizeof(c.memoryUsage))
 
-	// estimate hidden bucket allocation by map
-	_, bSize := getMapBucketLenAndSize(c.cache)
+	// estimate internal allocation by map (swissmap)
+	bSize := getMapAllocatedSize(c.cache)
 
 	return int64(cacheSize+lockSize+memSize) + c.memoryUsage + bSize
 }

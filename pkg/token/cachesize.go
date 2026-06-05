@@ -16,35 +16,33 @@ package token
 
 import "unsafe"
 
-// https://github.com/golang/go/blob/2184a394777ccc9ce9625932b2ad773e6e626be0/src/runtime/map.go#L117-L131
-type hmap struct {
-	// Note: the format of the hmap is also encoded in cmd/compile/internal/reflectdata/reflect.go.
-	// Make sure this stays in sync with the compiler's definition.
-	count     int // # live cells == size of map.  Must be first (used by len() builtin)
-	flags     uint8
-	B         uint8  // log_2 of # of buckets (can hold up to loadFactor * 2^B items)
-	noverflow uint16 // approximate number of overflow buckets; see incrnoverflow for details
-	hash0     uint32 // hash seed
-
-	buckets    unsafe.Pointer // array of 2^B Buckets. may be nil if count==0.
-	oldbuckets unsafe.Pointer // previous bucket array of half the size, non-nil only when growing
-	nevacuate  uintptr        // progress counter for evacuation (buckets less than this have been evacuated)
-
-	// unused, comment out for simplicity
-	// extra *mapextra // optional fields
+// https://github.com/golang/go/blob/go1.24.0/src/internal/runtime/maps/map.go
+type swissMap struct {
+	used              uint64
+	seed              uintptr
+	dirPtr            unsafe.Pointer
+	dirLen            int
+	globalDepth       uint8
+	globalShift       uint8
+	writing           uint8
+	tombstonePossible bool
+	clearSeq          uint64
 }
 
-// https://github.com/golang/go/blob/2184a394777ccc9ce9625932b2ad773e6e626be0/src/runtime/map.go#L67
-const bucketCnt = 8
+// https://github.com/golang/go/blob/go1.24.0/src/internal/runtime/maps/table.go
+type swissTable struct {
+	used       uint16
+	capacity   uint16
+	growthLeft  uint16
+	localDepth uint8
+	index      int
+	groups     swissGroupsReference
+}
 
-// https://github.com/golang/go/blob/2184a394777ccc9ce9625932b2ad773e6e626be0/src/runtime/map.go#L150-L161
-type bmap struct {
-	tophash [bucketCnt]uint8
-
-	// dynamically created
-	keys     [bucketCnt]CacheKey
-	values   [bucketCnt]Token
-	overflow *bmap
+// https://github.com/golang/go/blob/go1.24.0/src/internal/runtime/maps/group.go
+type swissGroupsReference struct {
+	data       unsafe.Pointer
+	lengthMask uint64
 }
 
 // emptyInterface is the internally representation of interface{}.
@@ -53,18 +51,42 @@ type emptyInterface struct {
 	value unsafe.Pointer
 }
 
-// extractHmap extracts the underlining hmap struct pointer from a map unsafely.
-func extractHmap(m interface{}) *hmap {
+// extractSwissMap extracts the underlying swissMap struct pointer from a map unsafely.
+func extractSwissMap(m interface{}) *swissMap {
 	ei := (*emptyInterface)(unsafe.Pointer(&m))
-	return (*hmap)(ei.value)
+	return (*swissMap)(ei.value)
 }
 
-// getMapBucketLenAndSize returns the bucket length and size of a map.
-func getMapBucketLenAndSize(c map[CacheKey]Token) (int, int64) {
-	h := extractHmap(c)
-	bucketLen := 1 << h.B
+// getMapAllocatedSize returns the estimated memory allocated by the map's internal data structures.
+func getMapAllocatedSize(c map[CacheKey]Token) int64 {
+	sm := extractSwissMap(c)
 
-	singleBucketSize := int64(unsafe.Sizeof(bmap{}))
+	slotSize := int64(unsafe.Sizeof(CacheKey{})) + 16 // 16 = interface size (type ptr + data ptr)
+	groupDataSize := int64(8) + int64(8)*slotSize     // 8 ctrl bytes + 8 slots per group
 
-	return bucketLen, singleBucketSize * int64(bucketLen)
+	if sm.dirLen == 0 {
+		if sm.dirPtr == nil {
+			return 0
+		}
+		// Small map: dirPtr points directly to a single group
+		return groupDataSize
+	}
+
+	// Large map: dirPtr points to [dirLen]*table
+	dirSize := int64(sm.dirLen) * int64(unsafe.Sizeof(uintptr(0)))
+
+	dir := unsafe.Slice((*unsafe.Pointer)(sm.dirPtr), sm.dirLen)
+	seen := make(map[unsafe.Pointer]bool)
+	var totalTableSize int64
+	for _, entry := range dir {
+		if entry == nil || seen[entry] {
+			continue
+		}
+		seen[entry] = true
+		tab := (*swissTable)(entry)
+		numGroups := int64(tab.groups.lengthMask + 1)
+		totalTableSize += int64(unsafe.Sizeof(swissTable{})) + numGroups*groupDataSize
+	}
+
+	return dirSize + totalTableSize
 }
