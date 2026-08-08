@@ -19,12 +19,10 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
-	"strconv"
-	"strings"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
+	"github.com/AthenZ/athenz/libs/go/athenzutils"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -69,7 +67,7 @@ func newZTSClient(reloader *util.CertReloader, serverCAPath, endpoint string) (*
 }
 
 func fetchAccessToken(ztsClient *zts.ZTSClient, t CacheKey, saService string) (*AccessToken, error) {
-	request := GenerateAccessTokenRequestString(t.Domain, saService, t.Role, "", "", t.ProxyForPrincipal, t.MaxExpiry)
+	request := athenzutils.GenerateAccessTokenRequestString(t.Domain, saService, t.Role, "", "", t.ProxyForPrincipal, t.MaxExpiry)
 	accessTokenResponse, err := ztsClient.PostAccessTokenRequest(zts.AccessTokenRequest(request))
 	if err != nil || accessTokenResponse.Access_token == "" {
 		return nil, fmt.Errorf("PostAccessTokenRequest failed for target [%s], err: %v", t.String(), err)
@@ -115,46 +113,4 @@ func fetchRoleToken(ztsClient *zts.ZTSClient, t CacheKey) (*RoleToken, error) {
 		raw:    roletokenResponse.Token,
 		expiry: roletokenResponse.ExpiryTime,
 	}, nil
-}
-
-// GenerateAccessTokenRequestString generates and urlencodes an access token string.
-// TODO: fix the original method: https://github.com/AthenZ/athenz/blob/a85f48666763759ee28fda114acc4c8d2cafc28e/libs/go/athenzutils/ztsclient.go#L68
-func GenerateAccessTokenRequestString(domain, service, roles, authzDetails, proxyPrincipalSpiffeUris, proxyForPrincipal string, expiryTime int) string {
-
-	params := url.Values{}
-	params.Add("grant_type", "client_credentials")
-	// do not include the expiry param if the client is asking
-	// for the server default setting (expiryTime == 0) or any
-	// invalid values (expiryTime < 0)
-	if expiryTime > 0 {
-		params.Add("expires_in", strconv.Itoa(expiryTime))
-	}
-
-	var scope string
-	if roles == "" {
-		scope = domain + ":domain"
-	} else {
-		roleList := strings.Split(roles, ",")
-		for idx, role := range roleList {
-			if idx != 0 {
-				scope += " "
-			}
-			scope += domain + ":role." + role
-		}
-	}
-	if service != "" {
-		scope += " openid " + domain + ":service." + service
-	}
-
-	params.Add("scope", scope)
-	if authzDetails != "" {
-		params.Add("authorization_details", authzDetails)
-	}
-	if proxyPrincipalSpiffeUris != "" {
-		params.Add("proxy_principal_spiffe_uris", proxyPrincipalSpiffeUris)
-	}
-	if proxyForPrincipal != "" {
-		params.Add("proxy_for_principal", proxyForPrincipal)
-	}
-	return params.Encode()
 }
