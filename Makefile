@@ -1,4 +1,4 @@
-.PHONY: submodule-update build test clean
+.PHONY: submodule-update build test clean e2e
 .DEFAULT_GOAL := build
 
 # ifeq ($(GOPATH),)
@@ -73,6 +73,10 @@ build: submodule-update
 test:
 	@echo "Testing..."
 	GOEXPERIMENT=noswissmap go test -v -failfast -timeout 1m -race -covermode=atomic -coverprofile=coverage.out ./...
+
+e2e:
+	@echo "E2E testing..."
+	$(MAKE) -C e2e e2e
 
 lint:
 	golangci-lint run -c ./.golangci.yml
