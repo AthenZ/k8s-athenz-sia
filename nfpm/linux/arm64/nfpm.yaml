@@ -8,7 +8,7 @@ license: MIT
 arch: arm64
 platform: linux
 version: ${SEMVER}
-version_schema: semver
+version_schema: none
 suggests:
   - openssl
   - curl
