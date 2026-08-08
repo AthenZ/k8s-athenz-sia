@@ -200,7 +200,7 @@ func (h *identityHandler) GetX509Cert(forceInit bool) (*InstanceIdentity, []byte
 	}
 
 	identity := &InstanceIdentity{
-		X509CertificatePEM:   id.X509Certificate + id.X509CertificateSigner,
+		X509CertificatePEM:   id.X509Certificate,
 		X509CACertificatePEM: id.X509CertificateSigner,
 	}
 
