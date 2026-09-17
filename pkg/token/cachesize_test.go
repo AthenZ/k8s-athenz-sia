@@ -20,6 +20,7 @@ import (
 )
 
 func Test_getMapAllocatedSize(t *testing.T) {
+	headerSize := int64(unsafe.Sizeof(swissMap{}))
 	slotSize := int64(unsafe.Sizeof(CacheKey{})) + 16
 	groupDataSize := int64(8) + int64(8)*slotSize
 
@@ -28,7 +29,7 @@ func Test_getMapAllocatedSize(t *testing.T) {
 	computeExpectedSize := func(hint int) int64 {
 		if hint <= 8 {
 			// Small map: single group, no table/directory overhead
-			return groupDataSize
+			return headerSize + groupDataSize
 		}
 
 		// Compute required capacity (power of 2, minimum 8)
@@ -45,7 +46,7 @@ func Test_getMapAllocatedSize(t *testing.T) {
 		if capacity <= 1024 {
 			// Single table, directory length = 1
 			dirSize := int64(1) * int64(unsafe.Sizeof(uintptr(0)))
-			return dirSize + tableSize
+			return headerSize + dirSize + tableSize
 		}
 
 		// Multiple tables: each table has maxTableCapacity=1024, numGroups=128
@@ -53,7 +54,7 @@ func Test_getMapAllocatedSize(t *testing.T) {
 		singleTableSize := int64(unsafe.Sizeof(swissTable{})) + int64(1024/8)*groupDataSize
 		dirLen := numTables
 		dirSize := int64(dirLen) * int64(unsafe.Sizeof(uintptr(0)))
-		return dirSize + singleTableSize*int64(numTables)
+		return headerSize + dirSize + singleTableSize*int64(numTables)
 	}
 
 	smallMap := make(map[CacheKey]Token)
@@ -65,19 +66,24 @@ func Test_getMapAllocatedSize(t *testing.T) {
 		wantSize int64
 	}{
 		{
+			name:     "nil map",
+			c:        nil,
+			wantSize: 0, // nil map: no underlying swissMap struct allocated
+		},
+		{
 			name:     "empty map",
 			c:        make(map[CacheKey]Token, 0),
-			wantSize: 0, // no allocation until first insert
+			wantSize: headerSize, // header allocated, no groups until first insert
 		},
 		{
 			name:     "hint 8 (no allocation)",
 			c:        make(map[CacheKey]Token, 8),
-			wantSize: 0, // hint <= MapGroupSlots: lazy allocation
+			wantSize: headerSize, // hint <= MapGroupSlots: groups still lazily allocated
 		},
 		{
 			name:     "small map with entry",
 			c:        smallMap,
-			wantSize: groupDataSize, // single group, no table/directory
+			wantSize: headerSize + groupDataSize, // single group, no table/directory
 		},
 		{
 			name:     "hint 1000",

@@ -163,6 +163,13 @@ func (c *LockedTokenCache) Keys() []CacheKey {
 }
 
 func (c *LockedTokenCache) Size() int64 {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.sizeLocked()
+}
+
+// sizeLocked computes the cache size. Callers must hold c.lock (for reading or writing).
+func (c *LockedTokenCache) sizeLocked() int64 {
 	// structSize := uint(unsafe.Sizeof(*c)) // should equal to the following sizes
 	cacheSize := uint(unsafe.Sizeof(c.cache)) // not exact, there are hidden variables in map
 	lockSize := uint(unsafe.Sizeof(c.lock))   // not exact, there are hidden variables in sync.RWMutex
@@ -222,7 +229,7 @@ func (c *LockedTokenCache) Collect(ch chan<- prometheus.Metric) {
 	metric, err = prometheus.NewConstMetric(
 		prometheus.NewDesc(cachedTokenBytesMetric, cachedTokenBytesHelp, nil, constLabels),
 		prometheus.GaugeValue,
-		float64(c.Size()),
+		float64(c.sizeLocked()),
 	)
 	if err != nil {
 		log.Errorf("Failed to create metric: %s", err.Error())
