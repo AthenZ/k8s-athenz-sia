@@ -1,4 +1,4 @@
-FROM docker.io/golang:1.25-alpine as base
+FROM docker.io/golang:1.26-alpine as base
 
 RUN apk add --no-cache make g++ git
 

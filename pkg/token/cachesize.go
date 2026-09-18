@@ -16,55 +16,135 @@ package token
 
 import "unsafe"
 
-// https://github.com/golang/go/blob/2184a394777ccc9ce9625932b2ad773e6e626be0/src/runtime/map.go#L117-L131
-type hmap struct {
-	// Note: the format of the hmap is also encoded in cmd/compile/internal/reflectdata/reflect.go.
-	// Make sure this stays in sync with the compiler's definition.
-	count     int // # live cells == size of map.  Must be first (used by len() builtin)
-	flags     uint8
-	B         uint8  // log_2 of # of buckets (can hold up to loadFactor * 2^B items)
-	noverflow uint16 // approximate number of overflow buckets; see incrnoverflow for details
-	hash0     uint32 // hash seed
-
-	buckets    unsafe.Pointer // array of 2^B Buckets. may be nil if count==0.
-	oldbuckets unsafe.Pointer // previous bucket array of half the size, non-nil only when growing
-	nevacuate  uintptr        // progress counter for evacuation (buckets less than this have been evacuated)
-
-	// unused, comment out for simplicity
-	// extra *mapextra // optional fields
+// swissMap mirrors internal/runtime/maps.Map (Go 1.24+ swissmap default).
+// Keep in sync with internal/runtime/maps/map.go.
+//
+// 64-bit layout (size = 48 bytes):
+//
+//	used              uint64         offset  0
+//	seed              uintptr        offset  8
+//	dirPointer        unsafe.Pointer offset 16
+//	dirLen            int            offset 24
+//	globalDepth       uint8          offset 32
+//	globalShift       uint8          offset 33
+//	writing           uint8          offset 34
+//	tombstonePossible bool           offset 35
+//	(4 bytes implicit padding)
+//	clearSeq          uint64         offset 40
+type swissMap struct {
+	used              uint64
+	seed              uintptr
+	dirPointer        unsafe.Pointer
+	dirLen            int
+	globalDepth       uint8
+	globalShift       uint8
+	writing           uint8
+	tombstonePossible bool
+	_                 [4]byte
+	clearSeq          uint64
 }
 
-// https://github.com/golang/go/blob/2184a394777ccc9ce9625932b2ad773e6e626be0/src/runtime/map.go#L67
-const bucketCnt = 8
-
-// https://github.com/golang/go/blob/2184a394777ccc9ce9625932b2ad773e6e626be0/src/runtime/map.go#L150-L161
-type bmap struct {
-	tophash [bucketCnt]uint8
-
-	// dynamically created
-	keys     [bucketCnt]CacheKey
-	values   [bucketCnt]Token
-	overflow *bmap
+// swissTable mirrors internal/runtime/maps.table (Go 1.24+ swissmap).
+// Keep in sync with internal/runtime/maps/table.go.
+//
+// 64-bit layout (size = 32 bytes):
+//
+//	used       uint16         offset  0
+//	capacity   uint16         offset  2
+//	growthLeft uint16         offset  4
+//	localDepth uint8          offset  6
+//	(1 byte implicit padding)
+//	index      int            offset  8
+//	groups     swissGroupsReference offset 16
+type swissTable struct {
+	used       uint16
+	capacity   uint16
+	growthLeft uint16
+	localDepth uint8
+	_pad       uint8
+	index      int
+	groups     swissGroupsReference
 }
 
-// emptyInterface is the internally representation of interface{}.
-type emptyInterface struct {
-	_type unsafe.Pointer
-	value unsafe.Pointer
+// swissGroupsReference mirrors internal/runtime/maps.groupsReference.
+// Keep in sync with internal/runtime/maps/group.go.
+type swissGroupsReference struct {
+	data       unsafe.Pointer // *[lengthMask+1]group
+	lengthMask uint64         // numGroups - 1 (numGroups is always a power of 2)
 }
 
-// extractHmap extracts the underlining hmap struct pointer from a map unsafely.
-func extractHmap(m interface{}) *hmap {
-	ei := (*emptyInterface)(unsafe.Pointer(&m))
-	return (*hmap)(ei.value)
-}
+// getMapAllocatedSize estimates the number of bytes owned by the SwissTable map's
+// internal structures. The caller is responsible for ensuring m is not
+// concurrently mutated while this function runs.
+//
+// Group layout (conceptually, from internal/runtime/maps/group.go):
+//
+//	type group struct {
+//	    ctrl  uint64               // 8 bytes: one control byte per slot
+//	    slots [8]struct{ key K; elem V }
+//	}
+//
+// SlotSize is modeled as sizeof(struct{ key K; elem V }) computed by the
+// compiler using Go's usual struct layout rules. The actual runtime swissmap
+// implementation may apply additional optimizations (for example, special-
+// casing zero-sized values), so getMapAllocatedSize should be understood as
+// an approximation/upper bound of the bytes owned by the map rather than an
+// exact reflection of every internal optimization.
+func getMapAllocatedSize[K comparable, V any](m map[K]V) int64 {
+	if m == nil {
+		return 0
+	}
 
-// getMapBucketLenAndSize returns the bucket length and size of a map.
-func getMapBucketLenAndSize(c map[CacheKey]Token) (int, int64) {
-	h := extractHmap(c)
-	bucketLen := 1 << h.B
+	sm := (*swissMap)(*(*unsafe.Pointer)(unsafe.Pointer(&m)))
+	if sm == nil {
+		return 0
+	}
 
-	singleBucketSize := int64(unsafe.Sizeof(bmap{}))
+	type slot struct {
+		key  K
+		elem V
+	}
+	type group struct {
+		slots [8]slot
+		ctrl  uint64
+	}
 
-	return bucketLen, singleBucketSize * int64(bucketLen)
+	groupSize := int64(unsafe.Sizeof(group{}))
+
+	// swissMap struct itself, always allocated once the map is non-nil.
+	size := int64(unsafe.Sizeof(*sm))
+
+	if sm.dirLen == 0 {
+		// Small-map optimisation: dirPointer points directly to one group.
+		if sm.dirPointer != nil {
+			size += groupSize
+		}
+		return size
+	}
+
+	// Large map: dirPointer is *[dirLen]*table.
+	// Account for the directory pointer array itself.
+	ptrSize := unsafe.Sizeof(uintptr(0))
+	size += int64(sm.dirLen) * int64(ptrSize)
+
+	// Deduplicate table pointers (directory entries may alias the same table).
+	tables := make(map[unsafe.Pointer]struct{}, sm.dirLen)
+	for i := 0; i < sm.dirLen; i++ {
+		tp := *(*unsafe.Pointer)(unsafe.Pointer(uintptr(sm.dirPointer) + uintptr(i)*ptrSize))
+		if tp != nil {
+			tables[tp] = struct{}{}
+		}
+	}
+
+	tableHdrSize := int64(unsafe.Sizeof(swissTable{}))
+	for tp := range tables {
+		t := (*swissTable)(tp)
+		// swissTable struct itself.
+		size += tableHdrSize
+		// Groups backing array: (lengthMask+1) groups.
+		numGroups := int64(t.groups.lengthMask + 1)
+		size += numGroups * groupSize
+	}
+
+	return size
 }
