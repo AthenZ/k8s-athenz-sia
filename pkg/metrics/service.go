@@ -25,12 +25,15 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"github.com/sirupsen/logrus"
 
 	// using git submodule to import internal package (special package in golang)
 	// https://github.com/golang/go/wiki/Modules#can-a-module-depend-on-an-internal-in-another
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics/internal"
 	extutil "github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
+
+var logger *logrus.Entry = log.WithField("component", "metrics")
 
 type metricsService struct {
 	shutdownChan chan struct{}
@@ -43,7 +46,7 @@ type metricsService struct {
 
 func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
 	if ctx.Err() != nil {
-		log.Info("Skipped metrics exporter initiation")
+		logger.Info("Skipped metrics exporter initiation")
 		return nil, nil
 	}
 
@@ -54,11 +57,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	// check initialization skip
 	if idCfg.Init {
-		log.Infof("Metrics exporter is disabled for init mode: address[%s]", idCfg.MetricsServerAddr)
+		logger.Infof("Metrics exporter is disabled for init mode: address[%s]", idCfg.MetricsServerAddr)
 		return ms, nil
 	}
 	if idCfg.MetricsServerAddr == "" {
-		log.Infof("Metrics exporter is disabled with empty options: address[%s]", idCfg.MetricsServerAddr)
+		logger.Infof("Metrics exporter is disabled with empty options: address[%s]", idCfg.MetricsServerAddr)
 		return ms, nil
 	}
 
@@ -114,23 +117,23 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 // Start starts the metrics exporter
 func (ms *metricsService) Start(ctx context.Context) error {
 	if ctx.Err() != nil {
-		log.Info("Skipped metrics exporter start")
+		logger.Info("Skipped metrics exporter start")
 		return nil
 	}
 
 	if ms.exporter != nil {
-		log.Infof("Starting metrics exporter server[%s]", ms.idCfg.MetricsServerAddr)
+		logger.Infof("Starting metrics exporter server[%s]", ms.idCfg.MetricsServerAddr)
 		ms.shutdownWg.Add(1)
 		go func() {
 			defer ms.shutdownWg.Done()
 			if err := ms.exporter.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("Failed to start metrics exporter server: %s", err.Error())
+				logger.Fatalf("Failed to start metrics exporter server: %s", err.Error())
 			}
-			log.Info("Stopped metrics exporter server")
+			logger.Info("Stopped metrics exporter server")
 		}()
 
 		if err := daemon.WaitForServerReady(ms.exporter.ListenAddress, false, false); err != nil {
-			log.Errorf("Failed to confirm metrics exporter server ready: %s", err.Error())
+			logger.Errorf("Failed to confirm metrics exporter server ready: %s", err.Error())
 			return err
 		}
 		ms.exporterRunning = true
@@ -140,7 +143,7 @@ func (ms *metricsService) Start(ctx context.Context) error {
 }
 
 func (ms *metricsService) Shutdown() {
-	log.Info("Initiating shutdown of metrics exporter daemon ...")
+	logger.Info("Initiating shutdown of metrics exporter daemon ...")
 	close(ms.shutdownChan)
 
 	if ms.exporter != nil {
@@ -150,7 +153,7 @@ func (ms *metricsService) Shutdown() {
 		// context.Background() is used, no timeout. refer to https://github.com/enix/x509-certificate-exporter/blob/33dd533/internal/exporter.go#L111
 		// P.S. Make sure to use the httpChecker to ensure ListenAndServe() is finished before Shutdown() is called. If ListenAndServe() does not finish creating the server object before Shutdown() is called, the internal server field will be nil and Shutdown() be a no-op. ListenAndServe() will block and cause deadlock.
 		if err != nil {
-			log.Errorf("Failed to shutdown metrics exporter server: %s", err.Error())
+			logger.Errorf("Failed to shutdown metrics exporter server: %s", err.Error())
 		}
 	}
 
