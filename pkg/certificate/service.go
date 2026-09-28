@@ -85,9 +85,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 					x509Cert.Subject, x509Cert.Issuer, x509Cert.NotBefore, x509Cert.NotAfter, x509Cert.SerialNumber, x509Cert.DNSNames)
 
 				for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
-					if err := extutil.CreateDirectory(certFile); err != nil {
-						return fmt.Errorf("unable to create directory for x509 cert: %w", err)
-					}
 					log.Debugf("Saving x509 cert[%d bytes] at %s", len(leafPEM), certFile)
 					if err := w.AddBytes(certFile, 0644, leafPEM); err != nil {
 						return fmt.Errorf("unable to save x509 cert: %w", err)
@@ -95,10 +92,6 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 				}
 
 				for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
-					if err := extutil.CreateDirectory(keyFile); err != nil {
-						return fmt.Errorf("unable to create directory for x509 key: %w", err)
-					}
-
 					log.Debugf("Saving x509 key[%d bytes] at %s", len(keyPEM), keyFile)
 					if err := w.AddBytes(keyFile, 0644, keyPEM); err != nil {
 						return fmt.Errorf("unable to save x509 key: %w", err)
@@ -141,6 +134,8 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 							return fmt.Errorf("failed to generate path for role cert key with format [%s], domain [%s], role [%s], delimiter [%s]: %w", idCfg.RoleCert.KeyFormat, rolecert.Domain, rolecert.Role, idCfg.RoleCert.Delimiter, err)
 						}
 						// Create the directory before saving role certificates keys
+						// Note that Role Certificate does not require predecessor certificate to be requested,
+						// We do not need to create the directory earlier in the process:
 						if err := extutil.CreateDirectory(outKeyPath); err != nil {
 							return fmt.Errorf("unable to create directory for x509 role cert: %w", err)
 						}
@@ -210,9 +205,27 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 
 	run := func() error {
 		if idCfg.ServiceCert.CopperArgos.Use {
+			// TODO: Create directories for auto distributed copperargos:
+			// It’s critical to create the directory before starting the Athenz Server.
+			// Once the server issues a certificate and its key,
+			// that instance must be used to refresh the certificate in the future.
+			// If any other process or condition produces the output instead,
+			// the entire issuance process must be redone.
+			// Otherwise users may force restart the init process, which takes time
+			for _, certFile := range idCfg.ServiceCert.CopperArgos.Cert.Paths {
+				if err := extutil.CreateDirectory(certFile); err != nil {
+					return fmt.Errorf("unable to create directory for x509 cert: %w", err)
+				}
+			}
+			for _, keyFile := range idCfg.ServiceCert.CopperArgos.Key.Paths {
+				if err := extutil.CreateDirectory(keyFile); err != nil {
+					return fmt.Errorf("unable to create directory for x509 key: %w", err)
+				}
+			}
+
 			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idCfg.ServiceCert.CopperArgos.Provider)
 
-			err, identity, keyPEM = identityProvisioningRequest(false)
+			err, identity, keyPEM = identityProvisioningRequest(false) // API to yaritori
 			if err != nil {
 				log.Errorf("Failed to retrieve x509 certificate from identity provider: %s", err.Error())
 			}
