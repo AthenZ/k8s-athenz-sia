@@ -209,6 +209,11 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 	}
 
 	run := func() error {
+		// TODO: Are we sure we want to run this every 24 hours?
+		if err := validalidateAllPaths(idCfg); err != nil {
+			return err
+		}
+
 		if idCfg.ServiceCert.CopperArgos.Use {
 			log.Infof("Attempting to request x509 certificate to identity provider[%s]...", idCfg.ServiceCert.CopperArgos.Provider)
 
