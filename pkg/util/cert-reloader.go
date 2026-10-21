@@ -45,6 +45,14 @@ type CertReloader struct {
 	stop         chan struct{}
 }
 
+// String reports only whether the reloader is nil, hiding its address and contents.
+func (w *CertReloader) String() string {
+	if w == nil {
+		return "<nil>"
+	}
+	return "<redacted>"
+}
+
 // GetLatestCertificate returns the latest known certificate.
 func (w *CertReloader) GetLatestCertificate() (*tls.Certificate, error) {
 	w.l.RLock()
