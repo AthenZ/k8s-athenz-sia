@@ -62,8 +62,6 @@ jobs:
         # You may pin to the exact commit or the version.
         # uses: https://github.com/actions/checkout/tags
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       # GitHub Action to login against a Docker registry.
       # Login against a Docker registry except on PR
