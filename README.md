@@ -16,16 +16,8 @@ $GOPATH/bin/athenz-sia --help
 
 ## Build
 
-### To update the git submodule from the latest commit (HEAD) hash of the remote repository
+Dependencies, including x509-certificate-exporter, are managed through Go modules.
 
 ```sh
-git submodule update --recursive --init --remote
-make
-```
-
-### To update the git submodule from the remote repository
-
-```sh
-git submodule update --recursive --init
 make
 ```

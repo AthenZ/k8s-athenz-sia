@@ -7,9 +7,7 @@ header:
   paths:
     - '**/*.go'
   paths-ignore:
-    - 'pkg/metrics/**'
     - 'third_party/**'
-    - 'x509-certificate-exporter'
     - 'LICENSE'
     - 'MAINTAINERS'
     - '**/.*'

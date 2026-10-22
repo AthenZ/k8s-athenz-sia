@@ -1,4 +1,4 @@
-.PHONY: submodule-update build test clean
+.PHONY: build test clean
 .DEFAULT_GOAL := build
 
 # ifeq ($(GOPATH),)
@@ -66,7 +66,7 @@ ifneq ($(LDFLAGS_ARGS),)
 LDFLAGS += -ldflags "$(LDFLAGS_ARGS) -linkmode=external"
 endif
 
-build: submodule-update
+build:
 	@echo "Building..."
 	CGO_ENABLED=1 go build $(LDFLAGS) -o $(GOPATH)/bin/athenz-sia cmd/athenz-sia/*.go
 
@@ -94,9 +94,3 @@ check-license-header:
 generate:
 	# go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@latest
 	go generate ./...
-
-submodule-update:
-	git submodule update --recursive --init
-
-submodule-update-remote:
-	git submodule update --recursive --init --remote

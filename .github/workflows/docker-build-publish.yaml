@@ -164,8 +164,6 @@ jobs:
         id: checkout
         # uses: https://github.com/actions/checkout/tags
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       # GitHub Action to login against a Docker registry.
       # Login against a Docker registry except on PR
