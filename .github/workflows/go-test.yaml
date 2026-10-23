@@ -40,8 +40,6 @@ jobs:
         # You may pin to the exact commit or the version.
         # uses: https://github.com/actions/checkout/tags
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       # This action sets up a go environment for use in actions by:
       # - Optionally downloading and caching a version of Go by version and adding to PATH.
