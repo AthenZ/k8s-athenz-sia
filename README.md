@@ -18,13 +18,25 @@ $GOPATH/bin/athenz-sia --help
 
 Set `-mode=refresh -use-imds-server` to run the IMDSv2 server alongside SIA's existing certificate and token services. It listens on the Pod's loopback interface. AWS SDKs can use it with `AWS_EC2_METADATA_SERVICE_ENDPOINT=http://127.0.0.1:1338`. Configure SIA's certificate and key as usual; the ZTS source uses that same identity for mTLS.
 
-For an AWS Emulator instance whose shared credentials file is mounted in the SIA container:
+Use `-imds-source=file` to expose credentials from a local AWS shared credentials file through SIA's IMDSv2 endpoint. Mount the file in the SIA container; a separate process must provide and rotate its contents. SIA reads the `[default]` profile on each credentials request, including `aws_access_key_id`, `aws_secret_access_key`, and the optional `aws_session_token`.
+
+For example:
 
 ```sh
-athenz-sia -mode=refresh -cert=/var/run/athenz/zts.cert.pem \
-  -key=/var/run/athenz/zts.private.pem -use-imds-server \
-  -imds-source=file -imds-role=zts \
-  -imds-credentials-file=/var/run/aws-emulator/9297/emulator_credentials
+athenz-sia -mode=refresh -cert=/var/run/athenz/client.cert.pem \
+  -key=/var/run/athenz/client.key.pem -use-imds-server \
+  -imds-source=file -imds-role=localrole \
+  -imds-credentials-file=/var/run/aws/credentials
+```
+
+For temporary credentials, add `expiration` in RFC 3339 format to the `[default]` profile so the IMDSv2 response reports their actual expiry. This is an optional SIA-specific field alongside the standard AWS credential fields. Without it, SIA reports an expiry one hour after each file read and may serve credentials after their actual expiry.
+
+```ini
+[default]
+aws_access_key_id = ASIA...
+aws_secret_access_key = ...
+aws_session_token = ...
+expiration = 2030-01-01T00:00:00Z
 ```
 
 To get temporary credentials for an Athenz authorized AWS role from ZTS:

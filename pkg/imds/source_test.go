@@ -17,7 +17,7 @@ import (
 )
 
 func TestFileSourceReadsUpdatedCredentials(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "emulator_credentials")
+	path := filepath.Join(t.TempDir(), "credentials")
 	write := func(key string) {
 		t.Helper()
 		data := []byte("[default]\naws_access_key_id=" + key + "\naws_secret_access_key=secret\n")
@@ -35,6 +35,22 @@ func TestFileSourceReadsUpdatedCredentials(t *testing.T) {
 	second, err := source.Get(context.Background())
 	if err != nil || second.AccessKeyID != "second" {
 		t.Fatalf("updated credentials: %+v, %v", second, err)
+	}
+}
+
+func TestFileSourceUsesTemporaryCredentialsExpiration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "credentials")
+	expiration := time.Now().UTC().Add(30 * time.Minute).Truncate(time.Second)
+	data := []byte("[default]\naws_access_key_id=key\naws_secret_access_key=secret\naws_session_token=token\nexpiration=" + expiration.Format(time.RFC3339) + "\n")
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	creds, err := (fileSource{path: path}).Get(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if creds.SessionToken != "token" || !creds.Expiration.Equal(expiration) {
+		t.Fatalf("temporary credentials: %+v", creds)
 	}
 }
 

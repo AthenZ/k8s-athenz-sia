@@ -42,8 +42,8 @@ type credentialSource interface {
 
 type fileSource struct{ path string }
 
-// The emulator writes a standard AWS shared credentials file. Read it on each
-// request so a restarted emulator can replace its credentials without SIA restart.
+// Read the shared credentials file on each request so another process can
+// rotate its credentials without restarting SIA.
 func (s fileSource) Get(_ context.Context) (credentials, error) {
 	data, err := os.ReadFile(s.path)
 	if err != nil {
@@ -72,6 +72,11 @@ func (s fileSource) Get(_ context.Context) (credentials, error) {
 			result.SecretAccessKey = strings.TrimSpace(value)
 		case "aws_session_token":
 			result.SessionToken = strings.TrimSpace(value)
+		case "expiration":
+			result.Expiration, err = time.Parse(time.RFC3339, strings.TrimSpace(value))
+			if err != nil {
+				return credentials{}, fmt.Errorf("invalid AWS credentials expiration: %w", err)
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -80,7 +85,9 @@ func (s fileSource) Get(_ context.Context) (credentials, error) {
 	if result.AccessKeyID == "" || result.SecretAccessKey == "" {
 		return credentials{}, fmt.Errorf("AWS credentials file has no access key or secret key")
 	}
-	result.Expiration = time.Now().UTC().Add(time.Hour)
+	if result.Expiration.IsZero() {
+		result.Expiration = time.Now().UTC().Add(time.Hour)
+	}
 	return result, nil
 }
 
