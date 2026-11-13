@@ -1,3 +1,17 @@
+// Copyright 2023 LY Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package imds
 
 import (
@@ -5,13 +19,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/AthenZ/athenz/clients/go/zts"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
@@ -51,6 +68,73 @@ func TestFileSourceUsesTemporaryCredentialsExpiration(t *testing.T) {
 	}
 	if creds.SessionToken != "token" || !creds.Expiration.Equal(expiration) {
 		t.Fatalf("temporary credentials: %+v", creds)
+	}
+}
+
+func TestFileSourceRejectsUnavailableCredentials(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "credentials")
+	if _, err := (fileSource{path: path}).Get(context.Background()); !os.IsNotExist(err) {
+		t.Fatalf("missing file: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name, contents, want string
+	}{
+		{"other profile", "[other]\naws_access_key_id=key\naws_secret_access_key=secret\n", "no access key"},
+		{"missing secret", "[default]\naws_access_key_id=key\n", "no access key"},
+		{"invalid expiration", "[default]\naws_access_key_id=key\naws_secret_access_key=secret\nexpiration=invalid\n", "invalid AWS credentials expiration"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := os.WriteFile(path, []byte(tc.contents), 0600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := (fileSource{path: path}).Get(context.Background())
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected %q error, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+func TestZTSSourceRejectsInvalidCA(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "ca.pem")
+	if _, err := newZTSSource(&config.IdentityConfig{ServerCACert: path}); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing CA file: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("not a certificate"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newZTSSource(&config.IdentityConfig{ServerCACert: path}); err == nil ||
+		!strings.Contains(err.Error(), "contains no certificates") {
+		t.Fatalf("invalid CA: %v", err)
+	}
+}
+
+func TestZTSSourceRejectsUnavailableCredentials(t *testing.T) {
+	for _, tc := range []struct {
+		name, response string
+		status         int
+	}{
+		{"denied", `{"code":403,"message":"denied"}`, http.StatusForbidden},
+		{"empty response", `null`, http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Query().Get("durationSeconds") != "900" {
+					t.Errorf("durationSeconds = %q", r.URL.Query().Get("durationSeconds"))
+				}
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.response))
+			}))
+			defer server.Close()
+			source := ztsSource{
+				client: zts.NewClient(server.URL+"/zts/v1", nil),
+				domain: "awsshowcase", role: "showcaserole", duration: 900,
+			}
+			if _, err := source.Get(context.Background()); err == nil {
+				t.Fatal("expected ZTS credentials error")
+			}
+		})
 	}
 }
 
