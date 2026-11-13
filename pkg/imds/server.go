@@ -21,7 +21,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -29,6 +28,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/daemon"
+	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
 const (
@@ -36,98 +39,89 @@ const (
 	rolePath    = "/latest/meta-data/iam/security-credentials/"
 )
 
-type config struct {
-	addr            string
-	source          string
-	role            string
-	credentialsFile string
-	ztsEndpoint     string
-	domain          string
-	certFile        string
-	keyFile         string
-	caFile          string
-	duration        int32
+type service struct {
+	server   *http.Server
+	listener net.Listener
+	wg       sync.WaitGroup
 }
 
-func parseConfig(args []string) (config, error) {
-	var cfg config
-	var duration int64
-	flags := flag.NewFlagSet("imds", flag.ContinueOnError)
-	flags.StringVar(&cfg.addr, "listen", "127.0.0.1:1338", "IMDSv2 listen address")
-	flags.StringVar(&cfg.source, "source", "", "credentials source: file or zts")
-	flags.StringVar(&cfg.role, "role", "", "role name exposed by IMDSv2")
-	flags.StringVar(&cfg.credentialsFile, "credentials-file", "", "AWS shared credentials file (file source)")
-	flags.StringVar(&cfg.ztsEndpoint, "zts-endpoint", "", "ZTS endpoint (zts source)")
-	flags.StringVar(&cfg.domain, "domain", "", "Athenz domain (zts source)")
-	flags.StringVar(&cfg.certFile, "cert-file", "", "client certificate (zts source)")
-	flags.StringVar(&cfg.keyFile, "key-file", "", "client key (zts source)")
-	flags.StringVar(&cfg.caFile, "ca-file", "", "ZTS CA certificate (zts source)")
-	flags.Int64Var(&duration, "duration-seconds", 0, "requested AWS credential lifetime (zts source)")
-	if err := flags.Parse(args); err != nil {
-		return cfg, err
+// New configures an optional IMDSv2 server alongside SIA's other services.
+func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, error) {
+	s := &service{}
+	if ctx.Err() != nil || idCfg.Init || !idCfg.IMDSServer.Use {
+		return s, nil
 	}
-	if flags.NArg() != 0 || cfg.role == "" || strings.Contains(cfg.role, "/") {
-		return cfg, fmt.Errorf("imds requires one role name without a slash and no positional arguments")
+	cfg := idCfg.IMDSServer
+	host, _, err := net.SplitHostPort(cfg.Addr)
+	ip := net.ParseIP(host)
+	if err != nil || ip == nil || !ip.IsLoopback() {
+		return nil, fmt.Errorf("IMDSv2 server requires a loopback listen address")
 	}
-	if cfg.source == "file" && cfg.credentialsFile == "" {
-		return cfg, fmt.Errorf("file source requires -credentials-file")
+	if cfg.Role == "" || strings.Contains(cfg.Role, "/") {
+		return nil, fmt.Errorf("IMDSv2 server requires one role name without a slash")
 	}
-	if cfg.source == "zts" && (cfg.ztsEndpoint == "" || cfg.domain == "" || cfg.certFile == "" || cfg.keyFile == "") {
-		return cfg, fmt.Errorf("zts source requires -zts-endpoint, -domain, -cert-file, and -key-file")
-	}
-	if cfg.source == "zts" && !strings.HasPrefix(cfg.ztsEndpoint, "https://") {
-		return cfg, fmt.Errorf("zts source requires an HTTPS endpoint")
-	}
-	if cfg.source != "file" && cfg.source != "zts" {
-		return cfg, fmt.Errorf("imds source must be file or zts")
-	}
-	if duration < 0 || duration > 2147483647 {
-		return cfg, fmt.Errorf("duration-seconds must be between 0 and 2147483647")
-	}
-	cfg.duration = int32(duration)
-	return cfg, nil
-}
-
-// Run starts the standalone IMDSv2 server. It is an opt-in SIA subcommand, so
-// normal identity and token provisioning retain their existing behavior.
-func Run(ctx context.Context, args []string) error {
-	cfg, err := parseConfig(args)
-	if errors.Is(err, flag.ErrHelp) {
-		return nil
-	}
-	if err != nil {
-		return err
+	if cfg.DurationSeconds < 0 || cfg.DurationSeconds > 2147483647 {
+		return nil, fmt.Errorf("IMDSv2 duration must be between 0 and 2147483647 seconds")
 	}
 	var source credentialSource
-	if cfg.source == "file" {
-		source = fileSource{path: cfg.credentialsFile}
-	} else {
-		source, err = newZTSSource(cfg)
-		if err != nil {
-			return err
+	switch cfg.Source {
+	case "file":
+		if cfg.CredentialsFile == "" {
+			return nil, fmt.Errorf("IMDSv2 file source requires a credentials file")
 		}
+		source = fileSource{path: cfg.CredentialsFile}
+	case "zts":
+		if cfg.Domain == "" || idCfg.Endpoint == "" || !strings.HasPrefix(idCfg.Endpoint, "https://") || idCfg.Reloader == nil {
+			return nil, fmt.Errorf("IMDSv2 ZTS source requires a domain, HTTPS endpoint, and client certificate")
+		}
+		source, err = newZTSSource(idCfg)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("IMDSv2 source must be file or zts")
 	}
-	listener, err := net.Listen("tcp", cfg.addr)
-	if err != nil {
-		return err
-	}
-	server := &http.Server{
-		Handler:           newHandler(cfg.role, source),
+	s.server = &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           newHandler(cfg.Role, source),
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       30 * time.Second,
 	}
-	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = server.Shutdown(shutdownCtx)
-	}()
-	err = server.Serve(listener)
-	if errors.Is(err, http.ErrServerClosed) {
+	return s, nil
+}
+
+func (s *service) Start(ctx context.Context) error {
+	if ctx.Err() != nil || s.server == nil {
 		return nil
 	}
-	return err
+	listener, err := net.Listen("tcp", s.server.Addr)
+	if err != nil {
+		return err
+	}
+	s.listener = listener
+	log.Infof("Starting IMDSv2 server[%s]", listener.Addr())
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		if err := s.server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Failed to serve IMDSv2: %s", err)
+		}
+		log.Info("Stopped IMDSv2 server")
+	}()
+	return nil
+}
+
+func (s *service) Shutdown() {
+	if s.server == nil {
+		return
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.server.Shutdown(shutdownCtx); err != nil {
+		log.Errorf("Failed to stop IMDSv2 server: %s", err)
+	}
+	s.wg.Wait()
 }
 
 type handler struct {

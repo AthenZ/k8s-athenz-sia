@@ -2,6 +2,8 @@ package imds
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +11,9 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 )
 
 func TestFileSourceReadsUpdatedCredentials(t *testing.T) {
@@ -34,23 +39,52 @@ func TestFileSourceReadsUpdatedCredentials(t *testing.T) {
 }
 
 func TestZTSSourceRequestsAWSRole(t *testing.T) {
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/zts/v1/domain/awsshowcase/role/showcaserole/creds" {
 			t.Errorf("unexpected ZTS path: %s", r.URL.Path)
+		}
+		if len(r.TLS.PeerCertificates) != 1 {
+			t.Errorf("ZTS request has no client certificate")
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"accessKeyId":"assumed-key","secretAccessKey":"assumed-secret","sessionToken":"assumed-token","expiration":"2030-01-01T00:00:00.000Z"}`))
 	}))
+	server.TLS = &tls.Config{ClientAuth: tls.RequireAnyClientCert}
+	server.StartTLS()
 	defer server.Close()
-	caFile := filepath.Join(t.TempDir(), "ca.pem")
+	dir := t.TempDir()
+	caFile := filepath.Join(dir, "ca.pem")
 	if err := os.WriteFile(caFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0600); err != nil {
 		t.Fatal(err)
 	}
-	source, err := newZTSSource(config{
-		ztsEndpoint: server.URL + "/zts/v1",
-		domain:      "awsshowcase",
-		role:        "showcaserole",
-		caFile:      caFile,
+	keyDER, err := x509.MarshalPKCS8PrivateKey(server.TLS.Certificates[0].PrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyFile := filepath.Join(dir, "client.key")
+	if err := os.WriteFile(keyFile, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}), 0600); err != nil {
+		t.Fatal(err)
+	}
+	certFile := filepath.Join(dir, "client.cert")
+	if err := os.WriteFile(certFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0600); err != nil {
+		t.Fatal(err)
+	}
+	reloader, err := util.NewCertReloader(util.ReloadConfig{
+		CertFiles: []string{certFile}, KeyFiles: []string{keyFile},
+		Logger: func(string, ...interface{}) {},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reloader.Close() })
+	source, err := newZTSSource(&config.IdentityConfig{
+		Endpoint:     server.URL + "/zts/v1",
+		ServerCACert: caFile,
+		Reloader:     reloader,
+		IMDSServer: config.IMDSServerConfig{
+			Domain: "awsshowcase",
+			Role:   "showcaserole",
+		},
 	})
 	if err != nil {
 		t.Fatal(err)

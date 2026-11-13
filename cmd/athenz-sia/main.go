@@ -62,14 +62,6 @@ func main() {
 
 	// one-time logger for loading user config
 	log.InitLogger("", "INFO", true)
-	if len(os.Args) > 1 && os.Args[1] == "imds" {
-		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
-		defer stop()
-		if err := imds.Run(ctx, os.Args[2:]); err != nil {
-			log.Fatalln(err)
-		}
-		return
-	}
 	idCfg, err := config.LoadConfig(config.APP_NAME, os.Args[1:])
 	if err != nil {
 		switch err {
@@ -131,6 +123,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error initiating health check: %s", err.Error())
 	}
+	imdsService, err := imds.New(initCtx, idCfg)
+	if err != nil {
+		log.Fatalf("Error initiating IMDSv2 server: %s", err.Error())
+	}
 
 	// mode=init, end the process
 	if initCtx.Err() != nil {
@@ -159,10 +155,15 @@ func main() {
 		log.Errorf("Error starting health check: %s", err.Error())
 		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
 	}
+	if err := imdsService.Start(runCtx); err != nil {
+		log.Errorf("Error starting IMDSv2 server: %s", err.Error())
+		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
+	}
 
 	// mode=refresh, wait for signal and then shutdown gracefully
 	<-runCtx.Done()
 	log.Infof("Initiating shutdown by cause: %s ...", context.Cause(runCtx).Error())
+	imdsService.Shutdown()
 	hcService.Shutdown()
 	metricsService.Shutdown()
 	tokenService.Shutdown()

@@ -120,9 +120,12 @@ func DefaultIdentityConfig() *IdentityConfig {
 		HealthCheckAddr:              "",
 		HealthCheckEndpoint:          "",
 		DeleteInstanceID:             false,
-		useTokenServer:               false,
-		shutdownTimeout:              DEFAULT_SHUTDOWN_TIMEOUT,
-		shutdownDelay:                DEFAULT_SHUTDOWN_DELAY,
+		IMDSServer: IMDSServerConfig{
+			Addr: "127.0.0.1:1338",
+		},
+		useTokenServer:  false,
+		shutdownTimeout: DEFAULT_SHUTDOWN_TIMEOUT,
+		shutdownDelay:   DEFAULT_SHUTDOWN_DELAY,
 
 		LogDir:   fmt.Sprintf("/var/log/%s", APP_NAME),
 		LogLevel: "INFO",
@@ -143,5 +146,7 @@ func DefaultIdentityConfig() *IdentityConfig {
 		rawUseTokenServer:        "false",
 		rawShutdownTimeout:       DEFAULT_SHUTDOWN_TIMEOUT.String(),
 		rawShutdownDelay:         DEFAULT_SHUTDOWN_DELAY.String(),
+		rawUseIMDSServer:         "false",
+		rawIMDSDurationSeconds:   "0",
 	}
 }

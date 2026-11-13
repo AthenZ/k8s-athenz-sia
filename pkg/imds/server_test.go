@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 )
 
 type testSource struct{ value credentials }
@@ -83,5 +87,42 @@ func TestIMDSv2RejectsInvalidTokens(t *testing.T) {
 	h.ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("expired token: got %d", response.Code)
+	}
+}
+
+func TestIMDSServerLifecycle(t *testing.T) {
+	log.InitLogger("", "INFO", true)
+	path := t.TempDir() + "/credentials"
+	if err := os.WriteFile(path, []byte("[default]\naws_access_key_id=local-key\naws_secret_access_key=local-secret\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	idCfg := &config.IdentityConfig{IMDSServer: config.IMDSServerConfig{
+		Use:             true,
+		Addr:            "127.0.0.1:0",
+		Source:          "file",
+		Role:            "zts",
+		CredentialsFile: path,
+	}}
+	daemon, err := New(context.Background(), idCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := daemon.(*service)
+	if err := s.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Shutdown)
+	request, err := http.NewRequest(http.MethodPut, "http://"+s.listener.Addr().String()+"/latest/api/token", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "60")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("token status = %d", response.StatusCode)
 	}
 }

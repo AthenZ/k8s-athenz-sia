@@ -93,6 +93,7 @@ type IdentityConfig struct {
 	HealthCheckAddr     string
 	HealthCheckEndpoint string
 	DeleteInstanceID    bool
+	IMDSServer          IMDSServerConfig
 
 	LogDir   string
 	LogLevel string
@@ -114,6 +115,19 @@ type IdentityConfig struct {
 	rawUseTokenServer        string
 	rawShutdownTimeout       string
 	rawShutdownDelay         string
+	rawUseIMDSServer         string
+	rawIMDSDurationSeconds   string
+}
+
+// IMDSServerConfig controls the optional loopback AWS metadata server.
+type IMDSServerConfig struct {
+	Use             bool
+	Addr            string
+	Source          string
+	Role            string
+	CredentialsFile string
+	Domain          string
+	DurationSeconds int64
 }
 
 type DomainRole struct {

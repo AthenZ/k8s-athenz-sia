@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/AthenZ/athenz/clients/go/zts"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 )
 
 type credentials struct {
@@ -90,16 +91,15 @@ type ztsSource struct {
 	duration int32
 }
 
-func newZTSSource(cfg config) (credentialSource, error) {
+func newZTSSource(idCfg *config.IdentityConfig) (credentialSource, error) {
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			cert, err := tls.LoadX509KeyPair(cfg.certFile, cfg.keyFile)
-			return &cert, err
+			return idCfg.Reloader.GetLatestCertificate()
 		},
 	}
-	if cfg.caFile != "" {
-		pem, err := os.ReadFile(cfg.caFile)
+	if idCfg.ServerCACert != "" {
+		pem, err := os.ReadFile(idCfg.ServerCACert)
 		if err != nil {
 			return nil, fmt.Errorf("read ZTS CA: %w", err)
 		}
@@ -113,10 +113,10 @@ func newZTSSource(cfg config) (credentialSource, error) {
 	transport.TLSClientConfig = tlsConfig
 	transport.ResponseHeaderTimeout = 10 * time.Second
 	return ztsSource{
-		client:   zts.NewClient(cfg.ztsEndpoint, transport),
-		domain:   cfg.domain,
-		role:     cfg.role,
-		duration: cfg.duration,
+		client:   zts.NewClient(idCfg.Endpoint, transport),
+		domain:   idCfg.IMDSServer.Domain,
+		role:     idCfg.IMDSServer.Role,
+		duration: int32(idCfg.IMDSServer.DurationSeconds),
 	}, nil
 }
 
