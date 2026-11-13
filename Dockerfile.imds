@@ -1,0 +1,5 @@
+# Build the binary with CGO_ENABLED=0 GOOS=linux before building this image.
+FROM scratch
+COPY athenz-sia /usr/bin/athenz-sia
+USER 10001:10001
+ENTRYPOINT ["/usr/bin/athenz-sia"]

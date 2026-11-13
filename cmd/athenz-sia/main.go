@@ -28,6 +28,7 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/certificate"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/healthcheck"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/imds"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/token"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -61,6 +62,14 @@ func main() {
 
 	// one-time logger for loading user config
 	log.InitLogger("", "INFO", true)
+	if len(os.Args) > 1 && os.Args[1] == "imds" {
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+		defer stop()
+		if err := imds.Run(ctx, os.Args[2:]); err != nil {
+			log.Fatalln(err)
+		}
+		return
+	}
 	idCfg, err := config.LoadConfig(config.APP_NAME, os.Args[1:])
 	if err != nil {
 		switch err {
