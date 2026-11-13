@@ -28,6 +28,7 @@ import (
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/certificate"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/healthcheck"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/imds"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/metrics"
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/token"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
@@ -122,6 +123,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error initiating health check: %s", err.Error())
 	}
+	imdsService, err := imds.New(initCtx, idCfg)
+	if err != nil {
+		log.Fatalf("Error initiating IMDSv2 server: %s", err.Error())
+	}
 
 	// mode=init, end the process
 	if initCtx.Err() != nil {
@@ -150,10 +155,15 @@ func main() {
 		log.Errorf("Error starting health check: %s", err.Error())
 		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
 	}
+	if err := imdsService.Start(runCtx); err != nil {
+		log.Errorf("Error starting IMDSv2 server: %s", err.Error())
+		cancelRun(fmt.Errorf("%w: %w", causeByStartFailed, err))
+	}
 
 	// mode=refresh, wait for signal and then shutdown gracefully
 	<-runCtx.Done()
 	log.Infof("Initiating shutdown by cause: %s ...", context.Cause(runCtx).Error())
+	imdsService.Shutdown()
 	hcService.Shutdown()
 	metricsService.Shutdown()
 	tokenService.Shutdown()

@@ -118,6 +118,13 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("METRICS_SERVER_ADDR", &idCfg.MetricsServerAddr)
 	loadEnv("DELETE_INSTANCE_ID", &idCfg.rawDeleteInstanceID)
 	loadEnv("USE_TOKEN_SERVER", &idCfg.rawUseTokenServer)
+	loadEnv("USE_IMDS_SERVER", &idCfg.rawUseIMDSServer)
+	loadEnv("IMDS_SERVER_ADDR", &idCfg.IMDSServer.Addr)
+	loadEnv("IMDS_SOURCE", &idCfg.IMDSServer.Source)
+	loadEnv("IMDS_ROLE", &idCfg.IMDSServer.Role)
+	loadEnv("IMDS_CREDENTIALS_FILE", &idCfg.IMDSServer.CredentialsFile)
+	loadEnv("IMDS_DOMAIN", &idCfg.IMDSServer.Domain)
+	loadEnv("IMDS_DURATION_SECONDS", &idCfg.rawIMDSDurationSeconds)
 
 	loadEnv("LOG_DIR", &idCfg.LogDir)
 	loadEnv("LOG_LEVEL", &idCfg.LogLevel)
@@ -171,6 +178,14 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	idCfg.useTokenServer, err = strconv.ParseBool(idCfg.rawUseTokenServer)
 	if err != nil {
 		return fmt.Errorf("Invalid USE_TOKEN_SERVER [%q], %w", idCfg.rawUseTokenServer, err)
+	}
+	idCfg.IMDSServer.Use, err = strconv.ParseBool(idCfg.rawUseIMDSServer)
+	if err != nil {
+		return fmt.Errorf("Invalid USE_IMDS_SERVER [%q], %w", idCfg.rawUseIMDSServer, err)
+	}
+	idCfg.IMDSServer.DurationSeconds, err = strconv.ParseInt(idCfg.rawIMDSDurationSeconds, 10, 64)
+	if err != nil {
+		return fmt.Errorf("Invalid IMDS_DURATION_SECONDS [%q], %w", idCfg.rawIMDSDurationSeconds, err)
 	}
 	idCfg.shutdownTimeout, err = time.ParseDuration(idCfg.rawShutdownTimeout)
 	if err != nil {
@@ -234,6 +249,13 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.BoolVar(&idCfg.DeleteInstanceID, "delete-instance-id", idCfg.DeleteInstanceID, "delete x509 certificate record from identity provider on shutdown (true/false)")
 	// Token Server
 	f.BoolVar(&idCfg.useTokenServer, "use-token-server", idCfg.useTokenServer, "enable token server (true/false)")
+	f.BoolVar(&idCfg.IMDSServer.Use, "use-imds-server", idCfg.IMDSServer.Use, "enable the AWS IMDSv2 server (true/false)")
+	f.StringVar(&idCfg.IMDSServer.Addr, "imds-server-addr", idCfg.IMDSServer.Addr, "loopback address for the AWS IMDSv2 server")
+	f.StringVar(&idCfg.IMDSServer.Source, "imds-source", idCfg.IMDSServer.Source, "AWS credentials source: file or zts")
+	f.StringVar(&idCfg.IMDSServer.Role, "imds-role", idCfg.IMDSServer.Role, "role name exposed by IMDSv2")
+	f.StringVar(&idCfg.IMDSServer.CredentialsFile, "imds-credentials-file", idCfg.IMDSServer.CredentialsFile, "AWS shared credentials file for the file source")
+	f.StringVar(&idCfg.IMDSServer.Domain, "imds-domain", idCfg.IMDSServer.Domain, "Athenz domain for the zts source")
+	f.Int64Var(&idCfg.IMDSServer.DurationSeconds, "imds-duration-seconds", idCfg.IMDSServer.DurationSeconds, "requested AWS credential lifetime for the zts source")
 	// log
 	f.StringVar(&idCfg.LogDir, "log-dir", idCfg.LogDir, "directory to store the log files")
 	f.StringVar(&idCfg.LogLevel, "log-level", idCfg.LogLevel, "logging level")
