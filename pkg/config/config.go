@@ -102,6 +102,8 @@ func (idCfg *IdentityConfig) loadFromENV() error {
 	loadEnv("ROLE_CERT_KEY_NAMING_FORMAT", &idCfg.roleCertKeyNamingFormat)
 	loadEnv("ROLE_AUTH_HEADER", &idCfg.roleAuthHeader)
 	loadEnv("TOKEN_TYPE", &idCfg.TokenType)
+	loadEnv("AWS_TRUST_ANCHOR_ARN", &idCfg.AWSCredentials.TrustAnchorARN)
+	loadEnv("AWS_PROFILE_ARN", &idCfg.AWSCredentials.ProfileARN)
 	loadEnv("TOKEN_REFRESH_INTERVAL", &idCfg.rawTokenRefresh)
 	loadEnv("TOKEN_EXPIRY", &idCfg.rawTokenExpiry)
 	loadEnv("TOKEN_SERVER_ADDR", &idCfg.tokenServerAddr)
@@ -217,6 +219,8 @@ func (idCfg *IdentityConfig) loadFromFlag(program string, args []string) error {
 	f.StringVar(&idCfg.roleCertKeyNamingFormat, "role-cert-key-naming-format", idCfg.roleCertKeyNamingFormat, "The file name format when outputting the role cert key to a file")
 	// RoleAuthHeader
 	f.StringVar(&idCfg.TokenType, "token-type", idCfg.TokenType, "type of the role token to request (\"roletoken\", \"accesstoken\" or \"roletoken+accesstoken\")")
+	f.StringVar(&idCfg.AWSCredentials.TrustAnchorARN, "aws-trust-anchor-arn", idCfg.AWSCredentials.TrustAnchorARN, "IAM Roles Anywhere trust anchor ARN (requires aws-profile-arn)")
+	f.StringVar(&idCfg.AWSCredentials.ProfileARN, "aws-profile-arn", idCfg.AWSCredentials.ProfileARN, "IAM Roles Anywhere profile ARN (enables /awstempcred on the token server REST API)")
 	f.DurationVar(&idCfg.TokenRefresh, "token-refresh-interval", idCfg.TokenRefresh, "token refresh interval")
 	f.DurationVar(&idCfg.TokenExpiry, "token-expiry", idCfg.TokenExpiry, "token expiry duration (0 to use Athenz server's default expiry)")
 	f.StringVar(&idCfg.tokenServerAddr, "token-server-addr", idCfg.tokenServerAddr, "HTTP server address to provide tokens (required for token provisioning)")

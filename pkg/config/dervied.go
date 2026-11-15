@@ -55,6 +55,10 @@ func (idCfg *IdentityConfig) loadDerivedConfig() error {
 		return err
 	}
 
+	if err := idCfg.derivedAWSCredentialsConfig(); err != nil {
+		return err
+	}
+
 	// TODO:
 	if err := idCfg.derivedTokenServerConfig(); err != nil {
 		return err

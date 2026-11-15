@@ -77,7 +77,7 @@ func (idCfg *IdentityConfig) derivedTokenServerConfig() error {
 	if idCfg.Init {
 		return nil // disabled
 	}
-	if idCfg.tokenServerAddr == "" || (!strings.Contains(idCfg.TokenType, "accesstoken") && !strings.Contains(idCfg.TokenType, "roletoken")) {
+	if idCfg.tokenServerAddr == "" || (!strings.Contains(idCfg.TokenType, "accesstoken") && !strings.Contains(idCfg.TokenType, "roletoken") && !idCfg.AWSCredentials.Use) {
 		return nil // disabled
 	}
 

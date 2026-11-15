@@ -42,6 +42,7 @@ type tokenService struct {
 	group            singleflight.Group
 	accessTokenCache TokenCache
 	roleTokenCache   TokenCache
+	awsCredentials   *awsCredentialService
 
 	// keyFile      string
 	// certFile     string
@@ -91,9 +92,20 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		}
 	}
 
-	ztsClient, err := newZTSClient(idCfg.Reloader, idCfg.ServerCACert, idCfg.Endpoint)
-	if err != nil {
-		return nil, err
+	var ztsClient *zts.ZTSClient
+	var err error
+	if tt != 0 {
+		ztsClient, err = newZTSClient(idCfg.Reloader, idCfg.ServerCACert, idCfg.Endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var awsHelper *awsSigningHelper
+	if idCfg.AWSCredentials.Use && !idCfg.Init && idCfg.TokenServer.Use {
+		awsHelper, err = newAWSSigningHelper(idCfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	saService := extutil.ServiceAccountToService(idCfg.ServiceAccount)
@@ -160,6 +172,9 @@ func New(ctx context.Context, idCfg *config.IdentityConfig) (daemon.Daemon, erro
 		}
 	}
 	ts.tokenServer = tokenServer
+	if awsHelper != nil {
+		ts.awsCredentials = newAWSCredentialService(ctx, awsHelper.credentials, idCfg.TokenServer.ServerTimeout)
+	}
 
 	return ts, nil
 }
@@ -195,6 +210,14 @@ func (ts *tokenService) Start(ctx context.Context) error {
 			return err
 		}
 		ts.tokenServerRunning = true
+	}
+
+	if ts.awsCredentials != nil {
+		ts.shutdownWg.Add(1)
+		go func() {
+			defer ts.shutdownWg.Done()
+			ts.awsCredentials.run(ctx, ts.shutdownChan)
+		}()
 	}
 
 	// refreshes tokens periodically
@@ -283,6 +306,9 @@ func (ts *tokenService) Shutdown() {
 	}
 
 	// wait for graceful/forceful shutdown
+	if ts.awsCredentials != nil {
+		ts.awsCredentials.close()
+	}
 	ts.shutdownWg.Wait()
 }
 

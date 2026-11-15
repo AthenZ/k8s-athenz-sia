@@ -230,6 +230,17 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 		}()
 
 		if ts.idCfg.TokenServer.RestAPI.Use {
+			if ts.awsCredentials != nil && r.URL.Path == "/awstempcred" {
+				w.Header().Set("Cache-Control", "no-store")
+				if r.Method != http.MethodPost {
+					w.Header().Set("Allow", http.MethodPost)
+					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				postAWSTemporaryCredentials(ts, w, r)
+				return
+			}
+
 			// sidecar API (server requests' Body is always non-nil)
 			if ts.tokenType&mROLE_TOKEN != 0 && r.RequestURI == "/roletoken" && r.Method == http.MethodPost {
 				postRoleToken(ts, w, r)

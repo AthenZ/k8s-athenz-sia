@@ -13,6 +13,37 @@ servers:
   - description: localhost
     url: http://localhost:8080
 paths:
+  /awstempcred:
+    post:
+      summary: Fetch cached AWS IAM Roles Anywhere temporary credentials
+      description: Uses the configured trust anchor, profile and SIA service certificate. AWS enforces role access and session duration limits.
+      operationId: FetchAWSTemporaryCredentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AWSTemporaryCredentialsRequestBody'
+      responses:
+        "200":
+          description: AWS credential_process compatible response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AWSTemporaryCredentialsResponse'
+        "400":
+          description: Invalid request body, role ARN or duration
+        "404":
+          description: AWS credentials or the token server REST API is disabled
+        "405":
+          description: Only POST is supported
+        "503":
+          description: Credential provisioning failed or timed out and no usable cache remains
   /accesstoken:
     post:
       summary: Fetch cached access token
@@ -104,6 +135,44 @@ components:
                 expiryTime: 1528860825
                 token: v=Z1;d=domain.shopping;r=users;p=domain.travel.travel-site;h=athenz.co.jp;a=9109ee08b79e6b63;t=1528853625;e=1528860825;k=0;i=192.168.1.1;s=<signature>
   schemas:
+    AWSTemporaryCredentialsRequestBody:
+      type: object
+      additionalProperties: false
+      required:
+        - role_arn
+      properties:
+        role_arn:
+          description: IAM role ARN allowed by the configured Roles Anywhere profile and IAM trust policy
+          type: string
+          minLength: 1
+          maxLength: 2048
+        duration_seconds:
+          description: Requested session lifetime. The role and profile must allow this duration.
+          type: integer
+          minimum: 900
+          maximum: 43200
+          default: 900
+    AWSTemporaryCredentialsResponse:
+      type: object
+      required:
+        - Version
+        - AccessKeyId
+        - SecretAccessKey
+        - SessionToken
+        - Expiration
+      properties:
+        Version:
+          type: integer
+          enum: [1]
+        AccessKeyId:
+          type: string
+        SecretAccessKey:
+          type: string
+        SessionToken:
+          type: string
+        Expiration:
+          type: string
+          format: date-time
     AccessTokenRequestBody:
       type: object
       required:

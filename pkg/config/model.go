@@ -89,6 +89,7 @@ type IdentityConfig struct {
 	TokenRefresh        time.Duration
 	TokenExpiry         time.Duration
 	TokenType           string
+	AWSCredentials      AWSCredentialsConfig
 	MetricsServerAddr   string
 	HealthCheckAddr     string
 	HealthCheckEndpoint string
