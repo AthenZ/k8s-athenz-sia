@@ -1,4 +1,4 @@
-// Copyright 2026 LY Corporation
+// Copyright 2023 LY Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"strconv"
 	"sync"
@@ -114,24 +115,33 @@ type awsCredentialEntry struct {
 // awsCredentialService mirrors the token caches' singleflight and background refresh,
 // but schedules refreshes from AWS's actual expiration rather than TOKEN_REFRESH_INTERVAL.
 type awsCredentialService struct {
-	mu       sync.Mutex
-	cache    map[awsCredentialKey]awsCredentialEntry
-	group    singleflight.Group
-	provider awsCredentialProvider
-	now      func() time.Time
-	ctx      context.Context
-	cancel   context.CancelFunc
-	timeout  time.Duration
-	closed   bool
-	fetches  sync.WaitGroup
+	mu         sync.Mutex
+	cache      map[awsCredentialKey]awsCredentialEntry
+	group      singleflight.Group
+	provider   awsCredentialProvider
+	now        func() time.Time
+	done       chan struct{}
+	stopParent func() bool
+	inflight   map[awsCredentialKey]context.CancelFunc
+	timeout    time.Duration
+	closed     bool
+	fetches    sync.WaitGroup
 }
 
 func newAWSCredentialService(ctx context.Context, provider awsCredentialProvider, timeout time.Duration) *awsCredentialService {
-	ctx, cancel := context.WithCancel(ctx)
-	return &awsCredentialService{
+	s := &awsCredentialService{
 		cache: make(map[awsCredentialKey]awsCredentialEntry), provider: provider,
-		now: time.Now, ctx: ctx, cancel: cancel, timeout: timeout,
+		now: time.Now, done: make(chan struct{}), timeout: timeout,
+		inflight: make(map[awsCredentialKey]context.CancelFunc),
 	}
+	// Publish the callback while locked: an already-cancelled parent may run it immediately.
+	s.mu.Lock()
+	s.stopParent = context.AfterFunc(ctx, s.close)
+	s.mu.Unlock()
+	if ctx.Err() != nil {
+		s.close()
+	}
+	return s
 }
 
 func (s *awsCredentialService) get(ctx context.Context, key awsCredentialKey) (AWSTemporaryCredentialsResponse, error) {
@@ -150,7 +160,7 @@ func (s *awsCredentialService) load(ctx context.Context, key awsCredentialKey, t
 	}
 	closed := s.closed
 	s.mu.Unlock()
-	if closed || s.ctx.Err() != nil {
+	if closed {
 		return AWSTemporaryCredentialsResponse{}, context.Canceled
 	}
 	if found && s.now().Before(entry.refreshAt) && entry.credentials.Expiration.After(s.now().Add(awsMinimumTTL)) {
@@ -179,13 +189,19 @@ func (s *awsCredentialService) load(ctx context.Context, key awsCredentialKey, t
 			s.mu.Unlock()
 			return nil, errors.New("AWS credential refresh is backing off")
 		}
+		// Preserve request values, but give shared work its own timeout and service lifetime.
+		// Cancelling one caller must not cancel the fetch for the other waiters.
+		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.timeout)
+		s.inflight[key] = cancel
 		s.fetches.Add(1)
 		s.mu.Unlock()
-		defer s.fetches.Done()
-
-		// A caller cancelling its request does not cancel other callers sharing this fetch.
-		fetchCtx, cancel := context.WithTimeout(s.ctx, s.timeout)
-		defer cancel()
+		defer func() {
+			cancel()
+			s.mu.Lock()
+			delete(s.inflight, key)
+			s.mu.Unlock()
+			s.fetches.Done()
+		}()
 		credentials, err := s.provider(fetchCtx, key)
 		if err != nil {
 			s.mu.Lock()
@@ -236,9 +252,17 @@ func (s *awsCredentialService) load(ctx context.Context, key awsCredentialKey, t
 	select {
 	case <-ctx.Done():
 		return AWSTemporaryCredentialsResponse{}, ctx.Err()
-	case <-s.ctx.Done():
-		return AWSTemporaryCredentialsResponse{}, s.ctx.Err()
+	case <-s.done:
+		return AWSTemporaryCredentialsResponse{}, context.Canceled
 	case response := <-result:
+		if err := ctx.Err(); err != nil {
+			return AWSTemporaryCredentialsResponse{}, err
+		}
+		select {
+		case <-s.done:
+			return AWSTemporaryCredentialsResponse{}, context.Canceled
+		default:
+		}
 		if response.Err != nil {
 			// Keep serving a still-valid entry during an AWS outage, but never near/past expiry.
 			if found && entry.credentials.Expiration.After(s.now().Add(awsMinimumTTL)) {
@@ -295,8 +319,14 @@ func (s *awsCredentialService) run(ctx context.Context, shutdown <-chan struct{}
 
 func (s *awsCredentialService) close() {
 	s.mu.Lock()
-	s.closed = true
-	s.cancel()
+	if !s.closed {
+		s.closed = true
+		close(s.done)
+		s.stopParent()
+		for _, cancel := range s.inflight {
+			cancel()
+		}
+	}
 	s.mu.Unlock()
 	s.fetches.Wait()
 	s.mu.Lock()
@@ -304,17 +334,48 @@ func (s *awsCredentialService) close() {
 	s.mu.Unlock()
 }
 
-func postAWSTemporaryCredentials(ts *tokenService, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
+func parseAWSTemporaryCredentialsRequest(w http.ResponseWriter, r *http.Request) (AWSTemporaryCredentialsRequestBody, error) {
 	var request AWSTemporaryCredentialsRequestBody
+	if r.Method == http.MethodGet {
+		query, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			return request, errors.New("invalid AWS credential query")
+		}
+		for name, values := range query {
+			if len(values) != 1 {
+				return request, errors.New("query parameters must not be repeated")
+			}
+			switch name {
+			case "role_arn":
+				request.RoleArn = values[0]
+			case "duration_seconds":
+				duration, err := strconv.Atoi(values[0])
+				if err != nil {
+					return request, errors.New("duration_seconds must be an integer")
+				}
+				request.DurationSeconds = &duration
+			default:
+				return request, errors.New("unknown AWS credential query parameter")
+			}
+		}
+		return request, nil
+	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&request); err != nil {
-		http.Error(w, "invalid AWS credential request", http.StatusBadRequest)
-		return
+		return request, errors.New("invalid AWS credential request")
 	}
 	if err := decoder.Decode(new(interface{})); err != io.EOF {
-		http.Error(w, "request must contain one JSON object", http.StatusBadRequest)
+		return request, errors.New("request must contain one JSON object")
+	}
+	return request, nil
+}
+
+func serveAWSTemporaryCredentials(ts *tokenService, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	request, err := parseAWSTemporaryCredentialsRequest(w, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	duration := awsDefaultDuration
@@ -336,8 +397,16 @@ func postAWSTemporaryCredentials(ts *tokenService, w http.ResponseWriter, r *htt
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	var response interface{} = credentials
+	if r.Method == http.MethodGet {
+		// The container credential provider uses Token; credential_process uses SessionToken.
+		response = AWSContainerCredentialsResponse{
+			AccessKeyId: credentials.AccessKeyId, SecretAccessKey: credentials.SecretAccessKey,
+			Token: credentials.SessionToken, Expiration: credentials.Expiration,
+		}
+	}
 	// #nosec G117 -- Returning temporary credentials is this endpoint's purpose; they are never sent to logs.
-	if err := json.NewEncoder(w).Encode(credentials); err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Warn("Failed to write AWS credential response")
 	}
 }

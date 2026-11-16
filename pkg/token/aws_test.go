@@ -1,4 +1,4 @@
-// Copyright 2026 LY Corporation
+// Copyright 2023 LY Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -138,6 +140,74 @@ func TestAWSCredentialCancellationDoesNotCancelSharedFetch(t *testing.T) {
 	}
 	if calls.Load() != 1 {
 		t.Fatal("cancelling the first caller caused an additional fetch")
+	}
+}
+
+func TestAWSCredentialFetchPreservesRequestContextValues(t *testing.T) {
+	const requestID = "synthetic-request-id"
+	s := testAWSCredentialCache(t, func(ctx context.Context, _ awsCredentialKey) (AWSTemporaryCredentialsResponse, error) {
+		if ctx.Value(contextKeyRequestID) != requestID {
+			return AWSTemporaryCredentialsResponse{}, errors.New("request metadata was lost")
+		}
+		return syntheticAWSCredentials(time.Now()), nil
+	})
+	ctx := context.WithValue(context.Background(), contextKeyRequestID, requestID)
+	if _, err := s.get(ctx, awsCredentialKey{testAWSRole, 900}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAWSCredentialParentCancellationStopsSharedFetch(t *testing.T) {
+	parent, cancelParent := context.WithCancel(context.Background())
+	defer cancelParent()
+	started, stopped := make(chan struct{}), make(chan struct{})
+	s := newAWSCredentialService(parent, func(ctx context.Context, _ awsCredentialKey) (AWSTemporaryCredentialsResponse, error) {
+		close(started)
+		<-ctx.Done()
+		close(stopped)
+		return AWSTemporaryCredentialsResponse{}, ctx.Err()
+	}, time.Second)
+	t.Cleanup(s.close)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		_, err := s.get(ctx, awsCredentialKey{testAWSRole, 900})
+		result <- err
+	}()
+	select {
+	case <-started:
+	case <-ctx.Done():
+		t.Fatal("shared fetch did not start")
+	}
+	cancelParent()
+	select {
+	case <-stopped:
+	case <-ctx.Done():
+		t.Fatal("parent cancellation did not stop the provider")
+	}
+	if err := <-result; !errors.Is(err, context.Canceled) {
+		t.Fatalf("parent cancellation error = %v", err)
+	}
+	if _, err := s.get(ctx, awsCredentialKey{testAWSRole, 900}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("closed service error = %v", err)
+	}
+}
+
+func TestAWSCredentialAlreadyCancelledParent(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	cancel()
+	var calls atomic.Int32
+	s := newAWSCredentialService(parent, func(_ context.Context, _ awsCredentialKey) (AWSTemporaryCredentialsResponse, error) {
+		calls.Add(1)
+		return syntheticAWSCredentials(time.Now()), nil
+	}, time.Second)
+	t.Cleanup(s.close)
+	if _, err := s.get(context.Background(), awsCredentialKey{testAWSRole, 900}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled parent error = %v", err)
+	}
+	if calls.Load() != 0 {
+		t.Fatal("a cancelled service invoked the provider")
 	}
 }
 
@@ -280,16 +350,39 @@ func TestAWSCredentialTimeoutAndShutdown(t *testing.T) {
 }
 
 func TestAWSTemporaryCredentialsEndpoint(t *testing.T) {
+	roleQuery := "role_arn=" + url.QueryEscape(testAWSRole)
+	specialRole := "arn:aws:iam::123456789012:role/team+one/reader+writer"
 	for _, tc := range []struct {
-		name, method, body string
-		status             int
-		disabled, noREST   bool
-		fail               bool
-		wantDuration       int
+		name, method, query, body string
+		status                    int
+		disabled, noREST          bool
+		fail                      bool
+		wantDuration              int
+		wantRole                  string
 	}{
 		{name: "default duration", method: "POST", body: `{"role_arn":"` + testAWSRole + `"}`, status: 200, wantDuration: 900},
 		{name: "longer session", method: "POST", body: `{"role_arn":"` + testAWSRole + `","duration_seconds":43200}`, status: 200, wantDuration: 43200},
-		{name: "wrong method", method: "GET", status: 405},
+		{name: "GET default duration", method: "GET", query: roleQuery, status: 200, wantDuration: 900},
+		{name: "GET longer session", method: "GET", query: roleQuery + "&duration_seconds=43200", status: 200, wantDuration: 43200},
+		{name: "GET escaped role", method: "GET", query: "role_arn=" + url.QueryEscape(specialRole), status: 200, wantDuration: 900, wantRole: specialRole},
+		{name: "GET missing role", method: "GET", status: 400},
+		{name: "GET empty role", method: "GET", query: "role_arn=", status: 400},
+		{name: "GET invalid ARN", method: "GET", query: "role_arn=--debug", status: 400},
+		{name: "GET malformed escape", method: "GET", query: roleQuery + "&duration_seconds=%zz", status: 400},
+		{name: "GET malformed separator", method: "GET", query: roleQuery + ";duration_seconds=900", status: 400},
+		{name: "GET repeated role", method: "GET", query: roleQuery + "&" + roleQuery, status: 400},
+		{name: "GET repeated duration", method: "GET", query: roleQuery + "&duration_seconds=900&duration_seconds=3600", status: 400},
+		{name: "GET unknown field", method: "GET", query: roleQuery + "&profile_arn=caller-supplied", status: 400},
+		{name: "GET invalid duration", method: "GET", query: roleQuery + "&duration_seconds=abc", status: 400},
+		{name: "GET empty duration", method: "GET", query: roleQuery + "&duration_seconds=", status: 400},
+		{name: "GET fractional duration", method: "GET", query: roleQuery + "&duration_seconds=900.5", status: 400},
+		{name: "GET overflowing duration", method: "GET", query: roleQuery + "&duration_seconds=999999999999999999999", status: 400},
+		{name: "GET too short", method: "GET", query: roleQuery + "&duration_seconds=899", status: 400},
+		{name: "GET too long", method: "GET", query: roleQuery + "&duration_seconds=43201", status: 400},
+		{name: "GET provider failure", method: "GET", query: roleQuery, fail: true, status: 503},
+		{name: "GET disabled", method: "GET", query: roleQuery, disabled: true, status: 404},
+		{name: "GET REST disabled", method: "GET", query: roleQuery, noREST: true, status: 404},
+		{name: "wrong method", method: "PUT", status: 405},
 		{name: "missing role", method: "POST", body: `{}`, status: 400},
 		{name: "bad JSON", method: "POST", body: `{`, status: 400},
 		{name: "unknown field", method: "POST", body: `{"role_arn":"` + testAWSRole + `","profile_arn":"caller-supplied"}`, status: 400},
@@ -309,7 +402,11 @@ func TestAWSTemporaryCredentialsEndpoint(t *testing.T) {
 				if tc.fail {
 					return AWSTemporaryCredentialsResponse{}, errors.New("synthetic-sensitive-diagnostic")
 				}
-				if key.roleARN != testAWSRole || key.duration != tc.wantDuration {
+				wantRole := testAWSRole
+				if tc.wantRole != "" {
+					wantRole = tc.wantRole
+				}
+				if key.roleARN != wantRole || key.duration != tc.wantDuration {
 					return AWSTemporaryCredentialsResponse{}, errors.New("wrong role or duration")
 				}
 				return syntheticAWSCredentials(time.Now()), nil
@@ -323,7 +420,11 @@ func TestAWSTemporaryCredentialsEndpoint(t *testing.T) {
 				ts.awsCredentials = nil
 			}
 			w := httptest.NewRecorder()
-			newHandlerFunc(ts, time.Second).ServeHTTP(w, httptest.NewRequest(tc.method, "/awstempcred", strings.NewReader(tc.body)))
+			target := "/awstempcred"
+			if tc.query != "" {
+				target += "?" + tc.query
+			}
+			newHandlerFunc(ts, time.Second).ServeHTTP(w, httptest.NewRequest(tc.method, target, strings.NewReader(tc.body)))
 			if w.Code != tc.status {
 				t.Fatalf("status = %d, want %d", w.Code, tc.status)
 			}
@@ -332,10 +433,23 @@ func TestAWSTemporaryCredentialsEndpoint(t *testing.T) {
 				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 					t.Fatal("invalid response JSON")
 				}
-				for _, field := range []string{"Version", "AccessKeyId", "SecretAccessKey", "SessionToken", "Expiration"} {
-					if _, ok := response[field]; !ok {
-						t.Errorf("credential_process field %s missing", field)
+				fields := []string{"AccessKeyId", "SecretAccessKey", "Expiration"}
+				tokenField := "SessionToken"
+				if tc.method == "GET" {
+					tokenField = "Token"
+					if _, ok := response["SessionToken"]; ok {
+						t.Error("container response should use Token for the session token")
 					}
+				} else {
+					fields = append(fields, "Version")
+				}
+				for _, field := range append(fields, tokenField) {
+					if _, ok := response[field]; !ok {
+						t.Errorf("credential field %s missing", field)
+					}
+				}
+				if response[tokenField] != "test-session" {
+					t.Error("session token was not mapped to the expected response field")
 				}
 				if w.Header().Get("Cache-Control") != "no-store" {
 					t.Fatal("credential response missing no-store")
@@ -343,13 +457,40 @@ func TestAWSTemporaryCredentialsEndpoint(t *testing.T) {
 			} else if w.Body.String() == "" || strings.Contains(w.Body.String(), "synthetic-sensitive-diagnostic") {
 				t.Fatal("missing error body or leaked provider diagnostics")
 			}
-			if tc.status == 405 && w.Header().Get("Allow") != "POST" {
+			if tc.status == 405 && w.Header().Get("Allow") != "GET, POST" {
 				t.Fatal("method error missing Allow header")
 			}
 			if tc.status != 200 && !tc.fail && calls.Load() != 0 {
 				t.Fatal("invalid or disabled request reached the provider")
 			}
 		})
+	}
+}
+
+func TestAWSTemporaryCredentialsMethodsShareCache(t *testing.T) {
+	var calls atomic.Int32
+	s := testAWSCredentialCache(t, func(_ context.Context, _ awsCredentialKey) (AWSTemporaryCredentialsResponse, error) {
+		calls.Add(1)
+		return syntheticAWSCredentials(time.Now()), nil
+	})
+	cfg := &config.IdentityConfig{
+		AWSCredentials: config.AWSCredentialsConfig{TrustAnchorARN: "arn:aws:rolesanywhere:us-east-1:123456789012:trust-anchor/test"},
+		TokenServer:    config.DerivedTokenServer{RestAPI: config.RestAPIMode{Use: true}},
+	}
+	handler := newHandlerFunc(&tokenService{idCfg: cfg, awsCredentials: s}, time.Second)
+	requests := []*http.Request{
+		httptest.NewRequest("POST", "/awstempcred", strings.NewReader(`{"role_arn":"`+testAWSRole+`"}`)),
+		httptest.NewRequest("GET", "/awstempcred?role_arn="+url.QueryEscape(testAWSRole)+"&duration_seconds=900", nil),
+	}
+	for _, request := range requests {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, request)
+		if w.Code != 200 {
+			t.Fatalf("%s status = %d, want 200", request.Method, w.Code)
+		}
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("provider calls = %d, want GET and POST to share one fetch", calls.Load())
 	}
 }
 

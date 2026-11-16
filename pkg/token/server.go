@@ -119,7 +119,7 @@ func postRoleToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 		Token:      rToken.Raw(),
 		ExpiryTime: rToken.Expiry(),
 	}
-	w.Header().Set("Content-type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(rtResponse)
 	return
@@ -207,7 +207,7 @@ func postAccessToken(ts *tokenService, w http.ResponseWriter, r *http.Request) {
 	if scope := aToken.(*AccessToken).Scope(); scope != "" {
 		atResponse.Scope = &scope // set scope ONLY when non-nil & non-empty, https://github.com/AthenZ/athenz/blob/a85f48666763759ee28fda114acc4c8d2cafc28e/core/zts/src/main/java/com/yahoo/athenz/zts/AccessTokenResponse.java#L21C14-L21C14
 	}
-	w.Header().Set("Content-type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(atResponse)
 	return
@@ -232,12 +232,12 @@ func newHandlerFunc(ts *tokenService, timeout time.Duration) http.Handler {
 		if ts.idCfg.TokenServer.RestAPI.Use {
 			if ts.awsCredentials != nil && r.URL.Path == "/awstempcred" {
 				w.Header().Set("Cache-Control", "no-store")
-				if r.Method != http.MethodPost {
-					w.Header().Set("Allow", http.MethodPost)
+				if r.Method != http.MethodGet && r.Method != http.MethodPost {
+					w.Header().Set("Allow", "GET, POST")
 					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 					return
 				}
-				postAWSTemporaryCredentials(ts, w, r)
+				serveAWSTemporaryCredentials(ts, w, r)
 				return
 			}
 

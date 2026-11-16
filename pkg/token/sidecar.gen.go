@@ -26,6 +26,14 @@ const (
 	N1 AWSTemporaryCredentialsResponseVersion = 1
 )
 
+// AWSContainerCredentialsResponse defines model for AWSContainerCredentialsResponse.
+type AWSContainerCredentialsResponse struct {
+	AccessKeyId     string    `json:"AccessKeyId"`
+	Expiration      time.Time `json:"Expiration"`
+	SecretAccessKey string    `json:"SecretAccessKey"`
+	Token           string    `json:"Token"`
+}
+
 // AWSTemporaryCredentialsRequestBody defines model for AWSTemporaryCredentialsRequestBody.
 type AWSTemporaryCredentialsRequestBody struct {
 	// DurationSeconds Requested session lifetime. The role and profile must allow this duration.
@@ -115,6 +123,15 @@ type AtRequestBody = AccessTokenRequestBody
 
 // RtRequestBody defines model for rtRequestBody.
 type RtRequestBody = RoleTokenRequestBody
+
+// GetAWSTemporaryCredentialsParams defines parameters for GetAWSTemporaryCredentials.
+type GetAWSTemporaryCredentialsParams struct {
+	// RoleArn IAM role ARN allowed by the configured Roles Anywhere profile and IAM trust policy
+	RoleArn string `form:"role_arn" json:"role_arn"`
+
+	// DurationSeconds Requested session lifetime. The role and profile must allow this duration.
+	DurationSeconds *int `form:"duration_seconds,omitempty" json:"duration_seconds,omitempty"`
+}
 
 // FetchAccessTokenJSONRequestBody defines body for FetchAccessToken for application/json ContentType.
 type FetchAccessTokenJSONRequestBody = AccessTokenRequestBody
