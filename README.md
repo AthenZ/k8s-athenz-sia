@@ -36,9 +36,10 @@ AWS IAM roles are configured independently of Athenz `TARGET_DOMAIN_ROLES`.
 This implementation targets trust anchors registered with the CA that directly
 issued the workload certificate.
 
-The container image includes the official `aws_signing_helper`. For a standalone
-SIA binary, install the [AWS credential helper](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/credential-helper.html)
-on `PATH`. SIA fails at startup if AWS support is enabled and the helper is missing.
+SIA uses the official [AWS credential helper's Go package](https://github.com/aws/rolesanywhere-credential-helper)
+for request signing and its IAM Roles Anywhere client to call `CreateSession`
+directly. No separate `aws_signing_helper` executable is required. Each fetch uses
+the latest service certificate and key from SIA's certificate reloader.
 
 For an existing workload certificate at the paths below, start an AWS-only sidecar
 with the following example ARNs replaced by your trust anchor and profile. Keep
@@ -133,14 +134,14 @@ Applications using multiple roles should use a separate client or credential
 provider for each role.
 
 Each role/duration pair enters the in-memory cache on its first request. Concurrent
-requests share one helper invocation. A background worker checks every 30 seconds
+requests share one AWS request. A background worker checks every 30 seconds
 and refreshes with 20% of the actual session lifetime remaining, capped at five
 minutes; this is independent of `TOKEN_REFRESH_INTERVAL`. On-demand requests also
 check expiration.
 If refresh fails, cached credentials with more than one minute remaining can still
 be returned, with a 30-second wait before retrying AWS; otherwise the endpoint
-returns HTTP 503. Requests use `--token-server-timeout` (default 3s) to bound helper
-execution. Cancelling one HTTP request does not cancel a fetch shared with other
+returns HTTP 503. Requests use `--token-server-timeout` (default 3s) to bound the
+AWS call. Cancelling one HTTP request does not cancel a fetch shared with other
 callers.
 
 Unused entries are evicted after one requested session lifetime, and the cache is

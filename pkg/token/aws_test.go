@@ -22,8 +22,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -31,6 +29,7 @@ import (
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
+	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/util"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -494,66 +493,6 @@ func TestAWSTemporaryCredentialsMethodsShareCache(t *testing.T) {
 	}
 }
 
-func TestAWSSigningHelper(t *testing.T) {
-	for _, tc := range []struct {
-		name, script string
-		wantErr      bool
-	}{
-		{"success", `printf '%s\n' '{"Version":1,"AccessKeyId":"test-access-key","SecretAccessKey":"test-secret-key","SessionToken":"test-session","Expiration":"2100-01-01T00:00:00Z"}'`, false},
-		{"invalid JSON", `printf '%s\n' 'synthetic-sensitive-diagnostic'`, true},
-		{"invalid type", `printf '%s\n' '{"Version":"synthetic-sensitive-diagnostic"}'`, true},
-		{"failure", `printf '%s\n' 'synthetic-sensitive-diagnostic' >&2; exit 7`, true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			dir := t.TempDir()
-			path, argsPath := filepath.Join(dir, "fake-helper"), filepath.Join(dir, "arguments")
-			t.Setenv("AWS_TEST_ARGS_FILE", argsPath)
-			script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$AWS_TEST_ARGS_FILE\"\n" + tc.script + "\n"
-			// #nosec G306 -- This synthetic test helper must be executable by its owner.
-			if err := os.WriteFile(path, []byte(script), 0700); err != nil {
-				t.Fatal(err)
-			}
-			helper := awsSigningHelper{path: path, certificate: "/synthetic/cert.pem", privateKey: "/synthetic/key.pem", settings: config.AWSCredentialsConfig{
-				TrustAnchorARN: "test-anchor", ProfileARN: "test-profile", Region: "us-east-1",
-			}}
-			_, err := helper.credentials(context.Background(), awsCredentialKey{testAWSRole, 3600})
-			if (err != nil) != tc.wantErr {
-				t.Fatalf("error = %v, want error %v", err, tc.wantErr)
-			}
-			if err != nil && strings.Contains(err.Error(), "synthetic-sensitive-diagnostic") {
-				t.Fatal("helper output leaked into the error")
-			}
-			// #nosec G304 -- The path is a fixed filename within t.TempDir; the file contains only command arguments.
-			args, err := os.ReadFile(argsPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			want := strings.Join([]string{"credential-process", "--certificate", "/synthetic/cert.pem", "--private-key", "/synthetic/key.pem", "--trust-anchor-arn", "test-anchor", "--profile-arn", "test-profile", "--role-arn", testAWSRole, "--region", "us-east-1", "--session-duration", "3600", ""}, "\n")
-			if string(args) != want {
-				t.Fatal("helper command arguments differ")
-			}
-		})
-	}
-}
-
-func TestAWSSigningHelperOutputLimitAndCancellation(t *testing.T) {
-	var output limitedAWSOutput
-	if _, err := output.Write(make([]byte, 64*1024+1)); err == nil {
-		t.Fatal("oversized helper output accepted")
-	}
-	path := filepath.Join(t.TempDir(), "fake-helper")
-	// #nosec G306 -- This synthetic test helper must be executable by its owner.
-	if err := os.WriteFile(path, []byte("#!/bin/sh\nexec sleep 30\n"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
-	defer cancel()
-	helper := awsSigningHelper{path: path}
-	if _, err := helper.credentials(ctx, awsCredentialKey{testAWSRole, 900}); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("helper cancellation error = %v", err)
-	}
-}
-
 func TestAWSOnlyServiceInitialization(t *testing.T) {
 	awsTestLoggerOnce.Do(func() { log.InitLogger("", "ERROR", true) })
 	dir := t.TempDir()
@@ -570,13 +509,10 @@ func TestAWSOnlyServiceInitialization(t *testing.T) {
 			Key:  config.X509File{Paths: []string{"/synthetic/key.pem"}},
 		}},
 	}
-	if _, err := New(context.Background(), cfg); err == nil || !strings.Contains(err.Error(), "aws_signing_helper") {
-		t.Fatal("missing helper did not fail startup")
+	if _, err := New(context.Background(), cfg); err == nil || !strings.Contains(err.Error(), "reloader") {
+		t.Fatal("missing certificate reloader did not fail startup")
 	}
-	// #nosec G306 -- LookPath requires an executable; this helper is never invoked.
-	if err := os.WriteFile(filepath.Join(dir, "aws_signing_helper"), []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
-		t.Fatal(err)
-	}
+	cfg.Reloader = &util.CertReloader{}
 	daemon, err := New(context.Background(), cfg)
 	if err != nil {
 		t.Fatal(err)

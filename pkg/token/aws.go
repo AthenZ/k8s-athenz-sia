@@ -15,21 +15,28 @@
 package token
 
 import (
-	"bytes"
 	"context"
+	"crypto"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os/exec"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/AthenZ/k8s-athenz-sia/v3/pkg/config"
 	"github.com/AthenZ/k8s-athenz-sia/v3/third_party/log"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	helper "github.com/aws/rolesanywhere-credential-helper/aws_signing_helper"
+	"github.com/aws/rolesanywhere-credential-helper/rolesanywhere"
+	"github.com/aws/smithy-go/middleware"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -48,61 +55,138 @@ type awsCredentialKey struct {
 
 type awsCredentialProvider func(context.Context, awsCredentialKey) (AWSTemporaryCredentialsResponse, error)
 
-// awsSigningHelper delegates AWS signing to the official helper, without a shell.
-// Only file paths are passed; the helper reads the current service certificate on each refresh.
+// awsSigningHelper uses AWS's Go signing package and CreateSession client directly.
+// Each fetch takes the latest certificate/key snapshot from SIA's existing reloader.
 type awsSigningHelper struct {
-	path, certificate, privateKey string
-	settings                      config.AWSCredentialsConfig
+	certificate func() (*tls.Certificate, error)
+	settings    config.AWSCredentialsConfig
+	client      *rolesanywhere.Client
 }
 
 func newAWSSigningHelper(idCfg *config.IdentityConfig) (*awsSigningHelper, error) {
-	path, err := exec.LookPath("aws_signing_helper")
-	if err != nil {
-		return nil, fmt.Errorf("AWS credentials require aws_signing_helper on PATH: %w", err)
-	}
 	certs, keys := idCfg.ServiceCert.CopperArgos.Cert.Paths, idCfg.ServiceCert.CopperArgos.Key.Paths
 	if len(certs) == 0 || len(keys) == 0 {
 		return nil, errors.New("AWS credentials require service certificate and key paths")
 	}
+	if idCfg.Reloader == nil {
+		return nil, errors.New("AWS credentials require a service certificate reloader")
+	}
+	httpClient := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {
+		tr.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+	})
 	return &awsSigningHelper{
-		path: path, certificate: certs[0], privateKey: keys[0], settings: idCfg.AWSCredentials,
+		certificate: idCfg.Reloader.GetLatestCertificate,
+		settings:    idCfg.AWSCredentials,
+		client: rolesanywhere.New(rolesanywhere.Options{
+			Region: idCfg.AWSCredentials.Region, HTTPClient: awsCredentialHTTPClient{httpClient},
+		}),
 	}, nil
 }
 
 func (h *awsSigningHelper) credentials(ctx context.Context, key awsCredentialKey) (AWSTemporaryCredentialsResponse, error) {
-	// #nosec G204 -- The executable is resolved from the operator's PATH; arguments use no shell and role/duration are validated by the endpoint.
-	cmd := exec.CommandContext(ctx, h.path, "credential-process",
-		"--certificate", h.certificate, "--private-key", h.privateKey,
-		"--trust-anchor-arn", h.settings.TrustAnchorARN, "--profile-arn", h.settings.ProfileARN,
-		"--role-arn", key.roleARN, "--region", h.settings.Region,
-		"--session-duration", strconv.Itoa(key.duration))
-	var output limitedAWSOutput
-	cmd.Stdout = &output
-	// Helper output, including diagnostics, may contain credential material.
-	cmd.Stderr = io.Discard
-	if err := cmd.Run(); err != nil {
+	if err := ctx.Err(); err != nil {
+		return AWSTemporaryCredentialsResponse{}, err
+	}
+	pair, err := h.certificate()
+	if err != nil || pair == nil || len(pair.Certificate) == 0 {
+		return AWSTemporaryCredentialsResponse{}, errors.New("AWS service certificate is unavailable")
+	}
+	certificate := pair.Leaf
+	if certificate == nil {
+		certificate, err = x509.ParseCertificate(pair.Certificate[0])
+		if err != nil {
+			return AWSTemporaryCredentialsResponse{}, errors.New("AWS service certificate is invalid")
+		}
+	}
+	signer, ok := pair.PrivateKey.(crypto.Signer)
+	if !ok {
+		return AWSTemporaryCredentialsResponse{}, errors.New("AWS service private key cannot sign requests")
+	}
+	var algorithm string
+	switch certificate.PublicKeyAlgorithm {
+	case x509.RSA:
+		algorithm = "AWS4-X509-RSA-SHA256"
+	case x509.ECDSA:
+		algorithm = "AWS4-X509-ECDSA-SHA256"
+	default:
+		return AWSTemporaryCredentialsResponse{}, errors.New("AWS service certificate requires an RSA or ECDSA key")
+	}
+
+	// GenerateCredentials uses context.TODO internally. Use its CreateSession client
+	// and signing middleware so SIA's shared-fetch timeout and shutdown still cancel AWS requests.
+	output, err := h.client.CreateSession(ctx, &rolesanywhere.CreateSessionInput{
+		Cert:           aws.String(base64.StdEncoding.EncodeToString(certificate.Raw)),
+		TrustAnchorArn: &h.settings.TrustAnchorARN, ProfileArn: &h.settings.ProfileARN,
+		RoleArn: &key.roleARN, DurationSeconds: aws.Int32(int32(key.duration)),
+	}, func(options *rolesanywhere.Options) {
+		options.APIOptions = append(options.APIOptions, func(stack *middleware.Stack) error {
+			// Replace access-key authentication with the official X.509 signer.
+			for _, name := range []string{"Signing", "setLegacyContextSigningOptions", "GetIdentity"} {
+				if _, err := stack.Finalize.Remove(name); err != nil {
+					return err
+				}
+			}
+			return stack.Finalize.Add(awsX509SigningMiddleware(signer, certificate, h.settings.Region, algorithm), middleware.After)
+		})
+	})
+	if err != nil {
 		if ctx.Err() != nil {
 			return AWSTemporaryCredentialsResponse{}, ctx.Err()
 		}
-		return AWSTemporaryCredentialsResponse{}, fmt.Errorf("aws_signing_helper failed: %w", err)
+		// SDK errors may include response bodies; never expose them as diagnostics.
+		return AWSTemporaryCredentialsResponse{}, errors.New("AWS CreateSession failed")
 	}
-	var response AWSTemporaryCredentialsResponse
-	if err := json.Unmarshal(output.Bytes(), &response); err != nil {
-		// JSON errors may quote the helper's output. Do not wrap them.
-		return AWSTemporaryCredentialsResponse{}, errors.New("aws_signing_helper returned invalid credential JSON")
+	if len(output.CredentialSet) == 0 || output.CredentialSet[0].Credentials == nil {
+		return AWSTemporaryCredentialsResponse{}, errors.New("AWS returned no credentials")
 	}
-	return response, nil
+	credentials := output.CredentialSet[0].Credentials
+	expiration, err := time.Parse(time.RFC3339, aws.ToString(credentials.Expiration))
+	if err != nil {
+		return AWSTemporaryCredentialsResponse{}, errors.New("AWS returned invalid credential expiration")
+	}
+	return AWSTemporaryCredentialsResponse{
+		Version: N1, AccessKeyId: aws.ToString(credentials.AccessKeyId),
+		SecretAccessKey: aws.ToString(credentials.SecretAccessKey),
+		SessionToken:    aws.ToString(credentials.SessionToken), Expiration: expiration,
+	}, nil
 }
 
-type limitedAWSOutput struct{ buffer bytes.Buffer }
+// awsX509Signer adapts crypto.Signer to the helper's unhashed message input.
+// The helper exits the process when Sign returns an error, so defer that error to
+// our middleware, which rejects the request before the HTTP client is called.
+type awsX509Signer struct {
+	crypto.Signer
+	err error
+}
 
-func (b *limitedAWSOutput) Bytes() []byte { return b.buffer.Bytes() }
+func (s *awsX509Signer) Sign(random io.Reader, message []byte, opts crypto.SignerOpts) ([]byte, error) {
+	digest := sha256.Sum256(message)
+	signature, err := s.Signer.Sign(random, digest[:], opts)
+	s.err = err
+	return signature, nil
+}
 
-func (b *limitedAWSOutput) Write(p []byte) (int, error) {
-	if b.buffer.Len()+len(p) > 64*1024 {
-		return 0, errors.New("aws_signing_helper output exceeds 64 KiB")
+func awsX509SigningMiddleware(signer crypto.Signer, certificate *x509.Certificate, region, algorithm string) middleware.FinalizeMiddleware {
+	return middleware.FinalizeMiddlewareFunc("Signing", func(ctx context.Context, in middleware.FinalizeInput, next middleware.FinalizeHandler) (middleware.FinalizeOutput, middleware.Metadata, error) {
+		safeSigner := &awsX509Signer{Signer: signer}
+		sign := helper.CreateRequestSignFinalizeFunction(safeSigner, region, algorithm, certificate, nil)
+		return sign(ctx, in, middleware.FinalizeHandlerFunc(func(ctx context.Context, in middleware.FinalizeInput) (middleware.FinalizeOutput, middleware.Metadata, error) {
+			if safeSigner.err != nil {
+				return middleware.FinalizeOutput{}, middleware.Metadata{}, errors.New("AWS request signing failed")
+			}
+			return next.HandleFinalize(ctx, in)
+		}))
+	})
+}
+
+type awsCredentialHTTPClient struct{ aws.HTTPClient }
+
+func (c awsCredentialHTTPClient) Do(request *http.Request) (*http.Response, error) {
+	response, err := c.HTTPClient.Do(request)
+	if err == nil && response != nil && response.Body != nil {
+		response.Body = http.MaxBytesReader(nil, response.Body, 64*1024)
 	}
-	return b.buffer.Write(p)
+	return response, err
 }
 
 type awsCredentialEntry struct {
@@ -391,7 +475,7 @@ func serveAWSTemporaryCredentials(ts *tokenService, w http.ResponseWriter, r *ht
 		return
 	}
 	if err != nil {
-		// Return a fixed error. Neither helper output nor credential data belongs in diagnostics.
+		// Return a fixed error. Neither AWS response bodies nor credential data belongs in diagnostics.
 		log.Warnf("AWS credential request failed for role[%s]", request.RoleArn)
 		http.Error(w, "unable to obtain AWS temporary credentials", http.StatusServiceUnavailable)
 		return

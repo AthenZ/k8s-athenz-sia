@@ -17,19 +17,12 @@ ARG ATHENZ_SIA_VERSION=''
 RUN ATHENZ_SIA_VERSION="${ATHENZ_SIA_VERSION}" make build
 ARG ATHENZ_SIA_DEFAULT_COUNTRY=US
 
-FROM base AS aws-signing-helper
-
-# v1.8.5 supports this image's Go 1.26 toolchain.
-ARG AWS_SIGNING_HELPER_VERSION=v1.8.5
-RUN GOBIN=/out go install -ldflags="-X github.com/aws/rolesanywhere-credential-helper/cmd.Version=${AWS_SIGNING_HELPER_VERSION}" github.com/aws/rolesanywhere-credential-helper@${AWS_SIGNING_HELPER_VERSION}
-
 FROM docker.io/alpine:3
 LABEL maintainer "cncf-athenz-maintainers@lists.cncf.io"
 
 RUN apk --no-cache add ca-certificates
 
 COPY --from=builder /go/bin/athenz-sia /usr/bin/athenz-sia
-COPY --from=aws-signing-helper /out/rolesanywhere-credential-helper /usr/bin/aws_signing_helper
 
 USER nobody
 
